@@ -1,0 +1,1608 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Escola Ponte do Saber — Gestão Pedagógica</title>
+<style>
+  :root {
+    --green: #1D9E75;
+    --green-dark: #157a5b;
+    --green-light: #e8f7f2;
+    --green-mid: #b2e4d4;
+    --gray-100: #f5f6f7;
+    --gray-200: #e9eaec;
+    --gray-400: #9ea7b3;
+    --gray-600: #5c6370;
+    --gray-800: #2c3038;
+    --white: #ffffff;
+    --red: #e05252;
+    --amber: #e8a045;
+    --radius: 8px;
+    --shadow: 0 2px 8px rgba(0,0,0,0.08);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.12);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--gray-100);
+    color: var(--gray-800);
+    font-size: 15px;
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  header {
+    background: var(--green);
+    color: var(--white);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    height: 60px;
+    box-shadow: 0 2px 8px rgba(29,158,117,0.3);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  header .logo {
+    width: 36px; height: 36px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header span { font-size: 13px; opacity: 0.8; margin-left: 4px; }
+
+  /* NAV TABS */
+  nav {
+    background: var(--white);
+    border-bottom: 1px solid var(--gray-200);
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  nav::-webkit-scrollbar { display: none; }
+  nav button {
+    padding: 14px 20px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--gray-600);
+    white-space: nowrap;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  nav button:hover { color: var(--green); background: var(--green-light); }
+  nav button.active { color: var(--green); border-bottom-color: var(--green); }
+
+  /* MAIN */
+  main { max-width: 960px; margin: 0 auto; padding: 28px 16px 60px; }
+
+  /* SECTIONS */
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* CARDS */
+  .card {
+    background: var(--white);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .card-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--green-dark);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* FORMS */
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+  }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group.full { grid-column: 1 / -1; }
+  label { font-size: 13px; font-weight: 600; color: var(--gray-600); }
+  input, select, textarea {
+    padding: 9px 12px;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--gray-800);
+    transition: border 0.2s;
+    background: var(--white);
+    width: 100%;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px rgba(29,158,117,0.12);
+  }
+  textarea { resize: vertical; min-height: 80px; }
+
+  /* BUTTONS */
+  .btn {
+    padding: 9px 18px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-primary { background: var(--green); color: var(--white); }
+  .btn-primary:hover { background: var(--green-dark); }
+  .btn-secondary {
+    background: var(--white);
+    color: var(--green);
+    border: 1.5px solid var(--green);
+  }
+  .btn-secondary:hover { background: var(--green-light); }
+  .btn-danger { background: var(--red); color: var(--white); }
+  .btn-danger:hover { background: #c43f3f; }
+  .btn-sm { padding: 6px 12px; font-size: 13px; }
+  .btn-amber { background: var(--amber); color: var(--white); }
+  .btn-amber:hover { background: #c8882e; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 18px;
+  }
+
+  /* LISTS */
+  .item-list { display: flex; flex-direction: column; gap: 10px; }
+  .item-card {
+    background: var(--gray-100);
+    border: 1px solid var(--gray-200);
+    border-radius: 6px;
+    padding: 14px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .item-card .info { flex: 1; }
+  .item-card .info strong { font-size: 14px; display: block; margin-bottom: 3px; }
+  .item-card .info span { font-size: 13px; color: var(--gray-600); }
+  .item-card .actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+  /* BADGE */
+  .badge {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge-green { background: var(--green-light); color: var(--green-dark); }
+  .badge-amber { background: #fef3e2; color: #8a5e1a; }
+  .badge-gray { background: var(--gray-200); color: var(--gray-600); }
+
+  /* TABLE */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th {
+    background: var(--green-light);
+    color: var(--green-dark);
+    font-weight: 600;
+    padding: 10px 12px;
+    text-align: left;
+    white-space: nowrap;
+  }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--gray-200); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--gray-100); }
+  td input, td select { padding: 6px 8px; font-size: 13px; }
+
+  /* TEXTAREA AI */
+  .ai-box {
+    background: var(--green-light);
+    border: 1.5px solid var(--green-mid);
+    border-radius: 8px;
+    padding: 16px;
+    white-space: pre-wrap;
+    font-size: 14px;
+    line-height: 1.7;
+    min-height: 120px;
+    color: var(--gray-800);
+  }
+
+  /* ALERTS */
+  .alert {
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    margin-bottom: 14px;
+  }
+  .alert-info { background: var(--green-light); color: var(--green-dark); border-left: 4px solid var(--green); }
+  .alert-warn { background: #fef3e2; color: #7a4e10; border-left: 4px solid var(--amber); }
+  .alert-err { background: #fdeaea; color: #8b1a1a; border-left: 4px solid var(--red); }
+
+  /* LOADING SPINNER */
+  .spinner {
+    width: 20px; height: 20px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: var(--white);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: inline-block;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* EMPTY STATE */
+  .empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--gray-400);
+  }
+  .empty .icon { font-size: 40px; margin-bottom: 10px; }
+  .empty p { font-size: 14px; }
+
+  /* SECTION HEADER */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .section-header h2 { font-size: 20px; font-weight: 700; color: var(--gray-800); }
+
+  /* DIVIDER */
+  .divider { height: 1px; background: var(--gray-200); margin: 20px 0; }
+
+  /* CONFIG rows */
+  .config-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .config-row input { flex: 1; min-width: 180px; }
+
+  /* TONE SELECTOR */
+  .tone-group { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+  .tone-btn {
+    padding: 7px 14px;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    background: var(--white);
+    color: var(--gray-600);
+    transition: all 0.2s;
+  }
+  .tone-btn.selected {
+    background: var(--green);
+    color: var(--white);
+    border-color: var(--green);
+  }
+
+  /* CONCEITO SELECT COLORS */
+  select.conceito option[value="MB"] { color: #1D9E75; }
+  select.conceito option[value="B"]  { color: #4a90d9; }
+  select.conceito option[value="R"]  { color: #e8a045; }
+  select.conceito option[value="I"]  { color: #e05252; }
+
+  /* ALUNO PICKER */
+  .aluno-picker { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+  .aluno-pick-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px 8px 8px;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 8px;
+    cursor: pointer;
+    background: var(--white);
+    transition: all 0.18s;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--gray-800);
+    user-select: none;
+  }
+  .aluno-pick-card:hover { border-color: var(--green); background: var(--green-light); }
+  .aluno-pick-card.selected {
+    border-color: var(--green);
+    background: var(--green);
+    color: var(--white);
+    box-shadow: 0 2px 8px rgba(29,158,117,0.25);
+  }
+  .aluno-pick-card .av {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: var(--green-mid);
+    color: var(--green-dark);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+    flex-shrink: 0;
+    transition: background 0.18s, color 0.18s;
+  }
+  .aluno-pick-card.selected .av { background: rgba(255,255,255,0.25); color: var(--white); }
+  .aluno-picker-empty { font-size: 13px; color: var(--gray-400); padding: 6px 0; }
+
+  /* STUDENT TAG */
+  .student-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--green-light);
+    border: 1px solid var(--green-mid);
+    border-radius: 20px;
+    padding: 4px 10px 4px 4px;
+    font-size: 13px;
+    color: var(--green-dark);
+  }
+  .student-tag .av {
+    width: 22px; height: 22px;
+    background: var(--green);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--white);
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .tags-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+
+  /* RESPONSIVE */
+  @media (max-width: 600px) {
+    header h1 { font-size: 15px; }
+    nav button { padding: 12px 14px; font-size: 13px; }
+    main { padding: 16px 10px 60px; }
+    .card { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🏫</div>
+  <h1>Escola Ponte do Saber</h1>
+  <span>— Gestão Pedagógica</span>
+</header>
+
+<nav id="nav">
+  <button class="active" onclick="showTab('config')" data-tab="config">⚙️ Configuração</button>
+  <button onclick="showTab('planejamento')" data-tab="planejamento">📋 Planejamentos</button>
+  <button onclick="showTab('pareceres')" data-tab="pareceres">✨ Pareceres IA</button>
+  <button onclick="showTab('avaliacoes')" data-tab="avaliacoes">📊 Avaliações</button>
+</nav>
+
+<main>
+
+<!-- ===================== CONFIGURAÇÃO ===================== -->
+<div id="tab-config" class="section active">
+
+  <div class="section-header">
+    <h2>⚙️ Configuração</h2>
+  </div>
+
+  <!-- API KEY -->
+  <div class="card">
+    <div class="card-title">🔑 Chave API Gemini</div>
+    <div class="alert alert-info" style="margin-bottom:14px;">
+      Obtenha sua chave gratuita em <strong>aistudio.google.com</strong> e cole abaixo. A chave é salva localmente no navegador.
+    </div>
+    <div class="config-row">
+      <input type="password" id="gemini-key" placeholder="AIza..." />
+      <button class="btn btn-primary" onclick="saveApiKey()">💾 Salvar chave</button>
+      <button class="btn btn-secondary" onclick="toggleKeyVisibility()">👁️ Mostrar</button>
+    </div>
+    <div id="key-status" style="margin-top:10px; font-size:13px;"></div>
+  </div>
+
+  <!-- TURMAS -->
+  <div class="card">
+    <div class="card-title">🏷️ Turmas</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Nome da turma</label>
+        <input type="text" id="turma-nome" placeholder="Ex: Jardim II — Turma A" />
+      </div>
+      <div class="form-group">
+        <label>Professora(o) responsável</label>
+        <input type="text" id="turma-prof" placeholder="Nome da professora" />
+      </div>
+      <div class="form-group">
+        <label>Período</label>
+        <select id="turma-periodo">
+          <option value="manhã">Manhã</option>
+          <option value="tarde">Tarde</option>
+          <option value="integral">Integral</option>
+        </select>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="addTurma()">➕ Adicionar turma</button>
+    </div>
+    <div class="divider"></div>
+    <div id="turmas-list" class="item-list"></div>
+  </div>
+
+  <!-- ALUNOS -->
+  <div class="card">
+    <div class="card-title">👦 Alunos</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Turma</label>
+        <select id="aluno-turma"></select>
+      </div>
+      <div class="form-group">
+        <label>Nome completo do aluno</label>
+        <input type="text" id="aluno-nome" placeholder="Nome do aluno" />
+      </div>
+      <div class="form-group">
+        <label>Data de nascimento</label>
+        <input type="date" id="aluno-nasc" />
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="addAluno()">➕ Adicionar aluno</button>
+    </div>
+    <div class="divider"></div>
+    <div id="alunos-list" class="item-list"></div>
+  </div>
+
+</div>
+
+<!-- ===================== PLANEJAMENTOS ===================== -->
+<div id="tab-planejamento" class="section">
+
+  <div class="section-header">
+    <h2>📋 Planejamentos de Aula</h2>
+    <button class="btn btn-secondary" onclick="exportarPlanejamentos()">⬇️ Exportar .txt</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📝 Novo Planejamento</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Turma *</label>
+        <select id="pl-turma"></select>
+      </div>
+      <div class="form-group">
+        <label>Data *</label>
+        <input type="date" id="pl-data" />
+      </div>
+      <div class="form-group">
+        <label>Professora(o) *</label>
+        <input type="text" id="pl-prof" placeholder="Nome" />
+      </div>
+      <div class="form-group">
+        <label>Área curricular *</label>
+        <select id="pl-area">
+          <option value="">Selecionar…</option>
+          <option>Linguagem Oral e Escrita</option>
+          <option>Matemática</option>
+          <option>Natureza e Sociedade</option>
+          <option>Artes</option>
+          <option>Música</option>
+          <option>Movimento / Ed. Física</option>
+          <option>Identidade e Autonomia</option>
+          <option>Projeto Integrado</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>Tema / Título da aula *</label>
+        <input type="text" id="pl-tema" placeholder="Ex: Explorando os animais da floresta" />
+      </div>
+      <div class="form-group full">
+        <label>Objetivos</label>
+        <textarea id="pl-objetivos" placeholder="O que os alunos deverão aprender/desenvolver…"></textarea>
+      </div>
+      <div class="form-group full">
+        <label>Metodologia / Desenvolvimento</label>
+        <textarea id="pl-metodologia" placeholder="Descreva as etapas da aula…"></textarea>
+      </div>
+      <div class="form-group full">
+        <label>Habilidades da BNCC</label>
+        <textarea id="pl-bncc" placeholder="Ex: (EI03EO01) Demonstrar empatia pelos outros… | (EI03CG02) Demonstrar controle e adequação do uso de seu corpo…" style="min-height:60px;"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Recursos / Materiais</label>
+        <textarea id="pl-recursos" placeholder="Materiais necessários…" style="min-height:60px;"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Avaliação</label>
+        <textarea id="pl-avaliacao" placeholder="Como será avaliada a aprendizagem…" style="min-height:60px;"></textarea>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="salvarPlanejamento()">💾 Salvar planejamento</button>
+      <button class="btn btn-secondary" onclick="limparFormPlanejamento()">🗑️ Limpar</button>
+    </div>
+  </div>
+
+  <div class="section-header" style="margin-top:8px;">
+    <span style="font-size:14px; color:var(--gray-600);">Filtrar por turma:</span>
+    <select id="filtro-pl-turma" onchange="renderPlanejamentos()" style="max-width:220px;">
+      <option value="">Todas as turmas</option>
+    </select>
+  </div>
+
+  <div id="planejamentos-list" class="item-list"></div>
+
+</div>
+
+<!-- ===================== PARECERES ===================== -->
+<div id="tab-pareceres" class="section">
+
+  <div class="section-header">
+    <h2>✨ Pareceres Descritivos com IA</h2>
+    <button class="btn btn-secondary" onclick="exportarPareceres()">⬇️ Exportar .txt</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">👤 Selecionar Aluno</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Turma</label>
+        <select id="par-turma" onchange="populateAlunosParecer()"></select>
+      </div>
+      <div class="form-group">
+        <label>Período / Bimestre</label>
+        <select id="par-periodo">
+          <option>1º Semestre</option>
+          <option>2º Semestre</option>
+          <option>1º Bimestre</option>
+          <option>2º Bimestre</option>
+          <option>3º Bimestre</option>
+          <option>4º Bimestre</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:14px;">
+      <label style="font-size:13px;font-weight:600;color:var(--gray-600);">Aluno</label>
+      <input type="hidden" id="par-aluno" />
+      <div id="par-aluno-picker" class="aluno-picker"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📊 Desenvolvimento do Aluno</div>
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Desenvolvimento Cognitivo</label>
+        <textarea id="par-cognitivo" placeholder="Raciocínio lógico, resolução de problemas, curiosidade, concentração…"></textarea>
+      </div>
+      <div class="form-group full">
+        <label>Linguagem e Comunicação</label>
+        <textarea id="par-linguagem" placeholder="Vocabulário, expressão oral, interesse por leitura/escrita…"></textarea>
+      </div>
+      <div class="form-group full">
+        <label>Desenvolvimento Motor</label>
+        <textarea id="par-motor" placeholder="Motricidade fina, grossa, coordenação, lateralidade…"></textarea>
+      </div>
+      <div class="form-group full">
+        <label>Socialização</label>
+        <textarea id="par-social" placeholder="Relação com pares e adultos, trabalho em grupo, respeito às regras…"></textarea>
+      </div>
+      <div class="form-group full">
+        <label>Desenvolvimento Emocional</label>
+        <textarea id="par-emocional" placeholder="Autonomia, controle emocional, autoestima, segurança…"></textarea>
+      </div>
+      <div class="form-group full">
+        <label>Pontos de Atenção / Sugestões para a Família</label>
+        <textarea id="par-atencao" placeholder="Aspectos que merecem atenção, orientações para casa…"></textarea>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="form-group">
+      <label>Tom do parecer</label>
+      <div class="tone-group">
+        <button class="tone-btn selected" data-tone="equilibrado" onclick="selectTone(this)">⚖️ Equilibrado</button>
+        <button class="tone-btn" data-tone="formal" onclick="selectTone(this)">📄 Formal</button>
+        <button class="tone-btn" data-tone="acolhedor" onclick="selectTone(this)">💚 Acolhedor</button>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-amber" id="btn-gerar" onclick="gerarParecer()">✨ Gerar com IA Gemini</button>
+    </div>
+  </div>
+
+  <div class="card" id="card-resultado" style="display:none;">
+    <div class="card-title">📄 Parecer Gerado</div>
+    <div id="alert-parecer"></div>
+    <div class="ai-box" id="parecer-output" contenteditable="true" spellcheck="true"></div>
+    <div class="btn-row" style="margin-top:14px;">
+      <button class="btn btn-primary" onclick="salvarParecer()">💾 Salvar parecer</button>
+      <button class="btn btn-secondary" onclick="copiarParecer()">📋 Copiar texto</button>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="card-title" style="margin-bottom:12px;">📁 Pareceres Salvos</div>
+  <div id="pareceres-list" class="item-list"></div>
+
+</div>
+
+<!-- ===================== AVALIAÇÕES ===================== -->
+<div id="tab-avaliacoes" class="section">
+
+  <div class="section-header">
+    <h2>📊 Avaliações por Turma</h2>
+    <button class="btn btn-secondary" onclick="exportarAvaliacoes()">⬇️ Exportar .txt</button>
+  </div>
+
+  <div class="card">
+    <div class="form-grid" style="align-items:flex-end;">
+      <div class="form-group">
+        <label>Turma</label>
+        <select id="av-turma" onchange="renderTabelaAvaliacoes()"></select>
+      </div>
+      <div class="form-group">
+        <label>Período / Bimestre</label>
+        <select id="av-periodo" onchange="renderTabelaAvaliacoes()">
+          <option>1º Semestre</option>
+          <option>2º Semestre</option>
+          <option>1º Bimestre</option>
+          <option>2º Bimestre</option>
+          <option>3º Bimestre</option>
+          <option>4º Bimestre</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Área curricular</label>
+        <select id="av-area" onchange="renderTabelaAvaliacoes()">
+          <option>Linguagem Oral e Escrita</option>
+          <option>Matemática</option>
+          <option>Natureza e Sociedade</option>
+          <option>Artes</option>
+          <option>Música</option>
+          <option>Movimento / Ed. Física</option>
+          <option>Identidade e Autonomia</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">
+      📝 Tabela de Avaliação
+      <span id="av-turma-label" class="badge badge-green" style="margin-left:8px;"></span>
+    </div>
+    <div class="table-wrap">
+      <table id="av-table">
+        <thead>
+          <tr>
+            <th>Aluno</th>
+            <th style="width:120px;">Conceito</th>
+            <th>Observação</th>
+            <th style="width:80px;"></th>
+          </tr>
+        </thead>
+        <tbody id="av-tbody"></tbody>
+      </table>
+    </div>
+    <div id="av-empty" class="empty" style="display:none;">
+      <div class="icon">📋</div>
+      <p>Selecione uma turma com alunos cadastrados.</p>
+    </div>
+    <div class="btn-row" style="margin-top:14px;">
+      <button class="btn btn-primary" onclick="salvarAvaliacoes()">💾 Salvar avaliações</button>
+    </div>
+  </div>
+
+  <!-- Legenda -->
+  <div class="card" style="padding:14px 20px;">
+    <div style="display:flex; gap:16px; flex-wrap:wrap; font-size:13px;">
+      <span><strong style="color:#1D9E75;">MB</strong> — Muito Bom</span>
+      <span><strong style="color:#4a90d9;">B</strong> — Bom</span>
+      <span><strong style="color:#e8a045;">R</strong> — Regular</span>
+      <span><strong style="color:#e05252;">I</strong> — Insuficiente</span>
+      <span style="color:var(--gray-400);">— Não avaliado</span>
+    </div>
+  </div>
+
+</div>
+
+</main>
+
+<script>
+// =====================================================================
+// STORAGE HELPERS
+// =====================================================================
+const LS = {
+  get: (k, def = []) => { try { return JSON.parse(localStorage.getItem(k)) ?? def; } catch { return def; } },
+  set: (k, v) => localStorage.setItem(k, JSON.stringify(v)),
+};
+
+let db = {
+  apiKey: localStorage.getItem('ps_apikey') || '',
+  turmas: LS.get('ps_turmas', []),
+  alunos: LS.get('ps_alunos', []),
+  planejamentos: LS.get('ps_planejamentos', []),
+  pareceres: LS.get('ps_pareceres', []),
+  avaliacoes: LS.get('ps_avaliacoes', {}),
+};
+
+function save() {
+  LS.set('ps_turmas', db.turmas);
+  LS.set('ps_alunos', db.alunos);
+  LS.set('ps_planejamentos', db.planejamentos);
+  LS.set('ps_pareceres', db.pareceres);
+  LS.set('ps_avaliacoes', db.avaliacoes);
+}
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+// =====================================================================
+// NAVIGATION
+// =====================================================================
+function showTab(tab) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+
+  if (tab === 'planejamento') { populateSelects(); renderPlanejamentos(); }
+  if (tab === 'pareceres')    { populateSelects(); renderPareceres(); }
+  if (tab === 'avaliacoes')   { populateSelects(); renderTabelaAvaliacoes(); }
+}
+
+// =====================================================================
+// POPULATE SELECTS
+// =====================================================================
+function populateSelects() {
+  const turmas = db.turmas;
+
+  ['aluno-turma', 'pl-turma', 'par-turma', 'av-turma', 'filtro-pl-turma'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const prev = el.value;
+    el.innerHTML = '';
+    if (id === 'filtro-pl-turma') el.innerHTML = '<option value="">Todas as turmas</option>';
+    turmas.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.id;
+      opt.textContent = t.nome;
+      el.appendChild(opt);
+    });
+    if (prev) el.value = prev;
+  });
+
+  populateAlunosParecer();
+}
+
+function populateAlunosParecer() {
+  const turmaId = document.getElementById('par-turma')?.value;
+  const picker = document.getElementById('par-aluno-picker');
+  const hidden = document.getElementById('par-aluno');
+  if (!picker) return;
+  hidden.value = '';
+  picker.innerHTML = '';
+  const alunos = db.alunos.filter(a => a.turmaId === turmaId);
+  if (alunos.length === 0) {
+    picker.innerHTML = '<span class="aluno-picker-empty">Nenhum aluno cadastrado nesta turma.</span>';
+    return;
+  }
+  alunos.forEach(a => {
+    const initials = a.nome.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+    const card = document.createElement('div');
+    card.className = 'aluno-pick-card';
+    card.dataset.id = a.id;
+    card.innerHTML = `<div class="av">${initials}</div>${a.nome}`;
+    card.onclick = () => selectAluno(a.id);
+    picker.appendChild(card);
+  });
+}
+
+function selectAluno(id) {
+  document.getElementById('par-aluno').value = id;
+  document.querySelectorAll('.aluno-pick-card').forEach(c => {
+    c.classList.toggle('selected', c.dataset.id === id);
+  });
+}
+
+// =====================================================================
+// CONFIGURAÇÃO — API KEY
+// =====================================================================
+function saveApiKey() {
+  const key = document.getElementById('gemini-key').value.trim();
+  if (!key) { setKeyStatus('⚠️ Digite a chave antes de salvar.', 'warn'); return; }
+  db.apiKey = key;
+  localStorage.setItem('ps_apikey', key);
+  setKeyStatus('✅ Chave salva com sucesso!', 'ok');
+}
+
+function setKeyStatus(msg, type) {
+  const el = document.getElementById('key-status');
+  el.textContent = msg;
+  el.style.color = type === 'ok' ? 'var(--green)' : 'var(--amber)';
+}
+
+function toggleKeyVisibility() {
+  const inp = document.getElementById('gemini-key');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+// Init key field
+window.addEventListener('DOMContentLoaded', () => {
+  if (db.apiKey) {
+    document.getElementById('gemini-key').value = db.apiKey;
+    setKeyStatus('✅ Chave carregada.', 'ok');
+  }
+  populateSelects();
+  renderTurmas();
+  renderAlunos();
+  renderPlanejamentos();
+  renderPareceres();
+});
+
+// =====================================================================
+// TURMAS
+// =====================================================================
+function addTurma() {
+  const nome = document.getElementById('turma-nome').value.trim();
+  const prof = document.getElementById('turma-prof').value.trim();
+  const periodo = document.getElementById('turma-periodo').value;
+  if (!nome) { alert('Informe o nome da turma.'); return; }
+  db.turmas.push({ id: uid(), nome, prof, periodo });
+  save();
+  document.getElementById('turma-nome').value = '';
+  document.getElementById('turma-prof').value = '';
+  renderTurmas();
+  populateSelects();
+}
+
+function deleteTurma(id) {
+  if (!confirm('Excluir turma e todos os alunos vinculados?')) return;
+  db.turmas = db.turmas.filter(t => t.id !== id);
+  db.alunos = db.alunos.filter(a => a.turmaId !== id);
+  save();
+  renderTurmas();
+  renderAlunos();
+  populateSelects();
+}
+
+function renderTurmas() {
+  const el = document.getElementById('turmas-list');
+  if (db.turmas.length === 0) {
+    el.innerHTML = '<div class="empty"><div class="icon">🏷️</div><p>Nenhuma turma cadastrada.</p></div>';
+    return;
+  }
+  el.innerHTML = db.turmas.map(t => {
+    const count = db.alunos.filter(a => a.turmaId === t.id).length;
+    return `<div class="item-card">
+      <div class="info">
+        <strong>${t.nome}</strong>
+        <span>👩‍🏫 ${t.prof || '—'} &nbsp;|&nbsp; 🕐 ${t.periodo} &nbsp;|&nbsp; 👦 ${count} aluno(s)</span>
+      </div>
+      <div class="actions">
+        <button class="btn btn-danger btn-sm" onclick="deleteTurma('${t.id}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// =====================================================================
+// ALUNOS
+// =====================================================================
+function addAluno() {
+  const turmaId = document.getElementById('aluno-turma').value;
+  const nome = document.getElementById('aluno-nome').value.trim();
+  const nasc = document.getElementById('aluno-nasc').value;
+  if (!turmaId) { alert('Selecione uma turma.'); return; }
+  if (!nome) { alert('Informe o nome do aluno.'); return; }
+  db.alunos.push({ id: uid(), turmaId, nome, nasc });
+  save();
+  document.getElementById('aluno-nome').value = '';
+  document.getElementById('aluno-nasc').value = '';
+  renderAlunos();
+  renderTurmas();
+  populateSelects();
+}
+
+function deleteAluno(id) {
+  if (!confirm('Excluir este aluno?')) return;
+  db.alunos = db.alunos.filter(a => a.id !== id);
+  save();
+  renderAlunos();
+  renderTurmas();
+  populateSelects();
+}
+
+function renderAlunos() {
+  const el = document.getElementById('alunos-list');
+  if (db.alunos.length === 0) {
+    el.innerHTML = '<div class="empty"><div class="icon">👦</div><p>Nenhum aluno cadastrado.</p></div>';
+    return;
+  }
+
+  // Group by turma
+  const byTurma = {};
+  db.alunos.forEach(a => {
+    if (!byTurma[a.turmaId]) byTurma[a.turmaId] = [];
+    byTurma[a.turmaId].push(a);
+  });
+
+  let html = '';
+  for (const turmaId in byTurma) {
+    const turma = db.turmas.find(t => t.id === turmaId);
+    const nome = turma ? turma.nome : 'Turma desconhecida';
+    html += `<div style="margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:700;color:var(--green-dark);margin-bottom:8px;">🏷️ ${nome}</div>
+      <div class="tags-list">`;
+    byTurma[turmaId].forEach(a => {
+      const av = a.nome.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+      html += `<div class="student-tag">
+        <div class="av">${av}</div>
+        ${a.nome}
+        <button style="background:none;border:none;cursor:pointer;color:var(--red);padding:0 2px;" onclick="deleteAluno('${a.id}')" title="Excluir">✕</button>
+      </div>`;
+    });
+    html += '</div></div>';
+  }
+  el.innerHTML = html;
+}
+
+// =====================================================================
+// PLANEJAMENTOS
+// =====================================================================
+function salvarPlanejamento() {
+  const turmaId = document.getElementById('pl-turma').value;
+  const data = document.getElementById('pl-data').value;
+  const prof = document.getElementById('pl-prof').value.trim();
+  const area = document.getElementById('pl-area').value;
+  const tema = document.getElementById('pl-tema').value.trim();
+  if (!turmaId || !data || !prof || !area || !tema) {
+    alert('Preencha os campos obrigatórios (*).');
+    return;
+  }
+  const pl = {
+    id: uid(),
+    turmaId,
+    data,
+    prof,
+    area,
+    tema,
+    objetivos: document.getElementById('pl-objetivos').value.trim(),
+    metodologia: document.getElementById('pl-metodologia').value.trim(),
+    bncc: document.getElementById('pl-bncc').value.trim(),
+    recursos: document.getElementById('pl-recursos').value.trim(),
+    avaliacao: document.getElementById('pl-avaliacao').value.trim(),
+    criadoEm: new Date().toISOString(),
+  };
+  db.planejamentos.unshift(pl);
+  save();
+  limparFormPlanejamento();
+  renderPlanejamentos();
+  showToast('Planejamento salvo!');
+}
+
+function limparFormPlanejamento() {
+  ['pl-data','pl-prof','pl-area','pl-tema','pl-objetivos','pl-metodologia','pl-bncc','pl-recursos','pl-avaliacao'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+}
+
+function deletePlanejamento(id) {
+  if (!confirm('Excluir planejamento?')) return;
+  db.planejamentos = db.planejamentos.filter(p => p.id !== id);
+  save();
+  renderPlanejamentos();
+}
+
+function renderPlanejamentos() {
+  const el = document.getElementById('planejamentos-list');
+  const filtro = document.getElementById('filtro-pl-turma')?.value;
+  let list = db.planejamentos;
+  if (filtro) list = list.filter(p => p.turmaId === filtro);
+
+  if (list.length === 0) {
+    el.innerHTML = '<div class="empty"><div class="icon">📋</div><p>Nenhum planejamento salvo.</p></div>';
+    return;
+  }
+
+  el.innerHTML = list.map(p => {
+    const turma = db.turmas.find(t => t.id === p.turmaId);
+    const dataFmt = p.data ? new Date(p.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+    return `<div class="item-card">
+      <div class="info">
+        <strong>${p.tema}</strong>
+        <span>
+          <span class="badge badge-green">${turma ? turma.nome : '—'}</span>
+          &nbsp;${p.area} &nbsp;|&nbsp; 📅 ${dataFmt} &nbsp;|&nbsp; 👩‍🏫 ${p.prof}
+        </span>
+        ${p.objetivos ? `<div style="margin-top:6px;font-size:13px;color:var(--gray-600);">🎯 ${p.objetivos.slice(0,120)}${p.objetivos.length>120?'…':''}</div>` : ''}
+      </div>
+      <div class="actions">
+        <button class="btn btn-secondary btn-sm" onclick="verPlanejamento('${p.id}')">👁️</button>
+        <button class="btn btn-danger btn-sm" onclick="deletePlanejamento('${p.id}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function verPlanejamento(id) {
+  const p = db.planejamentos.find(x => x.id === id);
+  if (!p) return;
+  const turma = db.turmas.find(t => t.id === p.turmaId);
+  const dataFmt = p.data ? new Date(p.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+  let txt = `PLANEJAMENTO DE AULA\n${'='.repeat(40)}\n`;
+  txt += `Turma: ${turma ? turma.nome : '—'}\nData: ${dataFmt}\nProfessora(o): ${p.prof}\nÁrea: ${p.area}\nTema: ${p.tema}\n\n`;
+  if (p.objetivos) txt += `OBJETIVOS:\n${p.objetivos}\n\n`;
+  if (p.metodologia) txt += `METODOLOGIA:\n${p.metodologia}\n\n`;
+  if (p.recursos) txt += `RECURSOS:\n${p.recursos}\n\n`;
+  if (p.avaliacao) txt += `AVALIAÇÃO:\n${p.avaliacao}\n`;
+  alert(txt);
+}
+
+function exportarPlanejamentos() {
+  if (db.planejamentos.length === 0) { alert('Nenhum planejamento para exportar.'); return; }
+  let txt = 'PLANEJAMENTOS DE AULA — ESCOLA PONTE DO SABER\n' + '='.repeat(50) + '\n\n';
+  db.planejamentos.forEach((p, i) => {
+    const turma = db.turmas.find(t => t.id === p.turmaId);
+    const dataFmt = p.data ? new Date(p.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+    txt += `${i + 1}. ${p.tema}\n`;
+    txt += `   Turma: ${turma ? turma.nome : '—'} | Data: ${dataFmt} | Prof.: ${p.prof} | Área: ${p.area}\n`;
+    if (p.objetivos) txt += `   Objetivos: ${p.objetivos}\n`;
+    if (p.metodologia) txt += `   Metodologia: ${p.metodologia}\n`;
+    if (p.bncc) txt += `   Habilidades BNCC: ${p.bncc}\n`;
+    if (p.recursos) txt += `   Recursos: ${p.recursos}\n`;
+    if (p.avaliacao) txt += `   Avaliação: ${p.avaliacao}\n`;
+    txt += '\n' + '-'.repeat(50) + '\n\n';
+  });
+  downloadTxt(txt, 'planejamentos_ponte_do_saber.txt');
+}
+
+// =====================================================================
+// PARECERES — IA
+// =====================================================================
+let selectedTone = 'equilibrado';
+
+function selectTone(btn) {
+  document.querySelectorAll('.tone-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedTone = btn.dataset.tone;
+}
+
+async function gerarParecer() {
+  if (!db.apiKey) {
+    alert('Configure sua chave API Gemini na aba Configuração.');
+    return;
+  }
+  const alunoId = document.getElementById('par-aluno').value;
+  const aluno = db.alunos.find(a => a.id === alunoId);
+  if (!aluno) { alert('Selecione um aluno.'); return; }
+
+  const cognitivo  = document.getElementById('par-cognitivo').value.trim();
+  const linguagem  = document.getElementById('par-linguagem').value.trim();
+  const motor      = document.getElementById('par-motor').value.trim();
+  const social     = document.getElementById('par-social').value.trim();
+  const emocional  = document.getElementById('par-emocional').value.trim();
+  const atencao    = document.getElementById('par-atencao').value.trim();
+  const periodo    = document.getElementById('par-periodo').value;
+
+  if (!cognitivo && !linguagem && !motor && !social && !emocional) {
+    alert('Preencha ao menos um campo de desenvolvimento antes de gerar o parecer.');
+    return;
+  }
+
+  const toneTxt = {
+    formal: 'formal e técnico',
+    acolhedor: 'acolhedor, afetivo e empático',
+    equilibrado: 'equilibrado, profissional mas próximo das famílias',
+  }[selectedTone];
+
+  const prompt = `Você é uma pedagoga especializada em educação infantil. Escreva um parecer descritivo sobre o aluno "${aluno.nome}" referente ao ${periodo}.
+
+Use tom ${toneTxt}. O parecer deve ter parágrafos fluidos e conectados (não use tópicos ou bullet points), no máximo 350 palavras, em linguagem acessível para as famílias, sem jargões excessivos.
+
+Dados fornecidos pela professora:
+- Desenvolvimento cognitivo: ${cognitivo || 'não informado'}
+- Linguagem e comunicação: ${linguagem || 'não informado'}
+- Desenvolvimento motor: ${motor || 'não informado'}
+- Socialização: ${social || 'não informado'}
+- Desenvolvimento emocional: ${emocional || 'não informado'}
+${atencao ? `- Pontos de atenção / sugestões para a família: ${atencao}` : ''}
+
+Escreva o parecer completo, começando diretamente com o texto (sem título, sem "Parecer:", sem introdução sobre o que você vai fazer).`;
+
+  const btn = document.getElementById('btn-gerar');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Gerando…';
+
+  document.getElementById('card-resultado').style.display = 'none';
+  document.getElementById('alert-parecer').innerHTML = '';
+
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${db.apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.75, maxOutputTokens: 700 },
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error?.message || `HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) throw new Error('Resposta vazia da API.');
+
+    document.getElementById('parecer-output').innerText = text;
+    document.getElementById('card-resultado').style.display = 'block';
+    document.getElementById('alert-parecer').innerHTML =
+      '<div class="alert alert-info">✅ Parecer gerado! Revise e edite o texto acima antes de salvar.</div>';
+    document.getElementById('card-resultado').scrollIntoView({ behavior: 'smooth' });
+
+  } catch (e) {
+    document.getElementById('card-resultado').style.display = 'block';
+    document.getElementById('alert-parecer').innerHTML =
+      `<div class="alert alert-err">❌ Erro: ${e.message}</div>`;
+    document.getElementById('parecer-output').innerText = '';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '✨ Gerar com IA Gemini';
+  }
+}
+
+function salvarParecer() {
+  const alunoId = document.getElementById('par-aluno').value;
+  const aluno = db.alunos.find(a => a.id === alunoId);
+  if (!aluno) { alert('Selecione um aluno.'); return; }
+  const texto = document.getElementById('parecer-output').innerText.trim();
+  if (!texto) { alert('Nenhum texto para salvar.'); return; }
+
+  const turmaId = document.getElementById('par-turma').value;
+  const periodo = document.getElementById('par-periodo').value;
+
+  db.pareceres.unshift({
+    id: uid(),
+    alunoId,
+    alunoNome: aluno.nome,
+    turmaId,
+    periodo,
+    texto,
+    tom: selectedTone,
+    criadoEm: new Date().toISOString(),
+  });
+  save();
+  renderPareceres();
+  showToast('Parecer salvo!');
+  document.getElementById('card-resultado').style.display = 'none';
+}
+
+function copiarParecer() {
+  const texto = document.getElementById('parecer-output').innerText;
+  navigator.clipboard.writeText(texto).then(() => showToast('Texto copiado!'));
+}
+
+function deleteParecer(id) {
+  if (!confirm('Excluir parecer?')) return;
+  db.pareceres = db.pareceres.filter(p => p.id !== id);
+  save();
+  renderPareceres();
+}
+
+function renderPareceres() {
+  const el = document.getElementById('pareceres-list');
+  if (db.pareceres.length === 0) {
+    el.innerHTML = '<div class="empty"><div class="icon">✨</div><p>Nenhum parecer salvo.</p></div>';
+    return;
+  }
+  el.innerHTML = db.pareceres.map(p => {
+    const turma = db.turmas.find(t => t.id === p.turmaId);
+    const data = new Date(p.criadoEm).toLocaleDateString('pt-BR');
+    const preview = p.texto.slice(0, 140) + (p.texto.length > 140 ? '…' : '');
+    return `<div class="item-card">
+      <div class="info">
+        <strong>${p.alunoNome}</strong>
+        <span><span class="badge badge-green">${turma ? turma.nome : '—'}</span> &nbsp;${p.periodo} &nbsp;|&nbsp; Tom: ${p.tom} &nbsp;|&nbsp; 📅 ${data}</span>
+        <div style="margin-top:6px;font-size:13px;color:var(--gray-600);">${preview}</div>
+      </div>
+      <div class="actions" style="flex-direction:column; gap:5px;">
+        <button class="btn btn-secondary btn-sm" onclick="verParecer('${p.id}')">👁️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteParecer('${p.id}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function verParecer(id) {
+  const p = db.pareceres.find(x => x.id === id);
+  if (!p) return;
+  const turma = db.turmas.find(t => t.id === p.turmaId);
+  const dataImpressao = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const dataRegistro = new Date(p.criadoEm).toLocaleDateString('pt-BR');
+  const aluno = db.alunos.find(a => a.id === p.alunoId);
+  const nascFmt = aluno?.nasc ? new Date(aluno.nasc + 'T12:00:00').toLocaleDateString('pt-BR') : null;
+
+  const win = window.open('', '_blank', 'width=760,height=700');
+  win.document.write(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Parecer Descritivo — ${p.alunoNome}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    background: #f4f4f4;
+    color: #1a1a1a;
+    padding: 32px 24px 60px;
+  }
+  .page {
+    background: #fff;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 52px 60px 48px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+    border-top: 6px solid #1D9E75;
+    position: relative;
+  }
+
+  /* HEADER */
+  .header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1.5px solid #e0e0e0;
+  }
+  .school-info h1 { font-size: 18px; font-weight: bold; color: #1D9E75; letter-spacing: 0.3px; }
+  .school-info p { font-size: 12px; color: #666; margin-top: 3px; font-style: italic; }
+  .doc-label {
+    text-align: right;
+  }
+  .doc-label .badge {
+    display: inline-block;
+    background: #e8f7f2;
+    border: 1px solid #b2e4d4;
+    color: #157a5b;
+    font-size: 11px;
+    font-weight: bold;
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+  .doc-label p { font-size: 11px; color: #999; }
+
+  /* TITLE */
+  h2.doc-title {
+    font-size: 17px;
+    font-weight: bold;
+    color: #1a1a1a;
+    text-align: center;
+    margin-bottom: 22px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+
+  /* INFO TABLE */
+  .info-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 26px;
+    font-size: 13px;
+  }
+  .info-table td {
+    padding: 7px 10px;
+    border: 1px solid #e0e0e0;
+    vertical-align: top;
+    line-height: 1.4;
+  }
+  .info-table td:first-child {
+    font-weight: bold;
+    color: #555;
+    background: #f9f9f9;
+    width: 36%;
+  }
+
+  /* BODY TEXT */
+  .parecer-body {
+    font-size: 14px;
+    line-height: 1.85;
+    color: #1a1a1a;
+    text-align: justify;
+    white-space: pre-wrap;
+    margin-bottom: 40px;
+  }
+
+  /* SIGNATURE */
+  .signature-area {
+    margin-top: 48px;
+    display: flex;
+    justify-content: space-between;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+  .sig-block { flex: 1; min-width: 180px; text-align: center; }
+  .sig-line {
+    border-top: 1px solid #333;
+    margin-bottom: 6px;
+  }
+  .sig-block p { font-size: 12px; color: #444; }
+  .sig-block .sig-role { font-size: 11px; color: #888; margin-top: 2px; }
+
+  /* FOOTER */
+  .footer {
+    margin-top: 36px;
+    padding-top: 14px;
+    border-top: 1px solid #e0e0e0;
+    font-size: 11px;
+    color: #aaa;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* PRINT TOOLBAR */
+  .toolbar {
+    max-width: 720px;
+    margin: 0 auto 16px;
+    display: flex;
+    gap: 10px;
+  }
+  .btn-print {
+    padding: 9px 20px;
+    background: #1D9E75;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    font-family: 'Segoe UI', sans-serif;
+  }
+  .btn-print:hover { background: #157a5b; }
+  .btn-close {
+    padding: 9px 20px;
+    background: #fff;
+    color: #555;
+    border: 1.5px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: 'Segoe UI', sans-serif;
+  }
+
+  @media print {
+    body { background: #fff; padding: 0; }
+    .toolbar { display: none; }
+    .page { box-shadow: none; padding: 20mm 22mm; border-top: 5px solid #1D9E75; }
+    @page { margin: 10mm; }
+  }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+  <button class="btn-close" onclick="window.close()">✕ Fechar</button>
+</div>
+
+<div class="page">
+
+  <div class="header">
+    <div class="school-info">
+      <h1>Escola Ponte do Saber</h1>
+      <p>Educação Infantil</p>
+    </div>
+    <div class="doc-label">
+      <div class="badge">Documento Oficial</div>
+      <p>Emitido em ${dataImpressao}</p>
+    </div>
+  </div>
+
+  <h2 class="doc-title">Parecer Descritivo — ${p.periodo}</h2>
+
+  <table class="info-table">
+    <tr>
+      <td>Aluno(a)</td>
+      <td><strong>${p.alunoNome}</strong></td>
+    </tr>
+    ${nascFmt ? `<tr><td>Data de Nascimento</td><td>${nascFmt}</td></tr>` : ''}
+    <tr>
+      <td>Turma</td>
+      <td>${turma ? turma.nome : '—'}${turma?.prof ? ' &nbsp;|&nbsp; Professora(o): ' + turma.prof : ''}</td>
+    </tr>
+    <tr>
+      <td>Período avaliado</td>
+      <td>${p.periodo}</td>
+    </tr>
+    <tr>
+      <td>Data de registro</td>
+      <td>${dataRegistro}</td>
+    </tr>
+  </table>
+
+  <div class="parecer-body">${escapeHtml(p.texto)}</div>
+
+  <div class="signature-area">
+    <div class="sig-block">
+      <div class="sig-line"></div>
+      <p>${turma?.prof || 'Professora(o) responsável'}</p>
+      <p class="sig-role">Professora(o) da turma</p>
+    </div>
+    <div class="sig-block">
+      <div class="sig-line"></div>
+      <p>Coordenação Pedagógica</p>
+      <p class="sig-role">Escola Ponte do Saber</p>
+    </div>
+    <div class="sig-block">
+      <div class="sig-line"></div>
+      <p>Responsável pelo(a) aluno(a)</p>
+      <p class="sig-role">Ciente</p>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>Escola Ponte do Saber — Educação Infantil</span>
+    <span>Documento gerado em ${dataImpressao}</span>
+  </div>
+
+</div>
+</body>
+</html>`);
+  win.document.close();
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function exportarPareceres() {
+  if (db.pareceres.length === 0) { alert('Nenhum parecer para exportar.'); return; }
+  let txt = 'PARECERES DESCRITIVOS — ESCOLA PONTE DO SABER\n' + '='.repeat(50) + '\n\n';
+  db.pareceres.forEach((p, i) => {
+    const turma = db.turmas.find(t => t.id === p.turmaId);
+    txt += `${i + 1}. ${p.alunoNome} — ${p.periodo}\n`;
+    txt += `   Turma: ${turma ? turma.nome : '—'} | Tom: ${p.tom}\n\n`;
+    txt += p.texto + '\n\n' + '-'.repeat(50) + '\n\n';
+  });
+  downloadTxt(txt, 'pareceres_ponte_do_saber.txt');
+}
+
+// =====================================================================
+// AVALIAÇÕES
+// =====================================================================
+function renderTabelaAvaliacoes() {
+  const turmaId = document.getElementById('av-turma')?.value;
+  const periodo = document.getElementById('av-periodo')?.value;
+  const area    = document.getElementById('av-area')?.value;
+  const label   = document.getElementById('av-turma-label');
+  const tbody   = document.getElementById('av-tbody');
+  const empty   = document.getElementById('av-empty');
+
+  const turma = db.turmas.find(t => t.id === turmaId);
+  if (label) label.textContent = turma ? turma.nome : '';
+
+  const alunos = db.alunos.filter(a => a.turmaId === turmaId);
+
+  if (alunos.length === 0) {
+    tbody.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
+  const key = `${turmaId}_${periodo}_${area}`;
+
+  tbody.innerHTML = alunos.map(a => {
+    const avKey = `${key}_${a.id}`;
+    const saved = db.avaliacoes[avKey] || {};
+    return `<tr data-aluno="${a.id}" data-key="${avKey}">
+      <td><strong>${a.nome}</strong></td>
+      <td>
+        <select class="conceito" style="width:100%;">
+          <option value="" ${!saved.conceito ? 'selected' : ''}>—</option>
+          <option value="MB" ${saved.conceito === 'MB' ? 'selected' : ''}>MB — Muito Bom</option>
+          <option value="B"  ${saved.conceito === 'B'  ? 'selected' : ''}>B — Bom</option>
+          <option value="R"  ${saved.conceito === 'R'  ? 'selected' : ''}>R — Regular</option>
+          <option value="I"  ${saved.conceito === 'I'  ? 'selected' : ''}>I — Insuficiente</option>
+        </select>
+      </td>
+      <td><input type="text" placeholder="Observação…" value="${saved.obs || ''}" style="width:100%;"></td>
+      <td style="text-align:center;">
+        <span class="badge ${saved.conceito === 'MB' ? 'badge-green' : saved.conceito ? 'badge-amber' : 'badge-gray'}">
+          ${saved.conceito || '—'}
+        </span>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function salvarAvaliacoes() {
+  const rows = document.querySelectorAll('#av-tbody tr');
+  rows.forEach(row => {
+    const avKey = row.dataset.key;
+    const conceito = row.querySelector('.conceito').value;
+    const obs = row.querySelector('input[type=text]').value.trim();
+    db.avaliacoes[avKey] = { conceito, obs };
+  });
+  save();
+  renderTabelaAvaliacoes();
+  showToast('Avaliações salvas!');
+}
+
+function exportarAvaliacoes() {
+  if (Object.keys(db.avaliacoes).length === 0) { alert('Nenhuma avaliação para exportar.'); return; }
+  let txt = 'AVALIAÇÕES — ESCOLA PONTE DO SABER\n' + '='.repeat(50) + '\n\n';
+
+  db.turmas.forEach(turma => {
+    const alunos = db.alunos.filter(a => a.turmaId === turma.id);
+    if (alunos.length === 0) return;
+    txt += `TURMA: ${turma.nome}\n` + '-'.repeat(40) + '\n';
+    alunos.forEach(a => {
+      const keys = Object.keys(db.avaliacoes).filter(k => k.endsWith(`_${a.id}`));
+      keys.forEach(k => {
+        const av = db.avaliacoes[k];
+        const parts = k.replace(`_${a.id}`, '').split('_');
+        const periodo = parts.slice(1, -1).join('_');
+        const area = parts[parts.length - 1];
+        txt += `  ${a.nome} | ${periodo} | ${area} | Conceito: ${av.conceito || '—'}`;
+        if (av.obs) txt += ` | Obs: ${av.obs}`;
+        txt += '\n';
+      });
+    });
+    txt += '\n';
+  });
+  downloadTxt(txt, 'avaliacoes_ponte_do_saber.txt');
+}
+
+// =====================================================================
+// UTILS
+// =====================================================================
+function downloadTxt(content, filename) {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  Object.assign(t.style, {
+    position: 'fixed', bottom: '24px', right: '24px',
+    background: 'var(--green)', color: '#fff',
+    padding: '12px 20px', borderRadius: '8px',
+    fontWeight: '600', fontSize: '14px',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+    zIndex: 9999, transition: 'opacity 0.4s',
+  });
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, 2200);
+}
+</script>
+</body>
+</html>
