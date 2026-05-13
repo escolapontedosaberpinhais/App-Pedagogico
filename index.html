@@ -389,6 +389,20 @@
   }
   .btn-logout:hover { background: rgba(255,255,255,0.25); }
 
+  /* MODAL TROCAR SENHA */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 8888; padding: 16px;
+  }
+  .modal-box {
+    background: var(--white); border-radius: 12px; padding: 32px 28px;
+    width: 100%; max-width: 380px;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.2);
+    animation: slideUp 0.25s ease;
+  }
+  .modal-box h3 { font-size: 17px; font-weight: 700; margin-bottom: 20px; color: var(--gray-800); }
+
   /* ROLE BADGE */
   .badge-pedagoga { background: #ede9fe; color: #5b21b6; }
   .badge-professora { background: var(--green-light); color: var(--green-dark); }
@@ -427,6 +441,31 @@
 </head>
 <body>
 
+<!-- MODAL TROCAR SENHA -->
+<div id="modal-senha" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <h3>🔑 Trocar Senha</h3>
+    <div id="modal-senha-erro" class="login-error"></div>
+    <div class="form-group" style="margin-bottom:12px;">
+      <label>Senha atual</label>
+      <input type="password" id="senha-atual" placeholder="••••••••" />
+    </div>
+    <div class="form-group" style="margin-bottom:12px;">
+      <label>Nova senha</label>
+      <input type="password" id="senha-nova" placeholder="mínimo 4 caracteres" />
+    </div>
+    <div class="form-group" style="margin-bottom:20px;">
+      <label>Confirmar nova senha</label>
+      <input type="password" id="senha-confirma" placeholder="repita a nova senha"
+             onkeydown="if(event.key==='Enter') trocarSenha()" />
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="trocarSenha()">💾 Salvar nova senha</button>
+      <button class="btn btn-secondary" onclick="fecharTrocarSenha()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <!-- LOGIN OVERLAY -->
 <div id="login-overlay" class="login-overlay">
   <div class="login-card">
@@ -461,8 +500,10 @@
       <div class="user-av" id="header-av"></div>
       <span id="header-nome"></span>
     </div>
+    <button class="btn-logout" onclick="abrirTrocarSenha()" title="Trocar senha">🔑</button>
     <button class="btn-logout" onclick="fazerLogout()">Sair</button>
   </div>
+
 </header>
 
 <nav id="nav">
@@ -1027,6 +1068,40 @@ function fazerLogin() {
   sessionStorage.setItem('ps_sess', JSON.stringify(user));
   document.getElementById('login-overlay').style.display = 'none';
   aplicarPapel();
+}
+
+function abrirTrocarSenha() {
+  document.getElementById('senha-atual').value = '';
+  document.getElementById('senha-nova').value = '';
+  document.getElementById('senha-confirma').value = '';
+  document.getElementById('modal-senha-erro').style.display = 'none';
+  document.getElementById('modal-senha').style.display = 'flex';
+  setTimeout(() => document.getElementById('senha-atual').focus(), 100);
+}
+
+function fecharTrocarSenha() {
+  document.getElementById('modal-senha').style.display = 'none';
+}
+
+function trocarSenha() {
+  const atual    = document.getElementById('senha-atual').value;
+  const nova     = document.getElementById('senha-nova').value;
+  const confirma = document.getElementById('senha-confirma').value;
+  const erro     = document.getElementById('modal-senha-erro');
+
+  const mostrarErro = msg => { erro.textContent = msg; erro.style.display = 'block'; };
+
+  if (hashPw(atual) !== currentUser.senha) { mostrarErro('Senha atual incorreta.'); return; }
+  if (nova.length < 4)                      { mostrarErro('A nova senha precisa ter ao menos 4 caracteres.'); return; }
+  if (nova !== confirma)                    { mostrarErro('As senhas não coincidem.'); return; }
+
+  const idx = db.usuarios.findIndex(u => u.id === currentUser.id);
+  db.usuarios[idx].senha = hashPw(nova);
+  currentUser.senha = hashPw(nova);
+  sessionStorage.setItem('ps_sess', JSON.stringify(currentUser));
+  save();
+  fecharTrocarSenha();
+  showToast('✅ Senha alterada com sucesso!');
 }
 
 function fazerLogout() {
