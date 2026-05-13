@@ -386,6 +386,62 @@
   }
   .btn-logout:hover { background: rgba(255,255,255,0.25); }
 
+  /* DASHBOARD */
+  .dash-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .dash-card {
+    background: var(--white);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px 16px;
+    text-align: center;
+    border-top: 4px solid var(--green);
+  }
+  .dash-card.amber { border-top-color: var(--amber); }
+  .dash-card.red   { border-top-color: var(--red); }
+  .dash-card.blue  { border-top-color: #4a90d9; }
+  .dash-card .dash-num {
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--green);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .dash-card.amber .dash-num { color: var(--amber); }
+  .dash-card.red   .dash-num { color: var(--red); }
+  .dash-card.blue  .dash-num { color: #4a90d9; }
+  .dash-card .dash-label { font-size: 12px; color: var(--gray-600); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+  .dash-card .dash-sub   { font-size: 11px; color: var(--gray-400); margin-top: 3px; }
+
+  .progress-bar-wrap { margin: 6px 0 12px; }
+  .progress-bar-wrap .pb-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--gray-600); margin-bottom: 4px; }
+  .progress-bar { height: 8px; background: var(--gray-200); border-radius: 4px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s; }
+  .fill-green  { background: var(--green); }
+  .fill-amber  { background: var(--amber); }
+
+  .ativ-item { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--gray-200); }
+  .ativ-item:last-child { border-bottom: none; }
+  .ativ-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .ativ-info { flex: 1; }
+  .ativ-info strong { font-size: 13px; display: block; }
+  .ativ-info span   { font-size: 12px; color: var(--gray-400); }
+
+  .pendente-turma { margin-bottom: 10px; }
+  .pendente-turma strong { font-size: 13px; display: block; margin-bottom: 4px; color: var(--gray-800); }
+  .pendente-chip { display: inline-block; background: #fdeaea; color: #8b1a1a; border-radius: 20px; padding: 2px 9px; font-size: 12px; margin: 2px; }
+
+  .prod-table { width: 100%; font-size: 13px; border-collapse: collapse; }
+  .prod-table th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; padding: 6px 8px; background: var(--green-light); color: var(--green-dark); }
+  .prod-table td { padding: 8px 8px; border-bottom: 1px solid var(--gray-200); }
+  .prod-table tr:last-child td { border-bottom: none; }
+
+  @media (max-width: 640px) { .dash-grid-2 { grid-template-columns: 1fr !important; } }
+
   /* MODAL TROCAR SENHA */
   .modal-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,0.45);
@@ -504,6 +560,7 @@
 </header>
 
 <nav id="nav">
+  <button id="nav-dashboard" onclick="showTab('dashboard')" data-tab="dashboard" style="display:none;">🏠 Dashboard</button>
   <button class="active" onclick="showTab('config')" data-tab="config" id="nav-config">⚙️ Configuração</button>
   <button onclick="showTab('planejamento')" data-tab="planejamento">📋 Planejamentos</button>
   <button onclick="showTab('pareceres')" data-tab="pareceres">✨ Pareceres IA</button>
@@ -511,6 +568,70 @@
 </nav>
 
 <main>
+
+<!-- ===================== DASHBOARD ===================== -->
+<div id="tab-dashboard" class="section">
+
+  <div class="section-header">
+    <h2>🏠 Dashboard — Visão Geral</h2>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <label style="font-size:13px;color:var(--gray-600);">Filtrar bimestre:</label>
+      <select id="dash-bimestre" onchange="renderDashboard()" style="width:auto;padding:6px 10px;font-size:13px;">
+        <option value="">Todos</option>
+        <option>1º Bimestre</option>
+        <option>2º Bimestre</option>
+        <option>3º Bimestre</option>
+        <option>4º Bimestre</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- SUMMARY CARDS -->
+  <div class="dash-cards" id="dash-summary"></div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;" class="dash-grid-2">
+
+    <!-- PLANEJAMENTOS ENTREGUES / CORRIGIDOS -->
+    <div class="card">
+      <div class="card-title">📋 Planejamentos por Turma</div>
+      <div id="dash-planejamentos"></div>
+    </div>
+
+    <!-- PARECERES PENDENTES -->
+    <div class="card">
+      <div class="card-title">⚠️ Pareceres Pendentes</div>
+      <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;">
+        <label style="font-size:13px;color:var(--gray-600);">Período:</label>
+        <select id="dash-periodo" onchange="renderDashboard()" style="width:auto;padding:5px 8px;font-size:13px;">
+          <option value="">— selecione —</option>
+          <option>1º Bimestre</option>
+          <option>2º Bimestre</option>
+          <option>3º Bimestre</option>
+          <option>4º Bimestre</option>
+        </select>
+      </div>
+      <div id="dash-pendentes"></div>
+    </div>
+
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;" class="dash-grid-2">
+
+    <!-- PRODUÇÃO POR PROFESSORA -->
+    <div class="card">
+      <div class="card-title">👩‍🏫 Produção por Professora</div>
+      <div id="dash-producao"></div>
+    </div>
+
+    <!-- ÚLTIMAS ATIVIDADES -->
+    <div class="card">
+      <div class="card-title">🕐 Últimas Atividades</div>
+      <div id="dash-atividades"></div>
+    </div>
+
+  </div>
+
+</div>
 
 <!-- ===================== CONFIGURAÇÃO ===================== -->
 <div id="tab-config" class="section active">
@@ -1128,8 +1249,10 @@ function aplicarPapel() {
   if (cardUsr) cardUsr.style.display = isDiretor ? '' : 'none';
 
   // Primeiro tab visível
+  document.getElementById('nav-dashboard').style.display = isDiretor ? '' : 'none';
+
   if (isDiretor) {
-    showTab('config');
+    showTab('dashboard');
   } else {
     showTab('planejamento');
   }
@@ -1231,6 +1354,7 @@ function showTab(tab) {
   document.getElementById('tab-' + tab).classList.add('active');
   document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
 
+  if (tab === 'dashboard')    { renderDashboard(); }
   if (tab === 'planejamento') { populateSelects(); renderPlanejamentos(); }
   if (tab === 'pareceres')    { populateSelects(); renderPareceres(); }
   if (tab === 'avaliacoes')   { populateSelects(); renderTabelaAvaliacoes(); }
@@ -1529,6 +1653,150 @@ function limparFormPlanejamento() {
   });
 }
 
+function renderDashboard() {
+  if (currentUser?.papel !== 'diretor') return;
+  const bimFiltro   = document.getElementById('dash-bimestre')?.value || '';
+  const periodoFilt = document.getElementById('dash-periodo')?.value  || '';
+
+  const plFilt = bimFiltro ? db.planejamentos.filter(p => p.bimestre === bimFiltro) : db.planejamentos;
+  const parFilt = bimFiltro ? db.pareceres.filter(p => p.periodo === bimFiltro)     : db.pareceres;
+
+  const professoras = db.usuarios.filter(u => u.papel === 'professora');
+
+  // --- SUMMARY CARDS ---
+  const totalAlunos   = db.alunos.length;
+  const totalTurmas   = db.turmas.length;
+  const totalProfs    = professoras.length;
+  const totalPar      = parFilt.length;
+  const totalPl       = plFilt.length;
+  const totalCorrig   = plFilt.filter(p => p.corrigido).length;
+
+  document.getElementById('dash-summary').innerHTML = `
+    <div class="dash-card">
+      <div class="dash-num">${totalAlunos}</div>
+      <div class="dash-label">Alunos</div>
+    </div>
+    <div class="dash-card blue">
+      <div class="dash-num">${totalTurmas}</div>
+      <div class="dash-label">Turmas</div>
+    </div>
+    <div class="dash-card amber">
+      <div class="dash-num">${totalProfs}</div>
+      <div class="dash-label">Professoras</div>
+    </div>
+    <div class="dash-card">
+      <div class="dash-num">${totalPar}</div>
+      <div class="dash-label">Pareceres</div>
+      ${bimFiltro ? `<div class="dash-sub">${bimFiltro}</div>` : ''}
+    </div>
+    <div class="dash-card amber">
+      <div class="dash-num">${totalPl}</div>
+      <div class="dash-label">Planejamentos</div>
+      <div class="dash-sub">${totalCorrig} corrigido(s)</div>
+    </div>
+  `;
+
+  // --- PLANEJAMENTOS POR TURMA ---
+  const plHtml = db.turmas.length === 0
+    ? '<p style="color:var(--gray-400);font-size:13px;">Nenhuma turma cadastrada.</p>'
+    : db.turmas.map(t => {
+        const tPl      = plFilt.filter(p => p.turmaId === t.id);
+        const entregue = tPl.length;
+        const corrig   = tPl.filter(p => p.corrigido).length;
+        const pctE = entregue > 0 ? 100 : 0;
+        const pctC = entregue > 0 ? Math.round((corrig / entregue) * 100) : 0;
+        return `
+          <div style="margin-bottom:14px;">
+            <div style="font-size:13px;font-weight:600;margin-bottom:6px;">${t.nome}</div>
+            <div class="progress-bar-wrap">
+              <div class="pb-label"><span>📥 Entregues</span><span>${entregue}</span></div>
+              <div class="progress-bar"><div class="progress-bar-fill fill-amber" style="width:${pctE}%"></div></div>
+            </div>
+            <div class="progress-bar-wrap">
+              <div class="pb-label"><span>✅ Corrigidos</span><span>${corrig} / ${entregue}</span></div>
+              <div class="progress-bar"><div class="progress-bar-fill fill-green" style="width:${pctC}%"></div></div>
+            </div>
+          </div>`;
+      }).join('');
+  document.getElementById('dash-planejamentos').innerHTML = plHtml;
+
+  // --- PARECERES PENDENTES ---
+  let pendHtml = '';
+  if (!periodoFilt) {
+    pendHtml = '<p style="color:var(--gray-400);font-size:13px;">Selecione um período acima.</p>';
+  } else {
+    const turmasComPendentes = db.turmas.map(t => {
+      const alunosDaTurma = db.alunos.filter(a => a.turmaId === t.id);
+      const comParecer    = db.pareceres.filter(p => p.turmaId === t.id && p.periodo === periodoFilt).map(p => p.alunoId);
+      const pendentes     = alunosDaTurma.filter(a => !comParecer.includes(a.id));
+      return { turma: t, pendentes };
+    }).filter(x => x.pendentes.length > 0);
+
+    if (turmasComPendentes.length === 0) {
+      pendHtml = '<div class="alert alert-info" style="margin:0;">Todos os alunos têm parecer neste período! 🎉</div>';
+    } else {
+      pendHtml = turmasComPendentes.map(x => `
+        <div class="pendente-turma">
+          <strong>${x.turma.nome} — ${x.pendentes.length} pendente(s)</strong>
+          ${x.pendentes.map(a => `<span class="pendente-chip">${a.nome}</span>`).join('')}
+        </div>`).join('');
+    }
+  }
+  document.getElementById('dash-pendentes').innerHTML = pendHtml;
+
+  // --- PRODUÇÃO POR PROFESSORA ---
+  const prodRows = professoras.length === 0
+    ? '<tr><td colspan="4" style="color:var(--gray-400);text-align:center;">Nenhuma professora cadastrada.</td></tr>'
+    : professoras.map(u => {
+        const turma = db.turmas.find(t => t.id === u.turmaId);
+        const pars  = parFilt.filter(p => p.turmaId === u.turmaId).length;
+        const pls   = plFilt.filter(p => p.turmaId === u.turmaId).length;
+        const cors  = plFilt.filter(p => p.turmaId === u.turmaId && p.corrigido).length;
+        return `<tr>
+          <td><strong>${u.nome}</strong><br><span style="font-size:11px;color:var(--gray-400);">${turma?.nome || '—'}</span></td>
+          <td style="text-align:center;">${pars}</td>
+          <td style="text-align:center;">${pls}</td>
+          <td style="text-align:center;"><span class="badge ${cors === pls && pls > 0 ? 'badge-green' : 'badge-amber'}">${cors}/${pls}</span></td>
+        </tr>`;
+      }).join('');
+  document.getElementById('dash-producao').innerHTML = `
+    <div class="table-wrap">
+      <table class="prod-table">
+        <thead><tr><th>Professora</th><th>Pareceres</th><th>Planej.</th><th>Corrigidos</th></tr></thead>
+        <tbody>${prodRows}</tbody>
+      </table>
+    </div>`;
+
+  // --- ÚLTIMAS ATIVIDADES ---
+  const atividades = [
+    ...db.pareceres.map(p => ({ tipo: 'parecer', label: `Parecer: ${p.alunoNome}`, sub: db.turmas.find(t=>t.id===p.turmaId)?.nome + ' · ' + p.periodo, ts: p.criadoEm })),
+    ...db.planejamentos.map(p => ({ tipo: 'plan', label: `Planej.: ${p.tema}`, sub: db.turmas.find(t=>t.id===p.turmaId)?.nome + (p.bimestre ? ' · ' + p.bimestre : ''), ts: p.criadoEm })),
+  ].sort((a, b) => new Date(b.ts) - new Date(a.ts)).slice(0, 10);
+
+  document.getElementById('dash-atividades').innerHTML = atividades.length === 0
+    ? '<p style="color:var(--gray-400);font-size:13px;">Nenhuma atividade registrada.</p>'
+    : atividades.map(a => {
+        const d = new Date(a.ts);
+        const dtStr = isNaN(d) ? '' : d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+        return `<div class="ativ-item">
+          <div class="ativ-icon">${a.tipo === 'parecer' ? '✨' : '📋'}</div>
+          <div class="ativ-info">
+            <strong>${a.label}</strong>
+            <span>${a.sub || ''} · ${dtStr}</span>
+          </div>
+        </div>`;
+      }).join('');
+}
+
+function toggleCorrigido(id) {
+  const pl = db.planejamentos.find(p => p.id === id);
+  if (!pl) return;
+  pl.corrigido = !pl.corrigido;
+  save();
+  renderPlanejamentos();
+  renderDashboard();
+}
+
 function deletePlanejamento(id) {
   if (!confirm('Excluir planejamento?')) return;
   db.planejamentos = db.planejamentos.filter(p => p.id !== id);
@@ -1565,6 +1833,10 @@ function renderPlanejamentos() {
         ${p.objetivos ? `<div style="margin-top:6px;font-size:13px;color:var(--gray-600);">🎯 ${p.objetivos.slice(0,120)}${p.objetivos.length>120?'…':''}</div>` : ''}
       </div>
       <div class="actions">
+        ${(currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga') ? `
+        <button class="btn btn-sm ${p.corrigido ? 'btn-primary' : 'btn-amber'}" onclick="toggleCorrigido('${p.id}')" title="${p.corrigido ? 'Corrigido — clique para desfazer' : 'Marcar como corrigido'}">
+          ${p.corrigido ? '✅ Corrigido' : '📝 Corrigir'}
+        </button>` : ''}
         <button class="btn btn-secondary btn-sm" onclick="verPlanejamento('${p.id}')">👁️</button>
         <button class="btn btn-danger btn-sm" onclick="deletePlanejamento('${p.id}')">🗑️</button>
       </div>
