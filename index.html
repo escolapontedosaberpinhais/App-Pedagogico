@@ -346,6 +346,53 @@
   .aluno-pick-card.selected .av { background: rgba(255,255,255,0.25); color: var(--white); }
   .aluno-picker-empty { font-size: 13px; color: var(--gray-400); padding: 6px 0; }
 
+  /* LOGIN */
+  .login-overlay {
+    position: fixed; inset: 0;
+    background: linear-gradient(145deg, #1D9E75 0%, #0e6b4f 100%);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; padding: 16px;
+  }
+  .login-card {
+    background: var(--white); border-radius: 16px; padding: 40px 36px;
+    width: 100%; max-width: 400px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.25);
+    animation: slideUp 0.3s ease;
+  }
+  @keyframes slideUp { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:none; } }
+  .login-logo { text-align: center; margin-bottom: 28px; }
+  .login-logo .icon { font-size: 52px; display: block; margin-bottom: 8px; }
+  .login-logo h2 { font-size: 20px; font-weight: 700; color: var(--green); }
+  .login-logo p { font-size: 13px; color: var(--gray-400); margin-top: 4px; }
+  .login-error { background: #fdeaea; color: #8b1a1a; border-radius: 6px;
+    padding: 10px 14px; font-size: 13px; margin-bottom: 12px; display: none; }
+
+  /* HEADER USER */
+  .header-user {
+    margin-left: auto; display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  }
+  .header-user .user-chip {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.15); border-radius: 20px;
+    padding: 4px 12px 4px 6px; font-size: 13px;
+  }
+  .header-user .user-av {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: rgba(255,255,255,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700;
+  }
+  .btn-logout {
+    padding: 5px 12px; border-radius: 6px; font-size: 13px; font-weight: 600;
+    background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3);
+    cursor: pointer; transition: background 0.2s;
+  }
+  .btn-logout:hover { background: rgba(255,255,255,0.25); }
+
+  /* ROLE BADGE */
+  .badge-pedagoga { background: #ede9fe; color: #5b21b6; }
+  .badge-professora { background: var(--green-light); color: var(--green-dark); }
+
   /* STUDENT TAG */
   .student-tag {
     display: inline-flex;
@@ -380,14 +427,46 @@
 </head>
 <body>
 
+<!-- LOGIN OVERLAY -->
+<div id="login-overlay" class="login-overlay">
+  <div class="login-card">
+    <div class="login-logo">
+      <span class="icon">🏫</span>
+      <h2>Escola Ponte do Saber</h2>
+      <p>Gestão Pedagógica — faça login para continuar</p>
+    </div>
+    <div id="login-error" class="login-error">Usuário ou senha incorretos.</div>
+    <div class="form-group" style="margin-bottom:12px;">
+      <label>Usuário</label>
+      <input type="text" id="login-usuario" placeholder="seu.usuario" autocomplete="username"
+             onkeydown="if(event.key==='Enter') document.getElementById('login-senha').focus()" />
+    </div>
+    <div class="form-group" style="margin-bottom:20px;">
+      <label>Senha</label>
+      <input type="password" id="login-senha" placeholder="••••••••" autocomplete="current-password"
+             onkeydown="if(event.key==='Enter') fazerLogin()" />
+    </div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;" onclick="fazerLogin()">
+      Entrar
+    </button>
+  </div>
+</div>
+
 <header>
   <div class="logo">🏫</div>
   <h1>Escola Ponte do Saber</h1>
-  <span>— Gestão Pedagógica</span>
+  <span id="header-sub" style="font-size:13px;opacity:0.8;">— Gestão Pedagógica</span>
+  <div class="header-user" id="header-user" style="display:none;">
+    <div class="user-chip">
+      <div class="user-av" id="header-av"></div>
+      <span id="header-nome"></span>
+    </div>
+    <button class="btn-logout" onclick="fazerLogout()">Sair</button>
+  </div>
 </header>
 
 <nav id="nav">
-  <button class="active" onclick="showTab('config')" data-tab="config">⚙️ Configuração</button>
+  <button class="active" onclick="showTab('config')" data-tab="config" id="nav-config">⚙️ Configuração</button>
   <button onclick="showTab('planejamento')" data-tab="planejamento">📋 Planejamentos</button>
   <button onclick="showTab('pareceres')" data-tab="pareceres">✨ Pareceres IA</button>
   <button onclick="showTab('avaliacoes')" data-tab="avaliacoes">📊 Avaliações</button>
@@ -413,7 +492,159 @@
       <button class="btn btn-primary" onclick="saveApiKey()">💾 Salvar chave</button>
       <button class="btn btn-secondary" onclick="toggleKeyVisibility()">👁️ Mostrar</button>
     </div>
+    <div style="margin-top:14px;">
+      <label style="font-size:13px;font-weight:600;color:var(--gray-600);">Modelo Gemini</label>
+      <div style="display:flex;gap:10px;align-items:center;margin-top:6px;flex-wrap:wrap;">
+        <select id="gemini-model" style="max-width:320px;" onchange="saveModel()">
+          <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite (recomendado — tier gratuito)</option>
+          <option value="gemini-2.0-flash">gemini-2.0-flash (requer billing)</option>
+          <option value="gemini-1.5-flash-latest">gemini-1.5-flash-latest (alternativo)</option>
+          <option value="gemini-1.5-flash-8b-latest">gemini-1.5-flash-8b-latest (mais leve)</option>
+        </select>
+        <span id="model-status" style="font-size:13px;color:var(--green);"></span>
+      </div>
+    </div>
     <div id="key-status" style="margin-top:10px; font-size:13px;"></div>
+  </div>
+
+  <!-- GOOGLE DRIVE VIA APPS SCRIPT -->
+  <div class="card">
+    <div class="card-title">☁️ Google Drive</div>
+    <div class="alert alert-info" style="margin-bottom:16px;">
+      Gratuito, sem cobrança e sem OAuth. Um script salva os arquivos direto no seu Drive, organizados por turma e bimestre.
+    </div>
+
+    <div class="card-title" style="font-size:14px; margin-bottom:8px;">Passo 1 — Criar o script</div>
+    <ol style="font-size:13px;color:var(--gray-600);margin:0 0 10px 18px;line-height:2.2;">
+      <li>Acesse <strong>script.google.com</strong> e clique em <strong>Novo projeto</strong></li>
+      <li>Apague todo o código e cole o código abaixo:</li>
+    </ol>
+    <div style="position:relative;">
+      <textarea id="script-code" readonly rows="12" style="font-family:monospace;font-size:12px;background:#1e1e1e;color:#d4d4d4;border:none;border-radius:6px;padding:14px;width:100%;resize:none;line-height:1.6;">function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents);
+    var folder = getFolder(data.path);
+    var filename = data.filename.replace(/\.txt$/i, '');
+    var lines = data.content.split('\n');
+
+    var files = folder.getFilesByName(filename);
+    var doc;
+    if (files.hasNext()) {
+      doc = DocumentApp.openById(files.next().getId());
+      doc.getBody().clear();
+    } else {
+      doc = DocumentApp.create(filename);
+      var f = DriveApp.getFileById(doc.getId());
+      folder.addFile(f);
+      DriveApp.getRootFolder().removeFile(f);
+    }
+
+    var body = doc.getBody();
+    body.setMarginTop(50);
+    body.setMarginBottom(50);
+    body.setMarginLeft(72);
+    body.setMarginRight(72);
+
+    var firstLine = true;
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (line === '' || /^=+$/.test(line) || /^-+$/.test(line)) continue;
+
+      var p = body.appendParagraph(line);
+
+      if (firstLine) {
+        p.setHeading(DocumentApp.ParagraphHeading.HEADING1);
+        p.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+        p.editAsText().setForegroundColor('#1D9E75');
+        firstLine = false;
+      } else if (/^[A-ZÁÉÍÓÚÀÂÃÊÔÕÜ\s\/\(\)]+:$/.test(line)) {
+        p.setHeading(DocumentApp.ParagraphHeading.HEADING2);
+        p.editAsText().setForegroundColor('#157a5b');
+      } else if (/^(Aluno\(a\)|Turma|Per|Data|Tom|Prof|Area|Tema):/.test(line)) {
+        p.editAsText().setBold(true);
+      } else {
+        p.setHeading(DocumentApp.ParagraphHeading.NORMAL);
+      }
+    }
+
+    doc.saveAndClose();
+    return ContentService.createTextOutput(JSON.stringify({ok:true}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({ok:false,error:err.toString()}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function getFolder(path) {
+  var folder = DriveApp.getRootFolder();
+  for (var i = 0; i < path.length; i++) {
+    var iter = folder.getFoldersByName(path[i]);
+    folder = iter.hasNext() ? iter.next() : folder.createFolder(path[i]);
+  }
+  return folder;
+}</textarea>
+      <button class="btn btn-secondary btn-sm" style="position:absolute;top:8px;right:8px;" onclick="copiarScript()">📋 Copiar</button>
+    </div>
+
+    <ol start="3" style="font-size:13px;color:var(--gray-600);margin:12px 0 16px 18px;line-height:2.2;">
+      <li>Clique em <strong>Implantar → Nova implantação</strong></li>
+      <li>Tipo: <strong>App da Web</strong> &nbsp;|&nbsp; Executar como: <strong>Eu</strong> &nbsp;|&nbsp; Acesso: <strong>Qualquer pessoa</strong></li>
+      <li>Clique em <strong>Implantar</strong>, autorize e copie a <strong>URL do app da Web</strong></li>
+    </ol>
+
+    <div class="card-title" style="font-size:14px; margin-bottom:8px;">Passo 2 — Conectar o app</div>
+    <div class="config-row">
+      <input type="text" id="apps-script-url" placeholder="https://script.google.com/macros/s/…/exec" />
+      <button class="btn btn-primary" id="btn-cloud-connect" onclick="saveAppsScript()">🔗 Conectar</button>
+      <button class="btn btn-danger" id="btn-cloud-disconnect" onclick="disconnectAppsScript()" style="display:none;">✕ Desconectar</button>
+    </div>
+    <div style="margin-top:10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+      <span id="drive-status" style="font-size:13px;"></span>
+      <button class="btn btn-secondary btn-sm" id="btn-testar" onclick="testarConexao()" style="display:none;">🧪 Testar conexão</button>
+    </div>
+    <div id="drive-folder-info" style="margin-top:10px;font-size:13px;color:var(--gray-600);display:none;">
+      📁 Estrutura no Drive: <code>Escola Ponte do Saber / {Turma} / {Bimestre} / Pareceres|Planejamentos</code>
+    </div>
+  </div>
+
+  <!-- USUÁRIOS (só pedagoga vê) -->
+  <div class="card" id="card-usuarios">
+    <div class="card-title">👥 Usuários</div>
+    <div class="alert alert-info" style="margin-bottom:14px;">
+      Crie um acesso por professora. Cada professora verá apenas a turma vinculada. A pedagoga tem acesso total.
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Nome completo</label>
+        <input type="text" id="usr-nome" placeholder="Profª Ana Silva" />
+      </div>
+      <div class="form-group">
+        <label>Usuário (login)</label>
+        <input type="text" id="usr-login" placeholder="ana.silva" />
+      </div>
+      <div class="form-group">
+        <label>Senha</label>
+        <input type="password" id="usr-senha" placeholder="mínimo 4 caracteres" />
+      </div>
+      <div class="form-group">
+        <label>Papel</label>
+        <select id="usr-papel" onchange="toggleUsrTurma()">
+          <option value="professora">Professora</option>
+          <option value="pedagoga">Pedagoga</option>
+          <option value="diretor">Diretor(a)</option>
+        </select>
+      </div>
+      <div class="form-group" id="usr-turma-group">
+        <label>Turma vinculada</label>
+        <select id="usr-turma"></select>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="addUsuario()">➕ Adicionar usuário</button>
+    </div>
+    <div class="divider"></div>
+    <div id="usuarios-list" class="item-list"></div>
   </div>
 
   <!-- TURMAS -->
@@ -488,6 +719,17 @@
       <div class="form-group">
         <label>Data *</label>
         <input type="date" id="pl-data" />
+      </div>
+      <div class="form-group">
+        <label>Período / Bimestre *</label>
+        <select id="pl-bimestre">
+          <option>1º Bimestre</option>
+          <option>2º Bimestre</option>
+          <option>3º Bimestre</option>
+          <option>4º Bimestre</option>
+          <option>1º Semestre</option>
+          <option>2º Semestre</option>
+        </select>
       </div>
       <div class="form-group">
         <label>Professora(o) *</label>
@@ -742,6 +984,7 @@ let db = {
   planejamentos: LS.get('ps_planejamentos', []),
   pareceres: LS.get('ps_pareceres', []),
   avaliacoes: LS.get('ps_avaliacoes', {}),
+  usuarios: LS.get('ps_usuarios', []),
 };
 
 function save() {
@@ -750,6 +993,159 @@ function save() {
   LS.set('ps_planejamentos', db.planejamentos);
   LS.set('ps_pareceres', db.pareceres);
   LS.set('ps_avaliacoes', db.avaliacoes);
+  LS.set('ps_usuarios', db.usuarios);
+}
+
+// =====================================================================
+// AUTENTICAÇÃO
+// =====================================================================
+let currentUser = null;
+
+function hashPw(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  return h.toString(36);
+}
+
+function getSession() {
+  try { return JSON.parse(sessionStorage.getItem('ps_sess')); } catch { return null; }
+}
+
+function fazerLogin() {
+  const usuario = document.getElementById('login-usuario').value.trim().toLowerCase();
+  const senha   = document.getElementById('login-senha').value;
+  const err     = document.getElementById('login-error');
+
+  const user = db.usuarios.find(u => u.usuario === usuario && u.senha === hashPw(senha));
+  if (!user) {
+    err.style.display = 'block';
+    document.getElementById('login-senha').value = '';
+    return;
+  }
+  err.style.display = 'none';
+  currentUser = user;
+  sessionStorage.setItem('ps_sess', JSON.stringify(user));
+  document.getElementById('login-overlay').style.display = 'none';
+  aplicarPapel();
+}
+
+function fazerLogout() {
+  currentUser = null;
+  sessionStorage.removeItem('ps_sess');
+  document.getElementById('login-overlay').style.display = 'flex';
+  document.getElementById('login-usuario').value = '';
+  document.getElementById('login-senha').value = '';
+  document.getElementById('header-user').style.display = 'none';
+}
+
+function aplicarPapel() {
+  if (!currentUser) return;
+
+  // Header
+  const av = currentUser.nome.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+  document.getElementById('header-av').textContent   = av;
+  document.getElementById('header-nome').textContent = currentUser.nome;
+  document.getElementById('header-user').style.display = 'flex';
+
+  const isDiretor  = currentUser.papel === 'diretor';
+
+  // Aba Config: só diretor
+  document.getElementById('nav-config').style.display = isDiretor ? '' : 'none';
+  // Card de usuários: só diretor
+  const cardUsr = document.getElementById('card-usuarios');
+  if (cardUsr) cardUsr.style.display = isDiretor ? '' : 'none';
+
+  // Primeiro tab visível
+  if (isDiretor) {
+    showTab('config');
+  } else {
+    showTab('planejamento');
+  }
+
+  populateSelects();
+  renderTurmas();
+  renderAlunos();
+  renderPlanejamentos();
+  renderPareceres();
+  renderUsuarios();
+}
+
+// turmas visíveis para o usuário atual
+function turmasVisiveis() {
+  if (!currentUser || currentUser.papel === 'diretor' || currentUser.papel === 'pedagoga') return db.turmas;
+  return db.turmas.filter(t => t.id === currentUser.turmaId);
+}
+
+// =====================================================================
+// USUÁRIOS — CRUD
+// =====================================================================
+function toggleUsrTurma() {
+  const papel = document.getElementById('usr-papel').value;
+  document.getElementById('usr-turma-group').style.display = papel === 'professora' ? '' : 'none';
+}
+
+function addUsuario() {
+  const nome   = document.getElementById('usr-nome').value.trim();
+  const login  = document.getElementById('usr-login').value.trim().toLowerCase();
+  const senha  = document.getElementById('usr-senha').value;
+  const papel  = document.getElementById('usr-papel').value;
+  const turmaId = papel === 'professora' ? document.getElementById('usr-turma').value : null;
+
+  if (!nome || !login || senha.length < 4) {
+    alert('Preencha nome, usuário e senha (mínimo 4 caracteres).'); return;
+  }
+  if (db.usuarios.find(u => u.usuario === login)) {
+    alert('Já existe um usuário com esse login.'); return;
+  }
+  db.usuarios.push({ id: uid(), nome, usuario: login, senha: hashPw(senha), papel, turmaId });
+  save();
+  document.getElementById('usr-nome').value = '';
+  document.getElementById('usr-login').value = '';
+  document.getElementById('usr-senha').value = '';
+  renderUsuarios();
+  showToast('Usuário criado!');
+}
+
+function deleteUsuario(id) {
+  if (id === currentUser?.id) { alert('Não é possível excluir o usuário logado.'); return; }
+  if (!confirm('Excluir este usuário?')) return;
+  db.usuarios = db.usuarios.filter(u => u.id !== id);
+  save();
+  renderUsuarios();
+}
+
+function renderUsuarios() {
+  const el = document.getElementById('usuarios-list');
+  if (!el) return;
+  if (db.usuarios.length === 0) {
+    el.innerHTML = '<div class="empty"><div class="icon">👥</div><p>Nenhum usuário cadastrado.</p></div>';
+    return;
+  }
+  el.innerHTML = db.usuarios.map(u => {
+    const turma = u.turmaId ? db.turmas.find(t => t.id === u.turmaId) : null;
+    const badge = u.papel === 'diretor' ? 'badge-amber' : u.papel === 'pedagoga' ? 'badge-pedagoga' : 'badge-professora';
+    const label = u.papel === 'diretor' ? 'Diretor(a)' : u.papel === 'pedagoga' ? 'Pedagoga' : 'Professora';
+    return `<div class="item-card">
+      <div class="info">
+        <strong>${u.nome}</strong>
+        <span>
+          <span class="badge ${badge}">${label}</span>
+          &nbsp;Login: <code>${u.usuario}</code>
+          ${turma ? `&nbsp;|&nbsp; Turma: ${turma.nome}` : ''}
+          ${u.id === currentUser?.id ? '&nbsp;<span class="badge badge-green">você</span>' : ''}
+        </span>
+      </div>
+      <div class="actions">
+        <button class="btn btn-danger btn-sm" onclick="deleteUsuario('${u.id}')" ${u.id === currentUser?.id ? 'disabled' : ''}>🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Populate select de turma no form
+  const sel = document.getElementById('usr-turma');
+  if (sel) {
+    sel.innerHTML = db.turmas.map(t => `<option value="${t.id}">${t.nome}</option>`).join('');
+  }
 }
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
@@ -772,9 +1168,9 @@ function showTab(tab) {
 // POPULATE SELECTS
 // =====================================================================
 function populateSelects() {
-  const turmas = db.turmas;
+  const turmas = turmasVisiveis();
 
-  ['aluno-turma', 'pl-turma', 'par-turma', 'av-turma', 'filtro-pl-turma'].forEach(id => {
+  ['aluno-turma', 'pl-turma', 'par-turma', 'av-turma', 'filtro-pl-turma', 'usr-turma'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     const prev = el.value;
@@ -788,6 +1184,14 @@ function populateSelects() {
     });
     if (prev) el.value = prev;
   });
+
+  // Para professora: pré-seleciona a turma dela
+  if (currentUser?.papel === 'professora' && currentUser.turmaId) {
+    ['pl-turma', 'par-turma', 'av-turma'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = currentUser.turmaId;
+    });
+  }
 
   populateAlunosParecer();
 }
@@ -844,17 +1248,51 @@ function toggleKeyVisibility() {
   inp.type = inp.type === 'password' ? 'text' : 'password';
 }
 
-// Init key field
+function saveModel() {
+  const model = document.getElementById('gemini-model').value;
+  localStorage.setItem('ps_gemini_model', model);
+  document.getElementById('model-status').textContent = '✅ Salvo';
+  setTimeout(() => { document.getElementById('model-status').textContent = ''; }, 1800);
+}
+
+function getModel() {
+  return localStorage.getItem('ps_gemini_model') || 'gemini-2.0-flash-lite';
+}
+
+// Init
 window.addEventListener('DOMContentLoaded', () => {
+  // Cria pedagoga padrão se não existir nenhum usuário
+  if (db.usuarios.length === 0) {
+    db.usuarios.push({
+      id: uid(), nome: 'Diretor(a)', usuario: 'diretor',
+      senha: hashPw('escola2024'), papel: 'diretor', turmaId: null,
+    });
+    save();
+  }
+
   if (db.apiKey) {
     document.getElementById('gemini-key').value = db.apiKey;
     setKeyStatus('✅ Chave carregada.', 'ok');
   }
-  populateSelects();
-  renderTurmas();
-  renderAlunos();
-  renderPlanejamentos();
-  renderPareceres();
+  const modelSel = document.getElementById('gemini-model');
+  if (modelSel) modelSel.value = getModel();
+
+  const savedUrl = localStorage.getItem('ps_apps_script_url');
+  if (savedUrl) {
+    document.getElementById('apps-script-url').value = savedUrl;
+    updateCloudStatus(true);
+  } else {
+    updateCloudStatus(false);
+  }
+
+  // Restaura sessão ou mostra login
+  const sess = getSession();
+  if (sess) {
+    currentUser = sess;
+    document.getElementById('login-overlay').style.display = 'none';
+    aplicarPapel();
+  }
+  // Se não há sessão, o overlay de login já está visível por padrão
 });
 
 // =====================================================================
@@ -977,10 +1415,12 @@ function salvarPlanejamento() {
     alert('Preencha os campos obrigatórios (*).');
     return;
   }
+  const bimestre = document.getElementById('pl-bimestre').value;
   const pl = {
     id: uid(),
     turmaId,
     data,
+    bimestre,
     prof,
     area,
     tema,
@@ -995,11 +1435,23 @@ function salvarPlanejamento() {
   save();
   limparFormPlanejamento();
   renderPlanejamentos();
-  showToast('Planejamento salvo!');
+
+  if (appsScriptUrl) {
+    const turma = db.turmas.find(t => t.id === turmaId);
+    const turmaNome = sanitizeName(turma ? turma.nome : 'Turma');
+    const dataFmt = data ? data.replace(/-/g, '') : 'sem-data';
+    const filename = sanitizeName(`${tema} - ${dataFmt}`) + '.txt';
+    uploadToDrive(filename, buildPlanejamentoTxt(pl),
+      'Escola Ponte do Saber', turmaNome, bimestre, 'Planejamentos')
+      .then(() => showToast('✅ Planejamento salvo no Drive!'))
+      .catch(e => showToast('⚠️ Salvo localmente. Drive: ' + e.message));
+  } else {
+    showToast('Planejamento salvo!');
+  }
 }
 
 function limparFormPlanejamento() {
-  ['pl-data','pl-prof','pl-area','pl-tema','pl-objetivos','pl-metodologia','pl-bncc','pl-recursos','pl-avaliacao'].forEach(id => {
+  ['pl-data','pl-prof','pl-area','pl-tema','pl-objetivos','pl-metodologia','pl-bncc','pl-recursos','pl-avaliacao','pl-bimestre'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -1016,7 +1468,11 @@ function renderPlanejamentos() {
   const el = document.getElementById('planejamentos-list');
   const filtro = document.getElementById('filtro-pl-turma')?.value;
   let list = db.planejamentos;
-  if (filtro) list = list.filter(p => p.turmaId === filtro);
+  if (currentUser?.papel === 'professora') {
+    list = list.filter(p => p.turmaId === currentUser.turmaId);
+  } else if (filtro) {
+    list = list.filter(p => p.turmaId === filtro);
+  }
 
   if (list.length === 0) {
     el.innerHTML = '<div class="empty"><div class="icon">📋</div><p>Nenhum planejamento salvo.</p></div>';
@@ -1031,6 +1487,7 @@ function renderPlanejamentos() {
         <strong>${p.tema}</strong>
         <span>
           <span class="badge badge-green">${turma ? turma.nome : '—'}</span>
+          ${p.bimestre ? `<span class="badge badge-gray">${p.bimestre}</span>` : ''}
           &nbsp;${p.area} &nbsp;|&nbsp; 📅 ${dataFmt} &nbsp;|&nbsp; 👩‍🏫 ${p.prof}
         </span>
         ${p.objetivos ? `<div style="margin-top:6px;font-size:13px;color:var(--gray-600);">🎯 ${p.objetivos.slice(0,120)}${p.objetivos.length>120?'…':''}</div>` : ''}
@@ -1136,7 +1593,7 @@ Escreva o parecer completo, começando diretamente com o texto (sem título, sem
   document.getElementById('alert-parecer').innerHTML = '';
 
   try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${db.apiKey}`, {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${getModel()}:generateContent?key=${db.apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1181,7 +1638,7 @@ function salvarParecer() {
   const turmaId = document.getElementById('par-turma').value;
   const periodo = document.getElementById('par-periodo').value;
 
-  db.pareceres.unshift({
+  const p = {
     id: uid(),
     alunoId,
     alunoNome: aluno.nome,
@@ -1190,11 +1647,23 @@ function salvarParecer() {
     texto,
     tom: selectedTone,
     criadoEm: new Date().toISOString(),
-  });
+  };
+  db.pareceres.unshift(p);
   save();
   renderPareceres();
-  showToast('Parecer salvo!');
   document.getElementById('card-resultado').style.display = 'none';
+
+  if (appsScriptUrl) {
+    const turma = db.turmas.find(t => t.id === turmaId);
+    const turmaNome = sanitizeName(turma ? turma.nome : 'Turma');
+    const filename = sanitizeName(`${aluno.nome} - ${periodo}`) + '.txt';
+    uploadToDrive(filename, buildParecerTxt(p),
+      'Escola Ponte do Saber', turmaNome, periodo, 'Pareceres')
+      .then(() => showToast('✅ Parecer salvo no Drive!'))
+      .catch(e => showToast('⚠️ Salvo localmente. Drive: ' + e.message));
+  } else {
+    showToast('Parecer salvo!');
+  }
 }
 
 function copiarParecer() {
@@ -1211,11 +1680,14 @@ function deleteParecer(id) {
 
 function renderPareceres() {
   const el = document.getElementById('pareceres-list');
-  if (db.pareceres.length === 0) {
+  let list = db.pareceres;
+  if (currentUser?.papel === 'professora')
+    list = list.filter(p => p.turmaId === currentUser.turmaId);
+  if (list.length === 0) {
     el.innerHTML = '<div class="empty"><div class="icon">✨</div><p>Nenhum parecer salvo.</p></div>';
     return;
   }
-  el.innerHTML = db.pareceres.map(p => {
+  el.innerHTML = list.map(p => {
     const turma = db.turmas.find(t => t.id === p.turmaId);
     const data = new Date(p.criadoEm).toLocaleDateString('pt-BR');
     const preview = p.texto.slice(0, 140) + (p.texto.length > 140 ? '…' : '');
@@ -1575,6 +2047,108 @@ function exportarAvaliacoes() {
     txt += '\n';
   });
   downloadTxt(txt, 'avaliacoes_ponte_do_saber.txt');
+}
+
+// =====================================================================
+// GOOGLE DRIVE — APPS SCRIPT
+// =====================================================================
+let appsScriptUrl = localStorage.getItem('ps_apps_script_url') || null;
+
+function saveAppsScript() {
+  const url = document.getElementById('apps-script-url').value.trim();
+  if (!url || !url.startsWith('https://script.google.com')) {
+    alert('Cole a URL gerada pelo Apps Script (começa com https://script.google.com/macros/…)');
+    return;
+  }
+  appsScriptUrl = url;
+  localStorage.setItem('ps_apps_script_url', url);
+  updateCloudStatus(true);
+  showToast('✅ Google Drive conectado!');
+}
+
+function disconnectAppsScript() {
+  appsScriptUrl = null;
+  localStorage.removeItem('ps_apps_script_url');
+  updateCloudStatus(false);
+  showToast('Desconectado.');
+}
+
+async function testarConexao() {
+  try {
+    await uploadToDrive('teste-conexao.txt', 'Conexão OK — Escola Ponte do Saber',
+      'Escola Ponte do Saber', '_teste');
+    showToast('✅ Conexão funcionando! Verifique seu Drive.');
+  } catch(e) {
+    showToast('❌ Falha: ' + e.message);
+  }
+}
+
+function copiarScript() {
+  const txt = document.getElementById('script-code').value;
+  navigator.clipboard.writeText(txt).then(() => showToast('Código copiado!'));
+}
+
+function updateCloudStatus(connected, msg) {
+  const status = document.getElementById('drive-status');
+  const btnCon = document.getElementById('btn-cloud-connect');
+  const btnDis = document.getElementById('btn-cloud-disconnect');
+  const btnTst = document.getElementById('btn-testar');
+  const info   = document.getElementById('drive-folder-info');
+  if (connected) {
+    status.innerHTML = '<span style="color:var(--green);">✅ Conectado ao Google Drive</span>';
+    btnCon.style.display = 'none';
+    btnDis.style.display = '';
+    btnTst.style.display = '';
+    info.style.display   = '';
+  } else {
+    status.innerHTML = msg
+      ? `<span style="color:var(--red);">${msg}</span>`
+      : '<span style="color:var(--gray-400);">Não conectado</span>';
+    btnCon.style.display = '';
+    btnDis.style.display = 'none';
+    btnTst.style.display = 'none';
+    info.style.display   = 'none';
+  }
+}
+
+async function uploadToDrive(filename, content, ...folderPath) {
+  if (!appsScriptUrl) throw new Error('Apps Script não configurado.');
+  // no-cors contorna o redirecionamento do Apps Script que bloqueia CORS.
+  // A resposta é opaca (não pode ser lida), mas o upload chega ao Drive.
+  await fetch(appsScriptUrl, {
+    method: 'POST',
+    mode: 'no-cors',
+    body: JSON.stringify({
+      path: folderPath.map(sanitizeName),
+      filename: sanitizeName(filename),
+      content,
+    }),
+  });
+}
+
+function sanitizeName(str) {
+  return str.replace(/[/\\?%*:|"<>]/g, '-').trim().slice(0, 100);
+}
+
+function buildParecerTxt(p) {
+  const turma = db.turmas.find(t => t.id === p.turmaId);
+  const data = new Date(p.criadoEm).toLocaleDateString('pt-BR');
+  return `PARECER DESCRITIVO — ESCOLA PONTE DO SABER\n${'='.repeat(50)}\n`
+    + `Aluno(a): ${p.alunoNome}\nTurma: ${turma ? turma.nome : '—'}\nPeríodo: ${p.periodo}\nData: ${data}\nTom: ${p.tom}\n\n`
+    + p.texto + '\n';
+}
+
+function buildPlanejamentoTxt(p) {
+  const turma = db.turmas.find(t => t.id === p.turmaId);
+  const dataFmt = p.data ? new Date(p.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+  let txt = `PLANEJAMENTO DE AULA — ESCOLA PONTE DO SABER\n${'='.repeat(50)}\n`
+    + `Turma: ${turma ? turma.nome : '—'}\nData: ${dataFmt}\nPeríodo: ${p.bimestre || '—'}\nProfessora(o): ${p.prof}\nÁrea: ${p.area}\nTema: ${p.tema}\n\n`;
+  if (p.objetivos)   txt += `OBJETIVOS:\n${p.objetivos}\n\n`;
+  if (p.metodologia) txt += `METODOLOGIA:\n${p.metodologia}\n\n`;
+  if (p.bncc)        txt += `HABILIDADES BNCC:\n${p.bncc}\n\n`;
+  if (p.recursos)    txt += `RECURSOS:\n${p.recursos}\n\n`;
+  if (p.avaliacao)   txt += `AVALIAÇÃO:\n${p.avaliacao}\n`;
+  return txt;
 }
 
 // =====================================================================
