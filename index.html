@@ -789,7 +789,7 @@
     }
 
     doc.saveAndClose();
-    return ContentService.createTextOutput(JSON.stringify({ok:true}))
+    return ContentService.createTextOutput(JSON.stringify({ok:true, url: doc.getUrl()}))
       .setMimeType(ContentService.MimeType.JSON);
   } catch(err) {
     return ContentService.createTextOutput(JSON.stringify({ok:false,error:err.toString()}))
@@ -1903,7 +1903,10 @@ function salvarPlanejamento() {
     const filename = sanitizeName(`${tema} - ${dataFmt}`) + '.txt';
     uploadToDrive(filename, buildPlanejamentoTxt(pl),
       'Escola Ponte do Saber', turmaNome, bimestre, 'Planejamentos')
-      .then(() => showToast('✅ Planejamento salvo no Drive!'))
+      .then(url => {
+        if (url) { pl.docUrl = url; save(); renderPlanejamentos(); }
+        showToast('✅ Planejamento salvo no Drive!');
+      })
       .catch(e => showToast('⚠️ Salvo localmente. Drive: ' + e.message));
   } else {
     showToast('Planejamento salvo!');
@@ -2054,6 +2057,21 @@ function renderDashboard() {
       }).join('');
 }
 
+function fmtDateTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function toggleParecerCorrigido(id) {
+  const p = db.pareceres.find(x => x.id === id);
+  if (!p) return;
+  p.corrigido = !p.corrigido;
+  save();
+  renderPareceres();
+  renderDashboard();
+}
+
 function toggleCorrigido(id) {
   const pl = db.planejamentos.find(p => p.id === id);
   if (!pl) return;
@@ -2088,6 +2106,8 @@ function renderPlanejamentos() {
   el.innerHTML = list.map(p => {
     const turma = db.turmas.find(t => t.id === p.turmaId);
     const dataFmt = p.data ? new Date(p.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+    const savedAt = fmtDateTime(p.criadoEm);
+    const canCorrect = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
     return `<div class="item-card">
       <div class="info">
         <strong>${p.tema}</strong>
@@ -2096,11 +2116,12 @@ function renderPlanejamentos() {
           ${p.bimestre ? `<span class="badge badge-gray">${p.bimestre}</span>` : ''}
           &nbsp;${p.area} &nbsp;|&nbsp; 📅 ${dataFmt} &nbsp;|&nbsp; 👩‍🏫 ${p.prof}
         </span>
-        ${p.objetivos ? `<div style="margin-top:6px;font-size:13px;color:var(--gray-600);">🎯 ${p.objetivos.slice(0,120)}${p.objetivos.length>120?'…':''}</div>` : ''}
+        <span style="font-size:12px;color:var(--gray-400);">💾 Salvo em: ${savedAt}</span>
+        ${p.objetivos ? `<div style="margin-top:4px;font-size:13px;color:var(--gray-600);">🎯 ${p.objetivos.slice(0,120)}${p.objetivos.length>120?'…':''}</div>` : ''}
       </div>
       <div class="actions">
-        ${(currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga') ? `
-        <button class="btn btn-sm ${p.corrigido ? 'btn-primary' : 'btn-amber'}" onclick="toggleCorrigido('${p.id}')" title="${p.corrigido ? 'Corrigido — clique para desfazer' : 'Marcar como corrigido'}">
+        ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')" title="Abrir no Google Docs">📄 Docs</button>` : ''}
+        ${canCorrect ? `<button class="btn btn-sm ${p.corrigido ? 'btn-primary' : 'btn-amber'}" onclick="toggleCorrigido('${p.id}')">
           ${p.corrigido ? '✅ Corrigido' : '📝 Corrigir'}
         </button>` : ''}
         <button class="btn btn-secondary btn-sm" onclick="verPlanejamento('${p.id}')">👁️</button>
@@ -2113,14 +2134,16 @@ function renderPlanejamentos() {
 function verPlanejamento(id) {
   const p = db.planejamentos.find(x => x.id === id);
   if (!p) return;
+  if (p.docUrl) { window.open(p.docUrl, '_blank'); return; }
   const turma = db.turmas.find(t => t.id === p.turmaId);
   const dataFmt = p.data ? new Date(p.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
   let txt = `PLANEJAMENTO DE AULA\n${'='.repeat(40)}\n`;
   txt += `Turma: ${turma ? turma.nome : '—'}\nData: ${dataFmt}\nProfessora(o): ${p.prof}\nÁrea: ${p.area}\nTema: ${p.tema}\n\n`;
-  if (p.objetivos) txt += `OBJETIVOS:\n${p.objetivos}\n\n`;
-  if (p.metodologia) txt += `METODOLOGIA:\n${p.metodologia}\n\n`;
-  if (p.recursos) txt += `RECURSOS:\n${p.recursos}\n\n`;
-  if (p.avaliacao) txt += `AVALIAÇÃO:\n${p.avaliacao}\n`;
+  if (p.objetivos)    txt += `OBJETIVOS:\n${p.objetivos}\n\n`;
+  if (p.metodologia)  txt += `METODOLOGIA:\n${p.metodologia}\n\n`;
+  if (p.bncc)         txt += `BNCC:\n${p.bncc}\n\n`;
+  if (p.recursos)     txt += `RECURSOS:\n${p.recursos}\n\n`;
+  if (p.avaliacao)    txt += `AVALIAÇÃO:\n${p.avaliacao}\n`;
   alert(txt);
 }
 
@@ -2274,7 +2297,10 @@ function salvarParecer() {
     const filename = sanitizeName(`${aluno.nome} - ${periodo}`) + '.txt';
     uploadToDrive(filename, buildParecerTxt(p),
       'Escola Ponte do Saber', turmaNome, periodo, 'Pareceres')
-      .then(() => showToast('✅ Parecer salvo no Drive!'))
+      .then(url => {
+        if (url) { p.docUrl = url; save(); renderPareceres(); }
+        showToast('✅ Parecer salvo no Drive!');
+      })
       .catch(e => showToast('⚠️ Salvo localmente. Drive: ' + e.message));
   } else {
     showToast('Parecer salvo!');
@@ -2304,15 +2330,21 @@ function renderPareceres() {
   }
   el.innerHTML = list.map(p => {
     const turma = db.turmas.find(t => t.id === p.turmaId);
-    const data = new Date(p.criadoEm).toLocaleDateString('pt-BR');
+    const savedAt = fmtDateTime(p.criadoEm);
     const preview = p.texto.slice(0, 140) + (p.texto.length > 140 ? '…' : '');
+    const canCorrect = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
     return `<div class="item-card">
       <div class="info">
         <strong>${p.alunoNome}</strong>
-        <span><span class="badge badge-green">${turma ? turma.nome : '—'}</span> &nbsp;${p.periodo} &nbsp;|&nbsp; Tom: ${p.tom} &nbsp;|&nbsp; 📅 ${data}</span>
-        <div style="margin-top:6px;font-size:13px;color:var(--gray-600);">${preview}</div>
+        <span><span class="badge badge-green">${turma ? turma.nome : '—'}</span> &nbsp;${p.periodo} &nbsp;|&nbsp; Tom: ${p.tom}</span>
+        <span style="font-size:12px;color:var(--gray-400);">💾 Salvo em: ${savedAt}</span>
+        <div style="margin-top:4px;font-size:13px;color:var(--gray-600);">${preview}</div>
       </div>
       <div class="actions" style="flex-direction:column; gap:5px;">
+        ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')" title="Abrir no Google Docs">📄 Docs</button>` : ''}
+        ${canCorrect ? `<button class="btn btn-sm ${p.corrigido ? 'btn-primary' : 'btn-amber'}" onclick="toggleParecerCorrigido('${p.id}')">
+          ${p.corrigido ? '✅ Corrigido' : '📝 Corrigir'}
+        </button>` : ''}
         <button class="btn btn-secondary btn-sm" onclick="verParecer('${p.id}')">👁️</button>
         <button class="btn btn-danger btn-sm" onclick="deleteParecer('${p.id}')">🗑️</button>
       </div>
@@ -2730,17 +2762,22 @@ function updateCloudStatus(connected, msg) {
 
 async function uploadToDrive(filename, content, ...folderPath) {
   if (!appsScriptUrl) throw new Error('Apps Script não configurado.');
-  // no-cors contorna o redirecionamento do Apps Script que bloqueia CORS.
-  // A resposta é opaca (não pode ser lida), mas o upload chega ao Drive.
-  await fetch(appsScriptUrl, {
+  // Sem Content-Type e sem no-cors: text/plain não dispara preflight CORS
+  // e podemos ler a resposta com a URL do Google Doc.
+  const res = await fetch(appsScriptUrl, {
     method: 'POST',
-    mode: 'no-cors',
     body: JSON.stringify({
       path: folderPath.map(sanitizeName),
       filename: sanitizeName(filename),
       content,
     }),
   });
+  try {
+    const json = await res.json();
+    return json.url || null;
+  } catch {
+    return null;
+  }
 }
 
 function sanitizeName(str) {
