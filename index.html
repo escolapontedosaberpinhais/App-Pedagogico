@@ -954,7 +954,7 @@ function getFolder(path) {
       </div>
       <div class="form-group">
         <label>Professora(o) *</label>
-        <input type="text" id="pl-prof" placeholder="Nome" />
+        <div id="pl-prof-wrap"></div>
       </div>
       <div class="form-group">
         <label>Área curricular *</label>
@@ -1632,7 +1632,24 @@ function populateSelects() {
     }
   }
 
+  renderProfField();
   populateAlunosParecer();
+}
+
+function renderProfField() {
+  const wrap = document.getElementById('pl-prof-wrap');
+  if (!wrap) return;
+  if (currentUser?.papel === 'professora') {
+    wrap.innerHTML = `<input type="text" id="pl-prof" value="${currentUser.nome}" readonly
+      style="background:var(--gray-100);color:var(--gray-600);cursor:not-allowed;">`;
+  } else {
+    const profs = db.usuarios.filter(u => u.papel === 'professora');
+    const opts  = profs.map(u => `<option value="${u.nome}">${u.nome}</option>`).join('');
+    wrap.innerHTML = `<select id="pl-prof">
+      <option value="">— Selecionar professora —</option>
+      ${opts}
+    </select>`;
+  }
 }
 
 function populateAlunosParecer() {
@@ -1894,10 +1911,11 @@ function salvarPlanejamento() {
 }
 
 function limparFormPlanejamento() {
-  ['pl-data','pl-prof','pl-area','pl-tema','pl-objetivos','pl-metodologia','pl-bncc','pl-recursos','pl-avaliacao','pl-bimestre'].forEach(id => {
+  ['pl-data','pl-area','pl-tema','pl-objetivos','pl-metodologia','pl-bncc','pl-recursos','pl-avaliacao','pl-bimestre'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
+  renderProfField();
 }
 
 function renderDashboard() {
