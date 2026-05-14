@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -2142,6 +2142,8 @@ async function verPlanejamento(id) {
     return;
   }
 
+  // Abre a janela ANTES do await — browsers bloqueiam window.open() após operações async
+  const win = window.open('about:blank', '_blank');
   showToast('📤 Enviando ao Google Drive…');
   try {
     const turma = db.turmas.find(t => t.id === p.turmaId);
@@ -2154,11 +2156,13 @@ async function verPlanejamento(id) {
       p.docUrl = url;
       save();
       renderPlanejamentos();
-      window.open(url, '_blank');
+      win.location.href = url;
     } else {
+      win.close();
       showToast('⚠️ Atualize e reimplante o Apps Script para obter o link do Google Docs.');
     }
   } catch(e) {
+    win.close();
     showToast('⚠️ Erro ao enviar: ' + e.message);
   }
 }
@@ -2376,6 +2380,7 @@ async function verParecer(id) {
   const podeAbriDocs = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
   if (podeAbriDocs && p.docUrl) { window.open(p.docUrl, '_blank'); return; }
   if (podeAbriDocs && appsScriptUrl) {
+    const win = window.open('about:blank', '_blank');
     showToast('📤 Enviando ao Google Drive…');
     try {
       const turmaRef = db.turmas.find(t => t.id === p.turmaId);
@@ -2387,10 +2392,12 @@ async function verParecer(id) {
         p.docUrl = url;
         save();
         renderPareceres();
-        window.open(url, '_blank');
+        win.location.href = url;
         return;
+      } else {
+        win.close();
       }
-    } catch(e) { /* cai para a janela de impressão */ }
+    } catch(e) { win.close(); /* cai para a janela de impressão */ }
   }
 
   const turma = db.turmas.find(t => t.id === p.turmaId);
