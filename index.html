@@ -781,6 +781,30 @@
 
   </div>
 
+  <!-- RELATÓRIO DE CORREÇÕES -->
+  <div class="card" style="margin-top:0;">
+    <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <span>📝 Pendentes de Correção</span>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <select id="dash-corr-filtro" onchange="renderDashCorreções()" style="font-size:13px;padding:5px 10px;border:1px solid var(--gray-200);border-radius:6px;">
+          <option value="">Todos os bimestres</option>
+          <option>1º Bimestre</option>
+          <option>2º Bimestre</option>
+          <option>3º Bimestre</option>
+          <option>4º Bimestre</option>
+          <option>1º Semestre</option>
+          <option>2º Semestre</option>
+        </select>
+        <select id="dash-corr-tipo" onchange="renderDashCorreções()" style="font-size:13px;padding:5px 10px;border:1px solid var(--gray-200);border-radius:6px;">
+          <option value="">Planejamentos + Pareceres</option>
+          <option value="planejamento">Só Planejamentos</option>
+          <option value="parecer">Só Pareceres</option>
+        </select>
+      </div>
+    </div>
+    <div id="dash-correcoes"></div>
+  </div>
+
 </div>
 
 <!-- ===================== CONFIGURAÇÃO ===================== -->
@@ -2152,6 +2176,114 @@ function renderDashboard() {
           </div>
         </div>`;
       }).join('');
+
+  // --- PENDENTES DE CORREÇÃO ---
+  renderDashCorreções();
+}
+
+function renderDashCorreções() {
+  const el = document.getElementById('dash-correcoes');
+  if (!el) return;
+  const bimFiltro  = document.getElementById('dash-corr-filtro')?.value || '';
+  const tipoFiltro = document.getElementById('dash-corr-tipo')?.value   || '';
+
+  // Planejamentos não corrigidos
+  let pls = db.planejamentos.filter(p => !p.corrigido);
+  if (bimFiltro) pls = pls.filter(p => p.bimestre === bimFiltro);
+
+  // Pareceres não corrigidos
+  let pars = db.pareceres.filter(p => !p.corrigido);
+  if (bimFiltro) pars = pars.filter(p => p.periodo === bimFiltro);
+
+  const mostrarPl  = tipoFiltro === '' || tipoFiltro === 'planejamento';
+  const mostrarPar = tipoFiltro === '' || tipoFiltro === 'parecer';
+
+  if ((mostrarPl && pls.length === 0) && (mostrarPar && pars.length === 0)) {
+    el.innerHTML = '<div class="alert alert-info" style="margin:0;">🎉 Tudo corrigido! Nenhum item pendente.</div>';
+    return;
+  }
+
+  let html = '';
+
+  if (mostrarPl && pls.length > 0) {
+    html += `<div style="margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:700;color:var(--amber);margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+        📋 Planejamentos pendentes <span style="background:var(--amber);color:#fff;border-radius:20px;padding:1px 9px;font-size:12px;">${pls.length}</span>
+      </div>
+      <div class="item-list">`;
+    pls.forEach(p => {
+      const turma = db.turmas.find(t => t.id === p.turmaId);
+      const dataFmt = p.data ? new Date(p.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+      const conteudo = p.conteudos || p.tema || '—';
+      const savedAt = fmtDateTime(p.criadoEm);
+      html += `<div class="item-card" style="border-left:3px solid var(--amber);">
+        <div class="info">
+          <strong>${conteudo}</strong>
+          <span>
+            <span class="badge badge-green">${turma ? turma.nome : '—'}</span>
+            ${p.bimestre ? `<span class="badge badge-gray">${p.bimestre}</span>` : ''}
+            &nbsp;📅 ${dataFmt} &nbsp;|&nbsp; 👩‍🏫 ${p.prof}
+          </span>
+          <span style="font-size:12px;color:var(--gray-400);">💾 Entregue: ${savedAt}</span>
+        </div>
+        <div class="actions">
+          ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')" title="Abrir no Google Docs">📄 Docs</button>` : ''}
+          <button class="btn btn-secondary btn-sm" onclick="verPlanejamento('${p.id}')" title="Visualizar">👁️</button>
+          <button class="btn btn-sm btn-amber" onclick="toggleCorrigidoDash('pl','${p.id}')">📝 Corrigir</button>
+        </div>
+      </div>`;
+    });
+    html += '</div></div>';
+  }
+
+  if (mostrarPar && pars.length > 0) {
+    html += `<div>
+      <div style="font-size:13px;font-weight:700;color:var(--green-dark);margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+        ✨ Pareceres pendentes <span style="background:var(--green);color:#fff;border-radius:20px;padding:1px 9px;font-size:12px;">${pars.length}</span>
+      </div>
+      <div class="item-list">`;
+    pars.forEach(p => {
+      const turma = db.turmas.find(t => t.id === p.turmaId);
+      const savedAt = fmtDateTime(p.criadoEm);
+      const preview = p.texto ? p.texto.slice(0, 100) + (p.texto.length > 100 ? '…' : '') : '';
+      html += `<div class="item-card" style="border-left:3px solid var(--green);">
+        <div class="info">
+          <strong>${p.alunoNome}</strong>
+          <span>
+            <span class="badge badge-green">${turma ? turma.nome : '—'}</span>
+            &nbsp;${p.periodo} &nbsp;|&nbsp; Tom: ${p.tom}
+          </span>
+          <span style="font-size:12px;color:var(--gray-400);">💾 Entregue: ${savedAt}</span>
+          ${preview ? `<div style="margin-top:4px;font-size:13px;color:var(--gray-600);">${preview}</div>` : ''}
+        </div>
+        <div class="actions">
+          ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')" title="Abrir no Google Docs">📄 Docs</button>` : ''}
+          <button class="btn btn-secondary btn-sm" onclick="verParecer('${p.id}')" title="Visualizar">👁️</button>
+          <button class="btn btn-sm btn-amber" onclick="toggleCorrigidoDash('par','${p.id}')">📝 Corrigir</button>
+        </div>
+      </div>`;
+    });
+    html += '</div></div>';
+  }
+
+  el.innerHTML = html;
+}
+
+function toggleCorrigidoDash(tipo, id) {
+  if (tipo === 'pl') {
+    const pl = db.planejamentos.find(p => p.id === id);
+    if (!pl) return;
+    pl.corrigido = true;
+    save();
+  } else {
+    const par = db.pareceres.find(p => p.id === id);
+    if (!par) return;
+    par.corrigido = true;
+    save();
+  }
+  renderDashCorreções();
+  renderDashboard();
+  showToast('✅ Marcado como corrigido!');
 }
 
 function fmtDateTime(iso) {
