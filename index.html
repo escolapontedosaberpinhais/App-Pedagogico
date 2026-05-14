@@ -1401,6 +1401,7 @@ function aplicarPapel() {
   document.getElementById('header-user').style.display = 'flex';
 
   const isDiretor  = currentUser.papel === 'diretor';
+  const isGestao   = isDiretor || currentUser.papel === 'pedagoga';
 
   // Aba Config: só diretor
   document.getElementById('nav-config').style.display = isDiretor ? '' : 'none';
@@ -1408,10 +1409,10 @@ function aplicarPapel() {
   const cardUsr = document.getElementById('card-usuarios');
   if (cardUsr) cardUsr.style.display = isDiretor ? '' : 'none';
 
-  // Primeiro tab visível
-  document.getElementById('nav-dashboard').style.display = isDiretor ? '' : 'none';
+  // Dashboard: diretor e pedagoga
+  document.getElementById('nav-dashboard').style.display = isGestao ? '' : 'none';
 
-  if (isDiretor) {
+  if (isGestao) {
     showTab('dashboard');
   } else {
     showTab('planejamento');
