@@ -418,6 +418,9 @@
   .dash-card.blue  .dash-num { color: #4a90d9; }
   .dash-card .dash-label { font-size: 12px; color: var(--gray-600); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
   .dash-card .dash-sub   { font-size: 11px; color: var(--gray-400); margin-top: 3px; }
+  .dash-card[onclick] { cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
+  .dash-card[onclick]:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+  .dash-card[onclick]:active { transform: translateY(0); }
 
   .progress-bar-wrap { margin: 6px 0 12px; }
   .progress-bar-wrap .pb-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--gray-600); margin-bottom: 4px; }
@@ -2031,27 +2034,30 @@ function renderDashboard() {
   const totalCorrig   = plFilt.filter(p => p.corrigido).length;
 
   document.getElementById('dash-summary').innerHTML = `
-    <div class="dash-card">
+    <div class="dash-card" onclick="showTab('config')" title="Ver alunos">
       <div class="dash-num">${totalAlunos}</div>
       <div class="dash-label">Alunos</div>
+      <div class="dash-sub">↗ ver</div>
     </div>
-    <div class="dash-card blue">
+    <div class="dash-card blue" onclick="showTab('config')" title="Ver turmas">
       <div class="dash-num">${totalTurmas}</div>
       <div class="dash-label">Turmas</div>
+      <div class="dash-sub">↗ ver</div>
     </div>
-    <div class="dash-card amber">
+    <div class="dash-card amber" onclick="showTab('config')" title="Ver professoras">
       <div class="dash-num">${totalProfs}</div>
       <div class="dash-label">Professoras</div>
+      <div class="dash-sub">↗ ver</div>
     </div>
-    <div class="dash-card">
+    <div class="dash-card" onclick="showTab('pareceres')" title="Ver pareceres">
       <div class="dash-num">${totalPar}</div>
       <div class="dash-label">Pareceres</div>
-      ${bimFiltro ? `<div class="dash-sub">${bimFiltro}</div>` : ''}
+      <div class="dash-sub">${bimFiltro ? bimFiltro + ' · ' : ''}↗ ver</div>
     </div>
-    <div class="dash-card amber">
+    <div class="dash-card amber" onclick="showTab('planejamento')" title="Ver planejamentos">
       <div class="dash-num">${totalPl}</div>
       <div class="dash-label">Planejamentos</div>
-      <div class="dash-sub">${totalCorrig} corrigido(s)</div>
+      <div class="dash-sub">${totalCorrig} corrigido(s) · ↗ ver</div>
     </div>
   `;
 
