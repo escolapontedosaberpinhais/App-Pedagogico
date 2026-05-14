@@ -1923,7 +1923,8 @@ function limparFormPlanejamento() {
 }
 
 function renderDashboard() {
-  if (currentUser?.papel !== 'diretor') return;
+  const papel = currentUser?.papel;
+  if (papel !== 'diretor' && papel !== 'pedagoga') return;
   const bimFiltro   = document.getElementById('dash-bimestre')?.value || '';
   const periodoFilt = document.getElementById('dash-periodo')?.value  || '';
 
