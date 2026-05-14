@@ -2131,20 +2131,36 @@ function renderPlanejamentos() {
   }).join('');
 }
 
-function verPlanejamento(id) {
+async function verPlanejamento(id) {
   const p = db.planejamentos.find(x => x.id === id);
   if (!p) return;
+
   if (p.docUrl) { window.open(p.docUrl, '_blank'); return; }
-  const turma = db.turmas.find(t => t.id === p.turmaId);
-  const dataFmt = p.data ? new Date(p.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
-  let txt = `PLANEJAMENTO DE AULA\n${'='.repeat(40)}\n`;
-  txt += `Turma: ${turma ? turma.nome : '—'}\nData: ${dataFmt}\nProfessora(o): ${p.prof}\nÁrea: ${p.area}\nTema: ${p.tema}\n\n`;
-  if (p.objetivos)    txt += `OBJETIVOS:\n${p.objetivos}\n\n`;
-  if (p.metodologia)  txt += `METODOLOGIA:\n${p.metodologia}\n\n`;
-  if (p.bncc)         txt += `BNCC:\n${p.bncc}\n\n`;
-  if (p.recursos)     txt += `RECURSOS:\n${p.recursos}\n\n`;
-  if (p.avaliacao)    txt += `AVALIAÇÃO:\n${p.avaliacao}\n`;
-  alert(txt);
+
+  if (!appsScriptUrl) {
+    showToast('⚠️ Configure o Google Drive na aba Configuração para abrir no Google Docs.');
+    return;
+  }
+
+  showToast('📤 Enviando ao Google Drive…');
+  try {
+    const turma = db.turmas.find(t => t.id === p.turmaId);
+    const turmaNome = sanitizeName(turma ? turma.nome : 'Turma');
+    const dataFmt2 = p.data ? p.data.replace(/-/g, '') : 'sem-data';
+    const filename = sanitizeName(`${p.tema} - ${dataFmt2}`) + '.txt';
+    const url = await uploadToDrive(filename, buildPlanejamentoTxt(p),
+      'Escola Ponte do Saber', turmaNome, p.bimestre || 'Geral', 'Planejamentos');
+    if (url) {
+      p.docUrl = url;
+      save();
+      renderPlanejamentos();
+      window.open(url, '_blank');
+    } else {
+      showToast('⚠️ Atualize e reimplante o Apps Script para obter o link do Google Docs.');
+    }
+  } catch(e) {
+    showToast('⚠️ Erro ao enviar: ' + e.message);
+  }
 }
 
 function exportarPlanejamentos() {
@@ -2352,9 +2368,31 @@ function renderPareceres() {
   }).join('');
 }
 
-function verParecer(id) {
+async function verParecer(id) {
   const p = db.pareceres.find(x => x.id === id);
   if (!p) return;
+
+  // Pedagoga/diretor: abre no Google Docs se disponível
+  const podeAbriDocs = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
+  if (podeAbriDocs && p.docUrl) { window.open(p.docUrl, '_blank'); return; }
+  if (podeAbriDocs && appsScriptUrl) {
+    showToast('📤 Enviando ao Google Drive…');
+    try {
+      const turmaRef = db.turmas.find(t => t.id === p.turmaId);
+      const turmaNome = sanitizeName(turmaRef ? turmaRef.nome : 'Turma');
+      const filename = sanitizeName(`${p.alunoNome} - ${p.periodo}`) + '.txt';
+      const url = await uploadToDrive(filename, buildParecerTxt(p),
+        'Escola Ponte do Saber', turmaNome, p.periodo, 'Pareceres');
+      if (url) {
+        p.docUrl = url;
+        save();
+        renderPareceres();
+        window.open(url, '_blank');
+        return;
+      }
+    } catch(e) { /* cai para a janela de impressão */ }
+  }
+
   const turma = db.turmas.find(t => t.id === p.turmaId);
   const dataImpressao = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
   const dataRegistro = new Date(p.criadoEm).toLocaleDateString('pt-BR');
