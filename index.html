@@ -1473,13 +1473,9 @@ window.addEventListener('DOMContentLoaded', () => {
   const modelSel = document.getElementById('gemini-model');
   if (modelSel) modelSel.value = getModel();
 
-  const savedUrl = localStorage.getItem('ps_apps_script_url');
-  if (savedUrl) {
-    document.getElementById('apps-script-url').value = savedUrl;
-    updateCloudStatus(true);
-  } else {
-    updateCloudStatus(false);
-  }
+  const savedUrl = localStorage.getItem('ps_apps_script_url') || DEFAULT_APPS_SCRIPT_URL;
+  document.getElementById('apps-script-url').value = savedUrl;
+  updateCloudStatus(true);
 
   // Restaura sessão ou mostra login
   const sess = getSession();
@@ -2397,7 +2393,8 @@ function exportarAvaliacoes() {
 // =====================================================================
 // GOOGLE DRIVE — APPS SCRIPT
 // =====================================================================
-let appsScriptUrl = localStorage.getItem('ps_apps_script_url') || null;
+const DEFAULT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxFfHYVp_KHijRiTvRCqI9_DQLNXCzuJr4rmY6OhJkv32Wa0GbwB94XlcrEIM2E3Kb2/exec';
+let appsScriptUrl = localStorage.getItem('ps_apps_script_url') || DEFAULT_APPS_SCRIPT_URL;
 
 function saveAppsScript() {
   const url = document.getElementById('apps-script-url').value.trim();
