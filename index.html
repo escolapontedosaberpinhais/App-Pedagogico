@@ -767,6 +767,7 @@
   <button onclick="showTab('planejamento')" data-tab="planejamento">📋 Planejamentos</button>
   <button onclick="showTab('pareceres')" data-tab="pareceres">✨ Pareceres IA</button>
   <button onclick="showTab('avaliacoes')" data-tab="avaliacoes">📊 Avaliações</button>
+  <button id="nav-correcao" onclick="showTab('correcao')" data-tab="correcao" style="display:none;">✅ Correção</button>
 </nav>
 
 <main>
@@ -833,12 +834,25 @@
 
   </div>
 
-  <!-- RELATÓRIO DE CORREÇÕES -->
-  <div class="card" style="margin-top:0;">
+  <!-- RESUMO CORREÇÕES NO DASHBOARD -->
+  <div class="card" style="margin-top:0;" id="dash-correcoes-resumo">
+    <div id="dash-correcoes-mini"></div>
+  </div>
+
+</div>
+
+<!-- ===================== CORREÇÃO ===================== -->
+<div id="tab-correcao" class="section">
+
+  <div class="section-header">
+    <h2>✅ Correção</h2>
+  </div>
+
+  <div class="card">
     <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
       <span>📝 Pendentes de Correção</span>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <select id="dash-corr-filtro" onchange="renderDashCorreções()" style="font-size:13px;padding:5px 10px;border:1px solid var(--gray-200);border-radius:6px;">
+        <select id="corr-filtro" onchange="renderCorrecoes()" style="font-size:13px;padding:5px 10px;border:1px solid var(--gray-200);border-radius:6px;">
           <option value="">Todos os bimestres</option>
           <option>1º Bimestre</option>
           <option>2º Bimestre</option>
@@ -847,14 +861,14 @@
           <option>1º Semestre</option>
           <option>2º Semestre</option>
         </select>
-        <select id="dash-corr-tipo" onchange="renderDashCorreções()" style="font-size:13px;padding:5px 10px;border:1px solid var(--gray-200);border-radius:6px;">
+        <select id="corr-tipo" onchange="renderCorrecoes()" style="font-size:13px;padding:5px 10px;border:1px solid var(--gray-200);border-radius:6px;">
           <option value="">Planejamentos + Pareceres</option>
           <option value="planejamento">Só Planejamentos</option>
           <option value="parecer">Só Pareceres</option>
         </select>
       </div>
     </div>
-    <div id="dash-correcoes"></div>
+    <div id="correcoes-list"></div>
   </div>
 
 </div>
@@ -1455,6 +1469,7 @@ function refreshCurrentView() {
   if (id === 'tab-planejamento') { populateSelects(); renderPlanejamentos(); }
   if (id === 'tab-pareceres')    { populateSelects(); renderPareceres(); }
   if (id === 'tab-avaliacoes')   { populateSelects(); renderTabelaAvaliacoes(); }
+  if (id === 'tab-correcao')     { renderCorrecoes(); }
 }
 
 // =====================================================================
@@ -1577,8 +1592,9 @@ function aplicarPapel() {
   const cardUsr = document.getElementById('card-usuarios');
   if (cardUsr) cardUsr.style.display = isDiretor ? '' : 'none';
 
-  // Dashboard: diretor e pedagoga
+  // Dashboard e Correção: diretor e pedagoga
   document.getElementById('nav-dashboard').style.display = isGestao ? '' : 'none';
+  document.getElementById('nav-correcao').style.display  = isGestao ? '' : 'none';
   renderSino();
 
   if (isGestao) {
@@ -1768,6 +1784,7 @@ function showTab(tab) {
   if (tab === 'planejamento') { populateSelects(); renderPlanejamentos(); }
   if (tab === 'pareceres')    { populateSelects(); renderPareceres(); }
   if (tab === 'avaliacoes')   { populateSelects(); renderTabelaAvaliacoes(); }
+  if (tab === 'correcao')     { renderCorrecoes(); }
 }
 
 // =====================================================================
@@ -2141,12 +2158,12 @@ function renderDashboard() {
       <div class="dash-label">Professoras</div>
       <div class="dash-sub">↗ ver</div>
     </div>
-    <div class="dash-card" onclick="showTab('pareceres')" title="Ver pareceres">
+    <div class="dash-card" onclick="showTab('correcao')" title="Ver pareceres pendentes">
       <div class="dash-num">${totalPar}</div>
       <div class="dash-label">Pareceres</div>
       <div class="dash-sub">${bimFiltro ? bimFiltro + ' · ' : ''}↗ ver</div>
     </div>
-    <div class="dash-card amber" onclick="showTab('planejamento')" title="Ver planejamentos">
+    <div class="dash-card amber" onclick="showTab('correcao')" title="Ver planejamentos pendentes">
       <div class="dash-num">${totalPl}</div>
       <div class="dash-label">Planejamentos</div>
       <div class="dash-sub">${totalCorrig} corrigido(s) · ↗ ver</div>
@@ -2245,8 +2262,8 @@ function renderDashboard() {
         </div>`;
       }).join('');
 
-  // --- PENDENTES DE CORREÇÃO ---
-  renderDashCorreções();
+  // --- MINI RESUMO DE CORREÇÕES ---
+  renderDashCorreçoesMini();
 }
 
 // =====================================================================
@@ -2367,11 +2384,11 @@ document.addEventListener('click', (e) => {
   }
 });
 
-function renderDashCorreções() {
-  const el = document.getElementById('dash-correcoes');
+function renderCorrecoes() {
+  const el = document.getElementById('correcoes-list');
   if (!el) return;
-  const bimFiltro  = document.getElementById('dash-corr-filtro')?.value || '';
-  const tipoFiltro = document.getElementById('dash-corr-tipo')?.value   || '';
+  const bimFiltro  = document.getElementById('corr-filtro')?.value || '';
+  const tipoFiltro = document.getElementById('corr-tipo')?.value   || '';
 
   // Planejamentos não corrigidos
   let pls = db.planejamentos.filter(p => !p.corrigido);
@@ -2455,6 +2472,28 @@ function renderDashCorreções() {
   el.innerHTML = html;
 }
 
+function renderDashCorreçoesMini() {
+  const el = document.getElementById('dash-correcoes-mini');
+  if (!el) return;
+  const plPend  = db.planejamentos.filter(p => !p.corrigido).length;
+  const parPend = db.pareceres.filter(p => !p.corrigido).length;
+  const total   = plPend + parPend;
+  if (total === 0) {
+    el.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;">
+      <span style="color:var(--green);font-weight:600;">🎉 Tudo corrigido!</span>
+      <button class="btn btn-secondary btn-sm" onclick="showTab('correcao')">Ver histórico</button>
+    </div>`;
+  } else {
+    el.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <div style="display:flex;gap:16px;">
+        ${plPend  > 0 ? `<span style="color:var(--amber);font-weight:700;">📋 ${plPend} planejamento${plPend>1?'s':''} pendente${plPend>1?'s':''}</span>` : ''}
+        ${parPend > 0 ? `<span style="color:var(--green-dark);font-weight:700;">✨ ${parPend} parecer${parPend>1?'es':''} pendente${parPend>1?'s':''}</span>` : ''}
+      </div>
+      <button class="btn btn-amber btn-sm" onclick="showTab('correcao')">✅ Ir para Correção →</button>
+    </div>`;
+  }
+}
+
 function toggleCorrigidoDash(tipo, id) {
   if (tipo === 'pl') {
     const pl = db.planejamentos.find(p => p.id === id);
@@ -2467,7 +2506,7 @@ function toggleCorrigidoDash(tipo, id) {
     par.corrigido = true;
     save();
   }
-  renderDashCorreções();
+  renderCorrecoes();
   renderDashboard();
   showToast('✅ Marcado como corrigido!');
 }
