@@ -566,8 +566,8 @@
       </select>
     </div>
     <div class="form-group" id="edit-usr-turma-group" style="margin-bottom:20px;">
-      <label>Turma vinculada</label>
-      <select id="edit-usr-turma"></select>
+      <label>Turmas vinculadas</label>
+      <div id="edit-usr-turmas-checks" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;"></div>
     </div>
     <div class="btn-row">
       <button class="btn btn-primary" onclick="salvarEdicaoUsuario()">💾 Salvar alterações</button>
@@ -857,8 +857,8 @@ function getFolder(path) {
         </select>
       </div>
       <div class="form-group" id="usr-turma-group">
-        <label>Turma vinculada</label>
-        <select id="usr-turma"></select>
+        <label>Turmas vinculadas</label>
+        <div id="usr-turmas-checks" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;"></div>
       </div>
     </div>
     <div class="btn-row">
@@ -1426,9 +1426,34 @@ function aplicarPapel() {
 }
 
 // turmas visíveis para o usuário atual
+function getUsrTurmaIds(u) {
+  if (!u) return [];
+  if (Array.isArray(u.turmaIds)) return u.turmaIds;
+  return u.turmaId ? [u.turmaId] : [];
+}
+
+function renderTurmaChecks(containerId, selectedIds = []) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = db.turmas.length === 0
+    ? '<span style="font-size:13px;color:var(--gray-400);">Nenhuma turma cadastrada.</span>'
+    : db.turmas.map(t => `
+      <label style="display:flex;align-items:center;gap:6px;padding:5px 10px;border:1.5px solid var(--gray-200);border-radius:6px;cursor:pointer;font-size:13px;background:var(--white);">
+        <input type="checkbox" value="${t.id}" ${selectedIds.includes(t.id) ? 'checked' : ''} style="width:auto;accent-color:var(--green);">
+        ${t.nome}
+      </label>`).join('');
+}
+
+function getCheckedTurmas(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return [];
+  return Array.from(el.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
+}
+
 function turmasVisiveis() {
   if (!currentUser || currentUser.papel === 'diretor' || currentUser.papel === 'pedagoga') return db.turmas;
-  return db.turmas.filter(t => t.id === currentUser.turmaId);
+  const ids = getUsrTurmaIds(currentUser);
+  return db.turmas.filter(t => ids.includes(t.id));
 }
 
 // =====================================================================
@@ -1440,11 +1465,11 @@ function toggleUsrTurma() {
 }
 
 function addUsuario() {
-  const nome   = document.getElementById('usr-nome').value.trim();
-  const login  = document.getElementById('usr-login').value.trim().toLowerCase();
-  const senha  = document.getElementById('usr-senha').value;
-  const papel  = document.getElementById('usr-papel').value;
-  const turmaId = papel === 'professora' ? document.getElementById('usr-turma').value : null;
+  const nome    = document.getElementById('usr-nome').value.trim();
+  const login   = document.getElementById('usr-login').value.trim().toLowerCase();
+  const senha   = document.getElementById('usr-senha').value;
+  const papel   = document.getElementById('usr-papel').value;
+  const turmaIds = papel === 'professora' ? getCheckedTurmas('usr-turmas-checks') : [];
 
   if (!nome || !login || senha.length < 4) {
     alert('Preencha nome, usuário e senha (mínimo 4 caracteres).'); return;
@@ -1452,7 +1477,7 @@ function addUsuario() {
   if (db.usuarios.find(u => u.usuario === login)) {
     alert('Já existe um usuário com esse login.'); return;
   }
-  db.usuarios.push({ id: uid(), nome, usuario: login, senha: hashPw(senha), papel, turmaId });
+  db.usuarios.push({ id: uid(), nome, usuario: login, senha: hashPw(senha), papel, turmaIds });
   save();
   document.getElementById('usr-nome').value = '';
   document.getElementById('usr-login').value = '';
@@ -1470,11 +1495,7 @@ function abrirEditarUsuario(id) {
   document.getElementById('edit-usr-senha').value = '';
   document.getElementById('edit-usr-papel').value = u.papel;
   document.getElementById('modal-editar-usr-erro').style.display = 'none';
-
-  // Preenche select de turmas
-  const sel = document.getElementById('edit-usr-turma');
-  sel.innerHTML = db.turmas.map(t => `<option value="${t.id}" ${t.id === u.turmaId ? 'selected' : ''}>${t.nome}</option>`).join('');
-
+  renderTurmaChecks('edit-usr-turmas-checks', getUsrTurmaIds(u));
   toggleEditUsrTurma();
   document.getElementById('modal-editar-usr').style.display = 'flex';
   setTimeout(() => document.getElementById('edit-usr-nome').focus(), 100);
@@ -1486,13 +1507,13 @@ function toggleEditUsrTurma() {
 }
 
 function salvarEdicaoUsuario() {
-  const id    = document.getElementById('edit-usr-id').value;
-  const nome  = document.getElementById('edit-usr-nome').value.trim();
-  const login = document.getElementById('edit-usr-login').value.trim().toLowerCase();
-  const senha = document.getElementById('edit-usr-senha').value;
-  const papel = document.getElementById('edit-usr-papel').value;
-  const turmaId = papel === 'professora' ? document.getElementById('edit-usr-turma').value : null;
-  const erro  = document.getElementById('modal-editar-usr-erro');
+  const id      = document.getElementById('edit-usr-id').value;
+  const nome    = document.getElementById('edit-usr-nome').value.trim();
+  const login   = document.getElementById('edit-usr-login').value.trim().toLowerCase();
+  const senha   = document.getElementById('edit-usr-senha').value;
+  const papel   = document.getElementById('edit-usr-papel').value;
+  const turmaIds = papel === 'professora' ? getCheckedTurmas('edit-usr-turmas-checks') : [];
+  const erro    = document.getElementById('modal-editar-usr-erro');
 
   const mostrarErro = msg => { erro.textContent = msg; erro.style.display = 'block'; };
 
@@ -1503,13 +1524,13 @@ function salvarEdicaoUsuario() {
   const idx = db.usuarios.findIndex(u => u.id === id);
   if (idx === -1) return;
 
-  db.usuarios[idx].nome    = nome;
-  db.usuarios[idx].usuario = login;
-  db.usuarios[idx].papel   = papel;
-  db.usuarios[idx].turmaId = turmaId;
+  db.usuarios[idx].nome     = nome;
+  db.usuarios[idx].usuario  = login;
+  db.usuarios[idx].papel    = papel;
+  db.usuarios[idx].turmaIds = turmaIds;
+  delete db.usuarios[idx].turmaId;
   if (senha) db.usuarios[idx].senha = hashPw(senha);
 
-  // Atualiza sessão se for o usuário logado
   if (currentUser?.id === id) {
     currentUser = { ...db.usuarios[idx] };
     sessionStorage.setItem('ps_sess', JSON.stringify(currentUser));
@@ -1538,7 +1559,8 @@ function renderUsuarios() {
     return;
   }
   el.innerHTML = db.usuarios.map(u => {
-    const turma = u.turmaId ? db.turmas.find(t => t.id === u.turmaId) : null;
+    const ids = getUsrTurmaIds(u);
+    const turmasNomes = ids.map(id => db.turmas.find(t => t.id === id)?.nome).filter(Boolean).join(', ');
     const badge = u.papel === 'diretor' ? 'badge-amber' : u.papel === 'pedagoga' ? 'badge-pedagoga' : 'badge-professora';
     const label = u.papel === 'diretor' ? 'Diretor(a)' : u.papel === 'pedagoga' ? 'Pedagoga' : 'Professora';
     return `<div class="item-card">
@@ -1547,7 +1569,7 @@ function renderUsuarios() {
         <span>
           <span class="badge ${badge}">${label}</span>
           &nbsp;Login: <code>${u.usuario}</code>
-          ${turma ? `&nbsp;|&nbsp; Turma: ${turma.nome}` : ''}
+          ${turmasNomes ? `&nbsp;|&nbsp; ${turmasNomes}` : ''}
           ${u.id === currentUser?.id ? '&nbsp;<span class="badge badge-green">você</span>' : ''}
         </span>
       </div>
@@ -1558,11 +1580,7 @@ function renderUsuarios() {
     </div>`;
   }).join('');
 
-  // Populate select de turma no form
-  const sel = document.getElementById('usr-turma');
-  if (sel) {
-    sel.innerHTML = db.turmas.map(t => `<option value="${t.id}">${t.nome}</option>`).join('');
-  }
+  renderTurmaChecks('usr-turmas-checks', []);
 }
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
@@ -1588,7 +1606,7 @@ function showTab(tab) {
 function populateSelects() {
   const turmas = turmasVisiveis();
 
-  ['aluno-turma', 'pl-turma', 'par-turma', 'av-turma', 'filtro-pl-turma', 'usr-turma'].forEach(id => {
+  ['aluno-turma', 'pl-turma', 'par-turma', 'av-turma', 'filtro-pl-turma'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     const prev = el.value;
@@ -1603,12 +1621,15 @@ function populateSelects() {
     if (prev) el.value = prev;
   });
 
-  // Para professora: pré-seleciona a turma dela
-  if (currentUser?.papel === 'professora' && currentUser.turmaId) {
-    ['pl-turma', 'par-turma', 'av-turma'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.value = currentUser.turmaId;
-    });
+  // Para professora: pré-seleciona a primeira turma dela
+  if (currentUser?.papel === 'professora') {
+    const ids = getUsrTurmaIds(currentUser);
+    if (ids.length > 0) {
+      ['pl-turma', 'par-turma', 'av-turma'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.value) el.value = ids[0];
+      });
+    }
   }
 
   populateAlunosParecer();
@@ -1974,12 +1995,13 @@ function renderDashboard() {
   const prodRows = professoras.length === 0
     ? '<tr><td colspan="4" style="color:var(--gray-400);text-align:center;">Nenhuma professora cadastrada.</td></tr>'
     : professoras.map(u => {
-        const turma = db.turmas.find(t => t.id === u.turmaId);
-        const pars  = parFilt.filter(p => p.turmaId === u.turmaId).length;
-        const pls   = plFilt.filter(p => p.turmaId === u.turmaId).length;
-        const cors  = plFilt.filter(p => p.turmaId === u.turmaId && p.corrigido).length;
+        const ids   = getUsrTurmaIds(u);
+        const turmasNomes = ids.map(id => db.turmas.find(t => t.id === id)?.nome).filter(Boolean).join(', ');
+        const pars  = parFilt.filter(p => ids.includes(p.turmaId)).length;
+        const pls   = plFilt.filter(p => ids.includes(p.turmaId)).length;
+        const cors  = plFilt.filter(p => ids.includes(p.turmaId) && p.corrigido).length;
         return `<tr>
-          <td><strong>${u.nome}</strong><br><span style="font-size:11px;color:var(--gray-400);">${turma?.nome || '—'}</span></td>
+          <td><strong>${u.nome}</strong><br><span style="font-size:11px;color:var(--gray-400);">${turmasNomes || '—'}</span></td>
           <td style="text-align:center;">${pars}</td>
           <td style="text-align:center;">${pls}</td>
           <td style="text-align:center;"><span class="badge ${cors === pls && pls > 0 ? 'badge-green' : 'badge-amber'}">${cors}/${pls}</span></td>
@@ -2035,7 +2057,7 @@ function renderPlanejamentos() {
   const filtro = document.getElementById('filtro-pl-turma')?.value;
   let list = db.planejamentos;
   if (currentUser?.papel === 'professora') {
-    list = list.filter(p => p.turmaId === currentUser.turmaId);
+    list = list.filter(p => getUsrTurmaIds(currentUser).includes(p.turmaId));
   } else if (filtro) {
     list = list.filter(p => p.turmaId === filtro);
   }
@@ -2252,7 +2274,7 @@ function renderPareceres() {
   const el = document.getElementById('pareceres-list');
   let list = db.pareceres;
   if (currentUser?.papel === 'professora')
-    list = list.filter(p => p.turmaId === currentUser.turmaId);
+    list = list.filter(p => getUsrTurmaIds(currentUser).includes(p.turmaId));
   if (list.length === 0) {
     el.innerHTML = '<div class="empty"><div class="icon">✨</div><p>Nenhum parecer salvo.</p></div>';
     return;
