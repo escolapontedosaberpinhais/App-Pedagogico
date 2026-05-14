@@ -598,6 +598,54 @@
   .check-item:hover { border-color:var(--green); background:var(--green-light); }
   .check-item input[type="checkbox"] { accent-color:var(--green); width:14px; height:14px; }
   .check-item.checked { border-color:var(--green); background:var(--green-light); font-weight:600; }
+
+  /* NOTIFICAÇÕES */
+  .btn-sino {
+    position: relative; background: rgba(255,255,255,0.15); border: none;
+    border-radius: 50%; width: 36px; height: 36px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; color: #fff; transition: background 0.2s; flex-shrink: 0;
+  }
+  .btn-sino:hover { background: rgba(255,255,255,0.28); }
+  .sino-badge {
+    position: absolute; top: -3px; right: -3px;
+    background: var(--red); color: #fff; border-radius: 50%;
+    font-size: 10px; font-weight: 700; min-width: 17px; height: 17px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 3px; border: 2px solid var(--green);
+  }
+  .notif-painel {
+    position: fixed; top: 58px; right: 12px; z-index: 9000;
+    width: 340px; max-width: calc(100vw - 24px);
+    background: var(--white); border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    border: 1px solid var(--gray-200);
+    display: none; flex-direction: column; overflow: hidden;
+    max-height: 480px;
+  }
+  .notif-painel.open { display: flex; }
+  .notif-header {
+    padding: 14px 16px 10px; display: flex; align-items: center;
+    justify-content: space-between; border-bottom: 1px solid var(--gray-200);
+  }
+  .notif-header span { font-weight: 700; font-size: 14px; color: var(--gray-800); }
+  .notif-header button { background: none; border: none; cursor: pointer; font-size: 12px; color: var(--green); font-weight: 600; }
+  .notif-list { overflow-y: auto; flex: 1; }
+  .notif-item {
+    padding: 12px 16px; border-bottom: 1px solid var(--gray-200);
+    display: flex; gap: 10px; align-items: flex-start;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .notif-item:hover { background: var(--gray-100); }
+  .notif-item.nao-lida { background: #f0faf6; }
+  .notif-item.nao-lida:hover { background: #e2f5ec; }
+  .notif-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-top: 5px; flex-shrink: 0; }
+  .notif-dot.lida { background: transparent; }
+  .notif-body { flex: 1; }
+  .notif-body strong { font-size: 13px; display: block; color: var(--gray-800); }
+  .notif-body span { font-size: 12px; color: var(--gray-600); }
+  .notif-body time { font-size: 11px; color: var(--gray-400); display: block; margin-top: 2px; }
+  .notif-empty { padding: 32px 16px; text-align: center; color: var(--gray-400); font-size: 13px; }
 </style>
 </head>
 <body>
@@ -703,6 +751,10 @@
       <div class="user-av" id="header-av"></div>
       <span id="header-nome"></span>
     </div>
+    <button class="btn-sino" id="btn-sino" onclick="togglePainelNotif()" title="Notificações" style="display:none;">
+      🔔
+      <span class="sino-badge" id="sino-badge" style="display:none;"></span>
+    </button>
     <button class="btn-logout" onclick="abrirTrocarSenha()" title="Trocar senha">🔑</button>
     <button class="btn-logout" onclick="fazerLogout()">Sair</button>
   </div>
@@ -1321,11 +1373,11 @@ const FSREF  = (col) => fstore.collection('appdata').doc(col);
 
 async function loadFromFirestore() {
   try {
-    const [rT, rA, rP, rPar, rAv, rU, rCfg] = await Promise.all([
+    const [rT, rA, rP, rPar, rAv, rU, rCfg, rNot] = await Promise.all([
       FSREF('turmas').get(), FSREF('alunos').get(),
       FSREF('planejamentos').get(), FSREF('pareceres').get(),
       FSREF('avaliacoes').get(), FSREF('usuarios').get(),
-      FSREF('config').get(),
+      FSREF('config').get(), FSREF('notificacoes').get(),
     ]);
     if (rT.exists)   db.turmas        = rT.data().data   ?? [];
     if (rA.exists)   db.alunos        = rA.data().data   ?? [];
@@ -1333,6 +1385,7 @@ async function loadFromFirestore() {
     if (rPar.exists) db.pareceres     = rPar.data().data ?? [];
     if (rAv.exists)  db.avaliacoes    = rAv.data().data  ?? {};
     if (rU.exists)   db.usuarios      = rU.data().data   ?? [];
+    if (rNot.exists) db.notificacoes  = rNot.data().data ?? [];
     if (rCfg.exists) {
       db.apiKey = rCfg.data().apiKey ?? '';
       if (rCfg.data().model) localStorage.setItem('ps_gemini_model', rCfg.data().model);
@@ -1368,6 +1421,7 @@ function saveToFirestore() {
   batch.set(FSREF('pareceres'),     { data: db.pareceres });
   batch.set(FSREF('avaliacoes'),    { data: db.avaliacoes });
   batch.set(FSREF('usuarios'),      { data: db.usuarios });
+  batch.set(FSREF('notificacoes'),  { data: db.notificacoes });
   batch.commit().catch(e => console.warn('Firestore write error:', e));
 }
 
@@ -1384,6 +1438,12 @@ function setupSync() {
   FSREF('pareceres').onSnapshot(handle('pareceres', []));
   FSREF('avaliacoes').onSnapshot(handle('avaliacoes', {}));
   FSREF('usuarios').onSnapshot(handle('usuarios', []));
+  FSREF('notificacoes').onSnapshot((doc) => {
+    if (doc.exists && !doc.metadata.hasPendingWrites) {
+      db.notificacoes = doc.data().data ?? [];
+      renderSino();
+    }
+  });
 }
 
 function refreshCurrentView() {
@@ -1408,6 +1468,7 @@ let db = {
   pareceres: [],
   avaliacoes: {},
   usuarios: [],
+  notificacoes: [],
 };
 
 function save() {
@@ -1518,6 +1579,7 @@ function aplicarPapel() {
 
   // Dashboard: diretor e pedagoga
   document.getElementById('nav-dashboard').style.display = isGestao ? '' : 'none';
+  renderSino();
 
   if (isGestao) {
     showTab('dashboard');
@@ -2004,6 +2066,12 @@ function salvarPlanejamento() {
   save();
   limparFormPlanejamento();
   renderPlanejamentos();
+  const turmaNomeNotif = db.turmas.find(t => t.id === turmaId)?.nome || 'Turma';
+  criarNotificacao(
+    '📋 Novo planejamento para corrigir',
+    `${prof} · ${turmaNomeNotif} · ${conteudos}`,
+    'planejamento', pl.id
+  );
 
   if (appsScriptUrl) {
     const turma = db.turmas.find(t => t.id === turmaId);
@@ -2180,6 +2248,124 @@ function renderDashboard() {
   // --- PENDENTES DE CORREÇÃO ---
   renderDashCorreções();
 }
+
+// =====================================================================
+// NOTIFICAÇÕES
+// =====================================================================
+function criarNotificacao(titulo, descricao, tipo, refId) {
+  // Só professora gera notificação para pedagoga/diretor
+  if (currentUser?.papel !== 'professora') return;
+  const notif = {
+    id: uid(),
+    tipo,          // 'planejamento' | 'parecer'
+    titulo,
+    descricao,
+    para: ['pedagoga', 'diretor'],
+    lidoPor: [],   // logins de quem leu
+    criadoEm: new Date().toISOString(),
+    refId,
+  };
+  db.notificacoes.unshift(notif);
+  // Salva só as notificações (sem interferir no batch principal)
+  FSREF('notificacoes').set({ data: db.notificacoes })
+    .catch(e => console.warn('Notif save error:', e));
+}
+
+function renderSino() {
+  const papel = currentUser?.papel;
+  const btnSino = document.getElementById('btn-sino');
+  const badge   = document.getElementById('sino-badge');
+  if (!btnSino) return;
+  // Bell só aparece para pedagoga e diretor
+  if (papel !== 'pedagoga' && papel !== 'diretor') {
+    btnSino.style.display = 'none';
+    return;
+  }
+  btnSino.style.display = 'flex';
+  const login = currentUser?.login || currentUser?.nome;
+  const naoLidas = db.notificacoes.filter(n =>
+    n.para?.includes(papel) && !n.lidoPor?.includes(login)
+  );
+  if (naoLidas.length > 0) {
+    badge.textContent = naoLidas.length > 9 ? '9+' : naoLidas.length;
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
+  renderPainelNotif();
+}
+
+function renderPainelNotif() {
+  const el = document.getElementById('notif-list');
+  if (!el) return;
+  const papel = currentUser?.papel;
+  const login = currentUser?.login || currentUser?.nome;
+  const lista = db.notificacoes.filter(n => n.para?.includes(papel));
+  if (lista.length === 0) {
+    el.innerHTML = '<div class="notif-empty">✅ Nenhuma notificação.</div>';
+    return;
+  }
+  el.innerHTML = lista.slice(0, 30).map(n => {
+    const lida = n.lidoPor?.includes(login);
+    const tempo = formatarTempo(n.criadoEm);
+    return `<div class="notif-item ${lida ? '' : 'nao-lida'}" onclick="marcarLidaNotif('${n.id}')">
+      <div class="notif-dot ${lida ? 'lida' : ''}"></div>
+      <div class="notif-body">
+        <strong>${n.titulo}</strong>
+        <span>${n.descricao}</span>
+        <time>${tempo}</time>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function togglePainelNotif() {
+  const painel = document.getElementById('notif-painel');
+  painel.classList.toggle('open');
+  if (painel.classList.contains('open')) renderPainelNotif();
+}
+
+function marcarLidaNotif(id) {
+  const login = currentUser?.login || currentUser?.nome;
+  const n = db.notificacoes.find(x => x.id === id);
+  if (!n) return;
+  if (!n.lidoPor) n.lidoPor = [];
+  if (!n.lidoPor.includes(login)) n.lidoPor.push(login);
+  FSREF('notificacoes').set({ data: db.notificacoes })
+    .catch(e => console.warn('Notif save error:', e));
+  renderSino();
+}
+
+function marcarTodasLidasNotif() {
+  const login = currentUser?.login || currentUser?.nome;
+  const papel = currentUser?.papel;
+  db.notificacoes.forEach(n => {
+    if (n.para?.includes(papel)) {
+      if (!n.lidoPor) n.lidoPor = [];
+      if (!n.lidoPor.includes(login)) n.lidoPor.push(login);
+    }
+  });
+  FSREF('notificacoes').set({ data: db.notificacoes })
+    .catch(e => console.warn('Notif save error:', e));
+  renderSino();
+}
+
+function formatarTempo(iso) {
+  if (!iso) return '';
+  const diff = (Date.now() - new Date(iso)) / 1000;
+  if (diff < 60)   return 'agora mesmo';
+  if (diff < 3600) return `há ${Math.floor(diff/60)} min`;
+  if (diff < 86400) return `há ${Math.floor(diff/3600)}h`;
+  return new Date(iso).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+}
+
+document.addEventListener('click', (e) => {
+  const painel = document.getElementById('notif-painel');
+  const btn    = document.getElementById('btn-sino');
+  if (painel && btn && !painel.contains(e.target) && !btn.contains(e.target)) {
+    painel.classList.remove('open');
+  }
+});
 
 function renderDashCorreções() {
   const el = document.getElementById('dash-correcoes');
@@ -2614,6 +2800,12 @@ function salvarParecer() {
   save();
   renderPareceres();
   document.getElementById('card-resultado').style.display = 'none';
+  const turmaNomeNotif2 = db.turmas.find(t => t.id === turmaId)?.nome || 'Turma';
+  criarNotificacao(
+    '✨ Novo parecer para corrigir',
+    `${aluno.nome} · ${turmaNomeNotif2} · ${periodo}`,
+    'parecer', p.id
+  );
 
   if (appsScriptUrl) {
     const turma = db.turmas.find(t => t.id === turmaId);
@@ -3188,5 +3380,16 @@ function showToast(msg, duration) {
   setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, duration || 2200);
 }
 </script>
+
+<!-- PAINEL DE NOTIFICAÇÕES -->
+<div class="notif-painel" id="notif-painel">
+  <div class="notif-header">
+    <span>🔔 Notificações</span>
+    <button onclick="marcarTodasLidasNotif()">Marcar todas como lidas</button>
+  </div>
+  <div class="notif-list" id="notif-list">
+    <div class="notif-empty">Nenhuma notificação.</div>
+  </div>
+</div>
 </body>
 </html>
