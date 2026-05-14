@@ -510,6 +510,13 @@
     main { padding: 16px 10px 60px; }
     .card { padding: 16px; }
   }
+
+  /* CHECK-GROUP (Direitos / Campos) */
+  .check-group { display:flex; flex-wrap:wrap; gap:8px; }
+  .check-item { display:flex; align-items:center; gap:6px; padding:5px 12px; border:1.5px solid var(--gray-200); border-radius:20px; cursor:pointer; font-size:13px; transition:border-color 0.15s,background 0.15s; user-select:none; }
+  .check-item:hover { border-color:var(--green); background:var(--green-light); }
+  .check-item input[type="checkbox"] { accent-color:var(--green); width:14px; height:14px; }
+  .check-item.checked { border-color:var(--green); background:var(--green-light); font-weight:600; }
 </style>
 </head>
 <body>
@@ -956,43 +963,38 @@ function getFolder(path) {
         <label>Professora(o) *</label>
         <div id="pl-prof-wrap"></div>
       </div>
-      <div class="form-group">
-        <label>Área curricular *</label>
-        <select id="pl-area">
-          <option value="">Selecionar…</option>
-          <option>Linguagem Oral e Escrita</option>
-          <option>Matemática</option>
-          <option>Natureza e Sociedade</option>
-          <option>Artes</option>
-          <option>Música</option>
-          <option>Movimento / Ed. Física</option>
-          <option>Identidade e Autonomia</option>
-          <option>Projeto Integrado</option>
-        </select>
+      <div class="form-group full">
+        <label>Direitos de Aprendizagem *</label>
+        <div class="check-group" id="pl-direitos-wrap">
+          <label class="check-item"><input type="checkbox" name="pl-direitos" value="Brincar" onchange="toggleCheckStyle(this)"> Brincar</label>
+          <label class="check-item"><input type="checkbox" name="pl-direitos" value="Conviver" onchange="toggleCheckStyle(this)"> Conviver</label>
+          <label class="check-item"><input type="checkbox" name="pl-direitos" value="Participar" onchange="toggleCheckStyle(this)"> Participar</label>
+          <label class="check-item"><input type="checkbox" name="pl-direitos" value="Explorar" onchange="toggleCheckStyle(this)"> Explorar</label>
+          <label class="check-item"><input type="checkbox" name="pl-direitos" value="Expressar" onchange="toggleCheckStyle(this)"> Expressar</label>
+          <label class="check-item"><input type="checkbox" name="pl-direitos" value="Conhecer-se" onchange="toggleCheckStyle(this)"> Conhecer-se</label>
+        </div>
       </div>
       <div class="form-group full">
-        <label>Tema / Título da aula *</label>
-        <input type="text" id="pl-tema" placeholder="Ex: Explorando os animais da floresta" />
+        <label>Campo(s) de Experiência *</label>
+        <div class="check-group" id="pl-campos-wrap">
+          <label class="check-item"><input type="checkbox" name="pl-campos" value="O Eu, o Outro e o Nós" onchange="toggleCheckStyle(this)"> O Eu, o Outro e o Nós</label>
+          <label class="check-item"><input type="checkbox" name="pl-campos" value="Corpo, Gestos e Movimentos" onchange="toggleCheckStyle(this)"> Corpo, Gestos e Movimentos</label>
+          <label class="check-item"><input type="checkbox" name="pl-campos" value="Traços, Sons, Cores e Formas" onchange="toggleCheckStyle(this)"> Traços, Sons, Cores e Formas</label>
+          <label class="check-item"><input type="checkbox" name="pl-campos" value="Escuta, Fala, Pensamento e Imaginação" onchange="toggleCheckStyle(this)"> Escuta, Fala, Pensamento e Imaginação</label>
+          <label class="check-item"><input type="checkbox" name="pl-campos" value="Espaços, Tempos, Quantidades, Relações e Transformações" onchange="toggleCheckStyle(this)"> Espaços, Tempos, Quantidades, Relações e Transformações</label>
+        </div>
       </div>
       <div class="form-group full">
-        <label>Objetivos</label>
-        <textarea id="pl-objetivos" placeholder="O que os alunos deverão aprender/desenvolver…"></textarea>
+        <label>Objetivos / Habilidades BNCC *</label>
+        <textarea id="pl-bncc" placeholder="Ex: (EI02EO01) Demonstrar atitudes de cuidado e solidariedade na interação com crianças e adultos.&#10;(EI02CG02) Deslocar seu corpo no espaço, orientando-se por noções como em frente, atrás, no alto…"></textarea>
       </div>
       <div class="form-group full">
-        <label>Metodologia / Desenvolvimento</label>
-        <textarea id="pl-metodologia" placeholder="Descreva as etapas da aula…"></textarea>
+        <label>Conteúdos *</label>
+        <input type="text" id="pl-conteudos" placeholder="Ex: Matemática (Números de 1 a 5) | Português (letra inicial do nome)" />
       </div>
       <div class="form-group full">
-        <label>Habilidades da BNCC</label>
-        <textarea id="pl-bncc" placeholder="Ex: (EI03EO01) Demonstrar empatia pelos outros… | (EI03CG02) Demonstrar controle e adequação do uso de seu corpo…" style="min-height:60px;"></textarea>
-      </div>
-      <div class="form-group">
-        <label>Recursos / Materiais</label>
-        <textarea id="pl-recursos" placeholder="Materiais necessários…" style="min-height:60px;"></textarea>
-      </div>
-      <div class="form-group">
-        <label>Avaliação</label>
-        <textarea id="pl-avaliacao" placeholder="Como será avaliada a aprendizagem…" style="min-height:60px;"></textarea>
+        <label>Desenvolvimento da Atividade *</label>
+        <textarea id="pl-desenvolvimento" placeholder="Descreva como a atividade será desenvolvida…" style="min-height:100px;"></textarea>
       </div>
     </div>
     <div class="btn-row">
@@ -1870,10 +1872,13 @@ function salvarPlanejamento() {
   const turmaId = document.getElementById('pl-turma').value;
   const data = document.getElementById('pl-data').value;
   const prof = document.getElementById('pl-prof').value.trim();
-  const area = document.getElementById('pl-area').value;
-  const tema = document.getElementById('pl-tema').value.trim();
-  if (!turmaId || !data || !prof || !area || !tema) {
-    alert('Preencha os campos obrigatórios (*).');
+  const conteudos = document.getElementById('pl-conteudos').value.trim();
+  const desenvolvimento = document.getElementById('pl-desenvolvimento').value.trim();
+  const bncc = document.getElementById('pl-bncc').value.trim();
+  const direitos = [...document.querySelectorAll('input[name="pl-direitos"]:checked')].map(c => c.value);
+  const campos = [...document.querySelectorAll('input[name="pl-campos"]:checked')].map(c => c.value);
+  if (!turmaId || !data || !prof || !conteudos || !desenvolvimento) {
+    alert('Preencha os campos obrigatórios: Turma, Data, Professora, Conteúdos e Desenvolvimento.');
     return;
   }
   const bimestre = document.getElementById('pl-bimestre').value;
@@ -1883,13 +1888,11 @@ function salvarPlanejamento() {
     data,
     bimestre,
     prof,
-    area,
-    tema,
-    objetivos: document.getElementById('pl-objetivos').value.trim(),
-    metodologia: document.getElementById('pl-metodologia').value.trim(),
-    bncc: document.getElementById('pl-bncc').value.trim(),
-    recursos: document.getElementById('pl-recursos').value.trim(),
-    avaliacao: document.getElementById('pl-avaliacao').value.trim(),
+    direitos,
+    campos,
+    bncc,
+    conteudos,
+    desenvolvimento,
     criadoEm: new Date().toISOString(),
   };
   db.planejamentos.unshift(pl);
@@ -1901,7 +1904,7 @@ function salvarPlanejamento() {
     const turma = db.turmas.find(t => t.id === turmaId);
     const turmaNome = sanitizeName(turma ? turma.nome : 'Turma');
     const dataFmt = data ? data.replace(/-/g, '') : 'sem-data';
-    const filename = sanitizeName(`${tema} - ${dataFmt}`) + '.txt';
+    const filename = sanitizeName(`${conteudos} - ${dataFmt}`) + '.txt';
     uploadToDrive(filename, buildPlanejamentoTxt(pl),
       'Escola Ponte do Saber', turmaNome, bimestre, 'Planejamentos')
       .then(url => {
@@ -1915,11 +1918,19 @@ function salvarPlanejamento() {
 }
 
 function limparFormPlanejamento() {
-  ['pl-data','pl-area','pl-tema','pl-objetivos','pl-metodologia','pl-bncc','pl-recursos','pl-avaliacao','pl-bimestre'].forEach(id => {
+  ['pl-data','pl-bncc','pl-conteudos','pl-desenvolvimento','pl-bimestre'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
+  document.querySelectorAll('input[name="pl-direitos"], input[name="pl-campos"]').forEach(c => {
+    c.checked = false;
+    c.closest('.check-item')?.classList.remove('checked');
+  });
   renderProfField();
+}
+
+function toggleCheckStyle(cb) {
+  cb.closest('.check-item')?.classList.toggle('checked', cb.checked);
 }
 
 function renderDashboard() {
@@ -2110,23 +2121,27 @@ function renderPlanejamentos() {
     const dataFmt = p.data ? new Date(p.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
     const savedAt = fmtDateTime(p.criadoEm);
     const canCorrect = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
+    const conteudosTxt = p.conteudos || p.tema || '—';
+    const direitosTxt  = Array.isArray(p.direitos) && p.direitos.length ? p.direitos.join(' · ') : (p.area || '');
     return `<div class="item-card">
       <div class="info">
-        <strong>${p.tema}</strong>
+        <strong>${conteudosTxt}</strong>
         <span>
           <span class="badge badge-green">${turma ? turma.nome : '—'}</span>
-          ${p.bimestre ? `<span class="badge badge-gray">${p.bimestre}</span>` : ''}
-          &nbsp;${p.area} &nbsp;|&nbsp; 📅 ${dataFmt} &nbsp;|&nbsp; 👩‍🏫 ${p.prof}
+          ${p.bimestre ? `<span class="badge badge-gray">${p.bimestre}<\span>` : ''}
+          &nbsp;📅 ${dataFmt} &nbsp;|&nbsp; 👩‍🏫 ${p.prof}
         </span>
+        ${direitosTxt ? `<span style="font-size:12px;color:var(--green-dark);">⭐ ${direitosTxt}</span>` : ''}
         <span style="font-size:12px;color:var(--gray-400);">💾 Salvo em: ${savedAt}</span>
-        ${p.objetivos ? `<div style="margin-top:4px;font-size:13px;color:var(--gray-600);">🎯 ${p.objetivos.slice(0,120)}${p.objetivos.length>120?'…':''}</div>` : ''}
+        ${p.desenvolvimento || p.metodologia ? `<div style="margin-top:4px;font-size:13px;color:var(--gray-600);">${(p.desenvolvimento || p.metodologia).slice(0,120)}${(p.desenvolvimento||p.metodologia).length>120?'…':''}</div>` : ''}
       </div>
       <div class="actions">
         ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')" title="Abrir no Google Docs">📄 Docs</button>` : ''}
         ${canCorrect ? `<button class="btn btn-sm ${p.corrigido ? 'btn-primary' : 'btn-amber'}" onclick="toggleCorrigido('${p.id}')">
           ${p.corrigido ? '✅ Corrigido' : '📝 Corrigir'}
         </button>` : ''}
-        <button class="btn btn-secondary btn-sm" onclick="verPlanejamento('${p.id}')">👁️</button>
+        <button class="btn btn-secondary btn-sm" onclick="verPlanejamento('${p.id}')" title="Abrir no Google Docs">👁️</button>
+        <button class="btn btn-secondary btn-sm" onclick="imprimirPlanejamento('${p.id}')" title="Imprimir">🖨️</button>
         <button class="btn btn-danger btn-sm" onclick="deletePlanejamento('${p.id}')">🗑️</button>
       </div>
     </div>`;
@@ -2167,6 +2182,77 @@ async function verPlanejamento(id) {
     win.close();
     showToast('⚠️ Erro ao enviar: ' + e.message);
   }
+}
+
+function imprimirPlanejamento(id) {
+  const p = db.planejamentos.find(x => x.id === id);
+  if (!p) return;
+  const turma = db.turmas.find(t => t.id === p.turmaId);
+  const dataFmt = p.data ? new Date(p.data + 'T12:00:00').toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'2-digit', year:'numeric'}) : '—';
+  const logoEl = document.querySelector('header img');
+  const logoSrc = logoEl ? logoEl.src : '';
+  const direitos = Array.isArray(p.direitos) && p.direitos.length ? p.direitos.join('<br>') : (p.area || '—');
+  const campos   = Array.isArray(p.campos)   && p.campos.length   ? p.campos.join('<br>')   : '—';
+  const conteudos = p.conteudos || p.tema || '—';
+  const desenvolvimento = p.desenvolvimento || p.metodologia || '—';
+  const bncc = (p.bncc || '—').replace(/\n/g, '<br>');
+  const win = window.open('', '_blank', 'width=900,height=700');
+  win.document.write(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Planejamento — ${conteudos}</title>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family: Arial, sans-serif; padding:20px; color:#222; }
+  .header { display:flex; align-items:center; gap:16px; margin-bottom:12px; border-bottom:3px solid #1D9E75; padding-bottom:10px; }
+  .header img { height:60px; }
+  .header-text h1 { font-size:16px; color:#1D9E75; text-transform:uppercase; letter-spacing:1px; }
+  .header-text p { font-size:12px; color:#555; margin-top:4px; }
+  table { width:100%; border-collapse:collapse; margin-top:12px; font-size:12px; }
+  th { background:#1D9E75; color:#fff; padding:8px 6px; text-align:center; font-size:11px; border:1px solid #157a5b; }
+  td { border:1px solid #ccc; padding:8px 6px; vertical-align:top; }
+  td.data-cell { text-align:center; font-weight:bold; background:#f5f6f7; }
+  .footer { margin-top:20px; font-size:11px; color:#888; text-align:right; }
+  @media print { body { padding:8px; } .no-print { display:none; } }
+</style>
+</head>
+<body>
+<div class="header">
+  ${logoSrc ? `<img src="${logoSrc}" />` : ''}
+  <div class="header-text">
+    <h1>Planejamento Mensal — Infantil</h1>
+    <p>Professora: <strong>${p.prof}</strong> &nbsp;|&nbsp; Turma: <strong>${turma ? turma.nome : '—'}</strong> &nbsp;|&nbsp; Período: <strong>${p.bimestre || '—'}</strong></p>
+  </div>
+</div>
+<table>
+  <thead>
+    <tr>
+      <th style="width:11%">DATA</th>
+      <th style="width:14%">DIREITO(S) DE APRENDIZAGEM</th>
+      <th style="width:18%">CAMPO(S) DE EXPERIÊNCIA(S)</th>
+      <th style="width:22%">OBJETIVOS BNCC</th>
+      <th style="width:12%">CONTEÚDOS</th>
+      <th style="width:23%">DESENVOLVIMENTO</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="data-cell">${dataFmt}</td>
+      <td>${direitos}</td>
+      <td>${campos}</td>
+      <td>${bncc}</td>
+      <td>${conteudos}</td>
+      <td>${desenvolvimento.replace(/\n/g,'<br>')}</td>
+    </tr>
+  </tbody>
+</table>
+<div class="footer">Escola Ponte do Saber — gerado em ${new Date().toLocaleDateString('pt-BR')}</div>
+<p class="no-print" style="margin-top:16px;text-align:center;">
+  <button onclick="window.print()" style="padding:8px 24px;background:#1D9E75;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;">🖨️ Imprimir</button>
+</p>
+</body></html>`);
+  win.document.close();
 }
 
 function exportarPlanejamentos() {
@@ -2845,13 +2931,17 @@ function buildParecerTxt(p) {
 function buildPlanejamentoTxt(p) {
   const turma = db.turmas.find(t => t.id === p.turmaId);
   const dataFmt = p.data ? new Date(p.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
-  let txt = `PLANEJAMENTO DE AULA — ESCOLA PONTE DO SABER\n${'='.repeat(50)}\n`
-    + `Turma: ${turma ? turma.nome : '—'}\nData: ${dataFmt}\nPeríodo: ${p.bimestre || '—'}\nProfessora(o): ${p.prof}\nÁrea: ${p.area}\nTema: ${p.tema}\n\n`;
-  if (p.objetivos)   txt += `OBJETIVOS:\n${p.objetivos}\n\n`;
-  if (p.metodologia) txt += `METODOLOGIA:\n${p.metodologia}\n\n`;
-  if (p.bncc)        txt += `HABILIDADES BNCC:\n${p.bncc}\n\n`;
-  if (p.recursos)    txt += `RECURSOS:\n${p.recursos}\n\n`;
-  if (p.avaliacao)   txt += `AVALIAÇÃO:\n${p.avaliacao}\n`;
+  const direitos = Array.isArray(p.direitos) ? p.direitos.join(', ') : (p.area || '—');
+  const campos   = Array.isArray(p.campos)   ? p.campos.join('; ')   : '—';
+  const conteudos = p.conteudos || p.tema || '—';
+  const desenvolvimento = p.desenvolvimento || p.metodologia || '—';
+  let txt = `PLANEJAMENTO MENSAL — ESCOLA PONTE DO SABER\n${'='.repeat(50)}\n`
+    + `Turma: ${turma ? turma.nome : '—'}\nData: ${dataFmt}\nPeríodo: ${p.bimestre || '—'}\nProfessora(o): ${p.prof}\n\n`
+    + `DIREITOS DE APRENDIZAGEM:\n${direitos}\n\n`
+    + `CAMPO(S) DE EXPERIÊNCIA:\n${campos}\n\n`
+    + `OBJETIVOS / HABILIDADES BNCC:\n${p.bncc || '—'}\n\n`
+    + `CONTEÚDOS:\n${conteudos}\n\n`
+    + `DESENVOLVIMENTO DA ATIVIDADE:\n${desenvolvimento}\n`;
   return txt;
 }
 
