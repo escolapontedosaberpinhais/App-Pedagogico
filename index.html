@@ -704,23 +704,23 @@
 
   <!-- API KEY -->
   <div class="card">
-    <div class="card-title">🔑 Chave API Gemini</div>
+    <div class="card-title">🔑 Chave API Groq (IA Gratuita)</div>
     <div class="alert alert-info" style="margin-bottom:14px;">
-      Obtenha sua chave gratuita em <strong>aistudio.google.com</strong> e cole abaixo. A chave é salva localmente no navegador.
+      Obtenha sua chave gratuita em <strong>console.groq.com</strong> → API Keys → Create API Key. Totalmente gratuito.
     </div>
     <div class="config-row">
-      <input type="password" id="gemini-key" placeholder="AIza..." />
+      <input type="password" id="gemini-key" placeholder="gsk_..." />
       <button class="btn btn-primary" onclick="saveApiKey()">💾 Salvar chave</button>
       <button class="btn btn-secondary" onclick="toggleKeyVisibility()">👁️ Mostrar</button>
     </div>
     <div style="margin-top:14px;">
-      <label style="font-size:13px;font-weight:600;color:var(--gray-600);">Modelo Gemini</label>
+      <label style="font-size:13px;font-weight:600;color:var(--gray-600);">Modelo</label>
       <div style="display:flex;gap:10px;align-items:center;margin-top:6px;flex-wrap:wrap;">
         <select id="gemini-model" style="max-width:320px;" onchange="saveModel()">
-          <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite (recomendado — tier gratuito)</option>
-          <option value="gemini-2.0-flash">gemini-2.0-flash (requer billing)</option>
-          <option value="gemini-1.5-flash-latest">gemini-1.5-flash-latest (alternativo)</option>
-          <option value="gemini-1.5-flash-8b-latest">gemini-1.5-flash-8b-latest (mais leve)</option>
+          <option value="llama-3.3-70b-versatile">Llama 3.3 70B (recomendado — alta qualidade)</option>
+          <option value="llama-3.1-8b-instant">Llama 3.1 8B (mais rápido)</option>
+          <option value="mixtral-8x7b-32768">Mixtral 8x7B (alternativo)</option>
+          <option value="gemma2-9b-it">Gemma 2 9B (leve)</option>
         </select>
         <span id="model-status" style="font-size:13px;color:var(--green);"></span>
       </div>
@@ -1087,7 +1087,7 @@ function getFolder(path) {
     </div>
 
     <div class="btn-row">
-      <button class="btn btn-amber" id="btn-gerar" onclick="gerarParecer()">✨ Gerar com IA Gemini</button>
+      <button class="btn btn-amber" id="btn-gerar" onclick="gerarParecer()">✨ Gerar com IA Groq</button>
     </div>
   </div>
 
@@ -1699,7 +1699,7 @@ function saveModel() {
 }
 
 function getModel() {
-  return localStorage.getItem('ps_gemini_model') || 'gemini-2.0-flash-lite';
+  return localStorage.getItem('ps_gemini_model') || 'llama-3.3-70b-versatile';
 }
 
 // Init
@@ -2137,7 +2137,7 @@ function selectTone(btn) {
 
 async function gerarParecer() {
   if (!db.apiKey) {
-    alert('Configure sua chave API Gemini na aba Configuração.');
+    alert('Configure sua chave API Groq na aba Configuração.');
     return;
   }
   const alunoId = document.getElementById('par-aluno').value;
@@ -2185,12 +2185,17 @@ Escreva o parecer completo, começando diretamente com o texto (sem título, sem
   document.getElementById('alert-parecer').innerHTML = '';
 
   try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${getModel()}:generateContent?key=${db.apiKey}`, {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${db.apiKey}`,
+      },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.75, maxOutputTokens: 700 },
+        model: getModel(),
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.75,
+        max_tokens: 700,
       }),
     });
 
@@ -2200,7 +2205,7 @@ Escreva o parecer completo, começando diretamente com o texto (sem título, sem
     }
 
     const data = await res.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const text = data.choices?.[0]?.message?.content;
     if (!text) throw new Error('Resposta vazia da API.');
 
     document.getElementById('parecer-output').innerText = text;
