@@ -2818,9 +2818,12 @@ async function uploadToDrive(filename, content, ...folderPath) {
     }),
   });
   try {
-    const json = await res.json();
+    const text = await res.text();
+    showToast('🔍 Resposta: ' + text.slice(0, 120), 8000);
+    const json = JSON.parse(text);
     return json.url || null;
-  } catch {
+  } catch(e) {
+    showToast('🔍 Erro leitura: ' + e.message, 8000);
     return null;
   }
 }
@@ -2862,7 +2865,7 @@ function downloadTxt(content, filename) {
   URL.revokeObjectURL(url);
 }
 
-function showToast(msg) {
+function showToast(msg, duration) {
   const t = document.createElement('div');
   t.textContent = msg;
   Object.assign(t.style, {
@@ -2874,7 +2877,7 @@ function showToast(msg) {
     zIndex: 9999, transition: 'opacity 0.4s',
   });
   document.body.appendChild(t);
-  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, 2200);
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, duration || 2200);
 }
 </script>
 </body>
