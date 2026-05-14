@@ -539,6 +539,43 @@
   </div>
 </div>
 
+<!-- MODAL EDITAR USUÁRIO -->
+<div id="modal-editar-usr" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <h3>✏️ Editar Usuário</h3>
+    <div id="modal-editar-usr-erro" class="login-error"></div>
+    <input type="hidden" id="edit-usr-id" />
+    <div class="form-group" style="margin-bottom:12px;">
+      <label>Nome completo</label>
+      <input type="text" id="edit-usr-nome" placeholder="Nome completo" />
+    </div>
+    <div class="form-group" style="margin-bottom:12px;">
+      <label>Usuário (login)</label>
+      <input type="text" id="edit-usr-login" placeholder="usuario" />
+    </div>
+    <div class="form-group" style="margin-bottom:12px;">
+      <label>Nova senha <span style="font-size:11px;color:var(--gray-400);">(deixe em branco para manter)</span></label>
+      <input type="password" id="edit-usr-senha" placeholder="mínimo 4 caracteres" />
+    </div>
+    <div class="form-group" style="margin-bottom:12px;">
+      <label>Papel</label>
+      <select id="edit-usr-papel" onchange="toggleEditUsrTurma()">
+        <option value="professora">Professora</option>
+        <option value="pedagoga">Pedagoga</option>
+        <option value="diretor">Diretor(a)</option>
+      </select>
+    </div>
+    <div class="form-group" id="edit-usr-turma-group" style="margin-bottom:20px;">
+      <label>Turma vinculada</label>
+      <select id="edit-usr-turma"></select>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="salvarEdicaoUsuario()">💾 Salvar alterações</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('modal-editar-usr').style.display='none'">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <!-- LOGIN OVERLAY -->
 <div id="loading-screen">
   <div class="load-spinner"></div>
@@ -1424,6 +1461,67 @@ function addUsuario() {
   showToast('Usuário criado!');
 }
 
+function abrirEditarUsuario(id) {
+  const u = db.usuarios.find(x => x.id === id);
+  if (!u) return;
+  document.getElementById('edit-usr-id').value    = u.id;
+  document.getElementById('edit-usr-nome').value  = u.nome;
+  document.getElementById('edit-usr-login').value = u.usuario;
+  document.getElementById('edit-usr-senha').value = '';
+  document.getElementById('edit-usr-papel').value = u.papel;
+  document.getElementById('modal-editar-usr-erro').style.display = 'none';
+
+  // Preenche select de turmas
+  const sel = document.getElementById('edit-usr-turma');
+  sel.innerHTML = db.turmas.map(t => `<option value="${t.id}" ${t.id === u.turmaId ? 'selected' : ''}>${t.nome}</option>`).join('');
+
+  toggleEditUsrTurma();
+  document.getElementById('modal-editar-usr').style.display = 'flex';
+  setTimeout(() => document.getElementById('edit-usr-nome').focus(), 100);
+}
+
+function toggleEditUsrTurma() {
+  const papel = document.getElementById('edit-usr-papel').value;
+  document.getElementById('edit-usr-turma-group').style.display = papel === 'professora' ? '' : 'none';
+}
+
+function salvarEdicaoUsuario() {
+  const id    = document.getElementById('edit-usr-id').value;
+  const nome  = document.getElementById('edit-usr-nome').value.trim();
+  const login = document.getElementById('edit-usr-login').value.trim().toLowerCase();
+  const senha = document.getElementById('edit-usr-senha').value;
+  const papel = document.getElementById('edit-usr-papel').value;
+  const turmaId = papel === 'professora' ? document.getElementById('edit-usr-turma').value : null;
+  const erro  = document.getElementById('modal-editar-usr-erro');
+
+  const mostrarErro = msg => { erro.textContent = msg; erro.style.display = 'block'; };
+
+  if (!nome || !login) return mostrarErro('Nome e usuário são obrigatórios.');
+  if (senha && senha.length < 4) return mostrarErro('A nova senha precisa ter ao menos 4 caracteres.');
+  if (db.usuarios.find(u => u.usuario === login && u.id !== id)) return mostrarErro('Já existe outro usuário com esse login.');
+
+  const idx = db.usuarios.findIndex(u => u.id === id);
+  if (idx === -1) return;
+
+  db.usuarios[idx].nome    = nome;
+  db.usuarios[idx].usuario = login;
+  db.usuarios[idx].papel   = papel;
+  db.usuarios[idx].turmaId = turmaId;
+  if (senha) db.usuarios[idx].senha = hashPw(senha);
+
+  // Atualiza sessão se for o usuário logado
+  if (currentUser?.id === id) {
+    currentUser = { ...db.usuarios[idx] };
+    sessionStorage.setItem('ps_sess', JSON.stringify(currentUser));
+    document.getElementById('header-nome').textContent = currentUser.nome;
+  }
+
+  save();
+  document.getElementById('modal-editar-usr').style.display = 'none';
+  renderUsuarios();
+  showToast('✅ Usuário atualizado!');
+}
+
 function deleteUsuario(id) {
   if (id === currentUser?.id) { alert('Não é possível excluir o usuário logado.'); return; }
   if (!confirm('Excluir este usuário?')) return;
@@ -1454,6 +1552,7 @@ function renderUsuarios() {
         </span>
       </div>
       <div class="actions">
+        <button class="btn btn-secondary btn-sm" onclick="abrirEditarUsuario('${u.id}')">✏️</button>
         <button class="btn btn-danger btn-sm" onclick="deleteUsuario('${u.id}')" ${u.id === currentUser?.id ? 'disabled' : ''}>🗑️</button>
       </div>
     </div>`;
