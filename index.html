@@ -1141,42 +1141,49 @@ function getFolder(path) {
   </div>
 
   <!-- TURMAS -->
-  <div class="card">
-    <div class="card-title">🏷️ Turmas</div>
-    <div class="form-grid">
-      <div class="form-group">
-        <label>Nome da turma</label>
-        <input type="text" id="turma-nome" placeholder="Ex: Jardim II — Turma A" />
-      </div>
-      <div class="form-group">
-        <label>Professora(o) responsável</label>
-        <input type="text" id="turma-prof" placeholder="Nome da professora" />
-      </div>
-      <div class="form-group">
-        <label>Período</label>
-        <select id="turma-periodo">
-          <option value="manhã">Manhã</option>
-          <option value="tarde">Tarde</option>
-          <option value="integral">Integral</option>
-        </select>
-      </div>
-    </div>
-    <div class="btn-row">
-      <button class="btn btn-primary" onclick="addTurma()">➕ Adicionar turma</button>
-    </div>
-    <div class="divider"></div>
-    <div id="turmas-list" class="item-list"></div>
-  </div>
-
 </div>
 
 <!-- ===================== CADASTRO ===================== -->
 <div id="tab-cadastro" class="section">
 
   <div class="section-header">
-    <h2>📝 Cadastro de Alunos</h2>
+    <h2>📝 Cadastro</h2>
   </div>
 
+  <!-- TURMAS: visível apenas para diretor e pedagoga -->
+  <div id="cad-turmas-section" style="display:none;">
+    <div class="card">
+      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>🏷️ Turmas</span>
+        <span id="cad-turmas-count" style="font-size:12px;font-weight:400;color:var(--gray-400);"></span>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Nome da turma</label>
+          <input type="text" id="turma-nome" placeholder="Ex: Jardim II — Turma A" />
+        </div>
+        <div class="form-group">
+          <label>Professora(o) responsável</label>
+          <input type="text" id="turma-prof" placeholder="Nome da professora" />
+        </div>
+        <div class="form-group">
+          <label>Período</label>
+          <select id="turma-periodo">
+            <option value="manhã">Manhã</option>
+            <option value="tarde">Tarde</option>
+            <option value="integral">Integral</option>
+          </select>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="addTurma()">➕ Adicionar turma</button>
+      </div>
+      <div class="divider"></div>
+      <div id="turmas-list" class="item-list"></div>
+    </div>
+  </div>
+
+  <!-- ALUNOS -->
   <div class="card">
     <div class="card-title">➕ Novo Aluno</div>
     <div id="cadastro-msg-turma" class="alert alert-info" style="display:none;margin-bottom:12px;">
@@ -1594,12 +1601,12 @@ function refreshCurrentView() {
   if (!active) return;
   const id = active.id;
   if (id === 'tab-dashboard')    renderDashboard();
-  if (id === 'tab-config')       { renderTurmas(); renderAlunos(); renderUsuarios(); }
+  if (id === 'tab-config')       { renderUsuarios(); }
   if (id === 'tab-planejamento') { populateSelects(); renderPlanejamentos(); }
   if (id === 'tab-pareceres')    { populateSelects(); renderPareceres(); }
   if (id === 'tab-avaliacoes')   { populateSelects(); renderTabelaAvaliacoes(); }
   if (id === 'tab-correcao')     { renderCorrecoes(); }
-  if (id === 'tab-cadastro')   { populateSelects(); populateFiltroTurmas(); renderAlunos(); }
+  if (id === 'tab-cadastro')   { populateSelects(); populateFiltroTurmas(); renderTurmas(); renderAlunos(); }
 }
 
 // =====================================================================
@@ -1732,6 +1739,10 @@ function aplicarPapel() {
   const dCorr = document.getElementById('dnav-correcao');
   const dCad  = document.getElementById('dnav-cadastro');
   if (dCad) dCad.style.display = ''; // Cadastro visível para todos
+
+  // Seção Turmas no Cadastro: só para gestão
+  const cadTurmasSec = document.getElementById('cad-turmas-section');
+  if (cadTurmasSec) cadTurmasSec.style.display = isGestao ? '' : 'none';
   if (dDash) dDash.style.display = isGestao ? '' : 'none';
   if (dCorr) dCorr.style.display = isGestao ? '' : 'none';
 
@@ -1949,7 +1960,7 @@ function showTab(tab) {
   if (tab === 'pareceres')    { populateSelects(); renderPareceres(); }
   if (tab === 'avaliacoes')   { populateSelects(); renderTabelaAvaliacoes(); }
   if (tab === 'correcao')     { renderCorrecoes(); }
-  if (tab === 'cadastro')     { populateSelects(); populateFiltroTurmas(); renderAlunos(); }
+  if (tab === 'cadastro')     { populateSelects(); populateFiltroTurmas(); renderTurmas(); renderAlunos(); }
 }
 
 // --- DRAWER functions ---
@@ -2153,7 +2164,8 @@ function addTurma() {
   const nome = document.getElementById('turma-nome').value.trim();
   const prof = document.getElementById('turma-prof').value.trim();
   const periodo = document.getElementById('turma-periodo').value;
-  if (!nome) { alert('Informe o nome da turma.'); return; }
+  if (!nome) { showToast('⚠️ Informe o nome da turma.'); return; }
+  if (currentUser?.papel !== 'diretor' && currentUser?.papel !== 'pedagoga') { showToast('⚠️ Sem permissão.'); return; }
   db.turmas.push({ id: uid(), nome, prof, periodo });
   save();
   document.getElementById('turma-nome').value = '';
@@ -2163,6 +2175,7 @@ function addTurma() {
 }
 
 function deleteTurma(id) {
+  if (currentUser?.papel !== 'diretor' && currentUser?.papel !== 'pedagoga') { showToast('⚠️ Sem permissão.'); return; }
   if (!confirm('Excluir turma e todos os alunos vinculados?')) return;
   db.turmas = db.turmas.filter(t => t.id !== id);
   db.alunos = db.alunos.filter(a => a.turmaId !== id);
@@ -2174,20 +2187,26 @@ function deleteTurma(id) {
 
 function renderTurmas() {
   const el = document.getElementById('turmas-list');
+  if (!el) return;
+  // Atualiza contador no título
+  const countEl = document.getElementById('cad-turmas-count');
+  if (countEl) countEl.textContent = db.turmas.length + ' turma(s)';
   if (db.turmas.length === 0) {
     el.innerHTML = '<div class="empty"><div class="icon">🏷️</div><p>Nenhuma turma cadastrada.</p></div>';
     return;
   }
   el.innerHTML = db.turmas.map(t => {
     const count = db.alunos.filter(a => a.turmaId === t.id).length;
+    const canEdit = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
+    const delBtn = canEdit
+      ? `<button class="btn btn-danger btn-sm" onclick="deleteTurma('${t.id}')" title="Excluir turma">🗑️</button>`
+      : '';
     return `<div class="item-card">
       <div class="info">
         <strong>${t.nome}</strong>
         <span>👩‍🏫 ${t.prof || '—'} &nbsp;|&nbsp; 🕐 ${t.periodo} &nbsp;|&nbsp; 👦 ${count} aluno(s)</span>
       </div>
-      <div class="actions">
-        <button class="btn btn-danger btn-sm" onclick="deleteTurma('${t.id}')">🗑️</button>
-      </div>
+      <div class="actions">${delBtn}</div>
     </div>`;
   }).join('');
 }
@@ -2395,17 +2414,17 @@ function renderDashboard() {
   const totalCorrig   = plFilt.filter(p => p.corrigido).length;
 
   document.getElementById('dash-summary').innerHTML = `
-    <div class="dash-card" onclick="showTab('config')" title="Ver alunos">
+    <div class="dash-card" onclick="showTab('cadastro')" title="Ver alunos">
       <div class="dash-num">${totalAlunos}</div>
       <div class="dash-label">Alunos</div>
       <div class="dash-sub">↗ ver</div>
     </div>
-    <div class="dash-card blue" onclick="showTab('config')" title="Ver turmas">
+    <div class="dash-card blue" onclick="showTab('cadastro')" title="Ver turmas">
       <div class="dash-num">${totalTurmas}</div>
       <div class="dash-label">Turmas</div>
       <div class="dash-sub">↗ ver</div>
     </div>
-    <div class="dash-card amber" onclick="showTab('config')" title="Ver professoras">
+    <div class="dash-card amber" onclick="showTab('config')" title="Ver usuários/professoras">
       <div class="dash-num">${totalProfs}</div>
       <div class="dash-label">Professoras</div>
       <div class="dash-sub">↗ ver</div>
