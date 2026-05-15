@@ -3050,20 +3050,53 @@ async function verParecer(id) {
   }
 
   /* SIGNATURE */
-  .signature-area {
-    margin-top: 48px;
+  .signature-section { margin-top: 52px; }
+  .signature-row {
     display: flex;
-    justify-content: space-between;
-    gap: 32px;
-    flex-wrap: wrap;
+    gap: 28px;
+    margin-bottom: 36px;
   }
-  .sig-block { flex: 1; min-width: 180px; text-align: center; }
-  .sig-line {
-    border-top: 1px solid #333;
-    margin-bottom: 6px;
+  .sig-block {
+    flex: 1;
+    text-align: center;
   }
-  .sig-block p { font-size: 12px; color: #444; }
-  .sig-block .sig-role { font-size: 11px; color: #888; margin-top: 2px; }
+  .sig-space {
+    height: 52px;
+    border-bottom: 1.5px solid #333;
+    margin-bottom: 8px;
+  }
+  .sig-name-line {
+    border-bottom: 1px dashed #bbb;
+    height: 20px;
+    margin: 8px 0 4px;
+    font-size: 11px;
+    color: #aaa;
+    line-height: 20px;
+    text-align: left;
+    padding-left: 4px;
+  }
+  .sig-block .sig-role {
+    font-size: 12px;
+    font-weight: bold;
+    color: #333;
+  }
+  .sig-block .sig-label {
+    font-size: 11px;
+    color: #888;
+    margin-top: 2px;
+  }
+  .sig-date {
+    font-size: 11px;
+    color: #aaa;
+    margin-top: 6px;
+    text-align: right;
+  }
+  .sig-date span {
+    display: inline-block;
+    border-bottom: 1px solid #bbb;
+    min-width: 120px;
+    margin-left: 4px;
+  }
 
   /* FOOTER */
   .footer {
@@ -3159,22 +3192,44 @@ async function verParecer(id) {
 
   <div class="parecer-body">${escapeHtml(p.texto)}</div>
 
-  <div class="signature-area">
-    <div class="sig-block">
-      <div class="sig-line"></div>
-      <p>${turma?.prof || 'Professora(o) responsável'}</p>
-      <p class="sig-role">Professora(o) da turma</p>
+  <div class="signature-section">
+
+    <!-- Linha 1: Professora + Pedagoga -->
+    <div class="signature-row">
+      <div class="sig-block">
+        <div class="sig-space"></div>
+        <div class="sig-role">Professora(o) Responsável</div>
+        <div class="sig-name-line">Nome: ________________________________</div>
+        <div class="sig-label">Professora(o) da turma</div>
+        <div class="sig-date">Data: <span></span></div>
+      </div>
+      <div class="sig-block">
+        <div class="sig-space"></div>
+        <div class="sig-role">Pedagoga / Coordenação</div>
+        <div class="sig-name-line">Nome: ________________________________</div>
+        <div class="sig-label">Escola Ponte do Saber</div>
+        <div class="sig-date">Data: <span></span></div>
+      </div>
     </div>
-    <div class="sig-block">
-      <div class="sig-line"></div>
-      <p>Coordenação Pedagógica</p>
-      <p class="sig-role">Escola Ponte do Saber</p>
+
+    <!-- Linha 2: Responsável 1 + Responsável 2 -->
+    <div class="signature-row">
+      <div class="sig-block">
+        <div class="sig-space"></div>
+        <div class="sig-role">Responsável 1</div>
+        <div class="sig-name-line">Nome: ________________________________</div>
+        <div class="sig-label">Responsável pelo(a) aluno(a) — Ciente</div>
+        <div class="sig-date">Data: <span></span></div>
+      </div>
+      <div class="sig-block">
+        <div class="sig-space"></div>
+        <div class="sig-role">Responsável 2</div>
+        <div class="sig-name-line">Nome: ________________________________</div>
+        <div class="sig-label">Responsável pelo(a) aluno(a) — Ciente</div>
+        <div class="sig-date">Data: <span></span></div>
+      </div>
     </div>
-    <div class="sig-block">
-      <div class="sig-line"></div>
-      <p>Responsável pelo(a) aluno(a)</p>
-      <p class="sig-role">Ciente</p>
-    </div>
+
   </div>
 
   <div class="footer">
