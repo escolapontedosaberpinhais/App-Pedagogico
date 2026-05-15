@@ -823,35 +823,34 @@
     <img id="drawer-logo" src="" alt="Logo">
     <div class="drawer-head-info">
       <strong>Ponte do Saber</strong>
-      <small id="drawer-user-info">â€”</small>
+      <small id="drawer-user-info">&mdash;</small>
     </div>
   </div>
   <div class="drawer-body">
     <button class="dnav-btn" id="dnav-dashboard" onclick="drawerNav('dashboard')" style="display:none;">
-      <span class="di">ðŸ </span> Dashboard
+      <span class="di">&#x1F3E0;</span> Dashboard
     </button>
     <button class="dnav-btn dnav-active" id="dnav-config" onclick="drawerNav('config')">
-      <span class="di">âš™ï¸</span> ConfiguraÃ§Ã£o
+      <span class="di">&#x2699;&#xFE0F;</span> Configura&ccedil;&atilde;o
     </button>
     <button class="dnav-btn" id="dnav-planejamento" onclick="drawerNav('planejamento')">
-      <span class="di">ðŸ“‹</span> Planejamentos
+      <span class="di">&#x1F4CB;</span> Planejamentos
     </button>
     <button class="dnav-btn" id="dnav-pareceres" onclick="drawerNav('pareceres')">
-      <span class="di">âœ¨</span> Pareceres IA
+      <span class="di">&#x2728;</span> Pareceres IA
     </button>
     <button class="dnav-btn" id="dnav-avaliacoes" onclick="drawerNav('avaliacoes')">
-      <span class="di">ðŸ“Š</span> AvaliaÃ§Ãµes
+      <span class="di">&#x1F4CA;</span> Avalia&ccedil;&otilde;es
     </button>
     <button class="dnav-btn" id="dnav-correcao" onclick="drawerNav('correcao')" style="display:none;">
-      <span class="di">âœ…</span> CorreÃ§Ã£o
+      <span class="di">&#x2705;</span> Corre&ccedil;&atilde;o
     </button>
   </div>
   <div class="drawer-footer">
-    <button class="drawer-key" onclick="fecharDrawer();abrirTrocarSenha();">ðŸ”‘ Trocar senha</button>
-    <button class="drawer-logout" onclick="fazerLogout()">ðŸšª Sair</button>
+    <button class="drawer-key" onclick="fecharDrawer();abrirTrocarSenha();">&#x1F511; Trocar senha</button>
+    <button class="drawer-logout" onclick="fazerLogout()">&#x1F6AA; Sair</button>
   </div>
 </div>
-
 <nav id="nav">
   <button id="nav-dashboard" onclick="showTab('dashboard')" data-tab="dashboard" style="display:none;">🏠 Dashboard</button>
   <button class="active" onclick="showTab('config')" data-tab="config" id="nav-config">⚙️ Configuração</button>
@@ -1714,7 +1713,7 @@ function aplicarPapel() {
   const drawerUserInfo = document.getElementById('drawer-user-info');
   if (drawerUserInfo) {
     const papelLabel = { diretor: 'Diretor(a)', pedagoga: 'Pedagoga', professora: 'Professora' };
-    drawerUserInfo.textContent = (currentUser?.nome || currentUser?.login || '') + ' Â· ' + (papelLabel[currentUser?.papel] || '');
+    drawerUserInfo.textContent = (currentUser?.nome || currentUser?.login || '') + ' · ' + (papelLabel[currentUser?.papel] || '');
   }
 
   // Copy logo to drawer
