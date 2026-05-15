@@ -1,4 +1,4 @@
-const CACHE = 'ponte-saber-v1';
+﻿const CACHE = 'ponte-saber-v2';
 const ASSETS = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -14,7 +14,6 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Firebase e APIs externas: sempre online
   if (e.request.url.includes('firestore') ||
       e.request.url.includes('firebase') ||
       e.request.url.includes('googleapis') ||
@@ -24,5 +23,36 @@ self.addEventListener('fetch', e => {
   }
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request))
+  );
+});
+
+self.addEventListener('push', e => {
+  let data = { titulo: 'Ponte do Saber', descricao: 'Nova pendencia de correcao', tab: 'correcao' };
+  try { if (e.data) data = { ...data, ...e.data.json() }; } catch(err) {}
+  e.waitUntil(
+    self.registration.showNotification(data.titulo, {
+      body: data.descricao,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: 'pontesaber-push',
+      data: { tab: data.tab || 'correcao' },
+      vibrate: [200, 100, 200],
+    })
+  );
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const tab = e.notification.data?.tab || 'correcao';
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const client of list) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.postMessage({ type: 'SHOW_TAB', tab });
+          return client.focus();
+        }
+      }
+      return clients.openWindow('/?tab=' + tab);
+    })
   );
 });
