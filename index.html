@@ -2738,7 +2738,8 @@ function renderCorrecoes() {
         </div>
         <div class="actions">
           ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')" title="Abrir no Google Docs">📄 Docs</button>` : ''}
-          <button class="btn btn-secondary btn-sm" onclick="verParecer('${p.id}')" title="Visualizar">👁️</button>
+          <button class="btn btn-secondary btn-sm" onclick="verParecer('${p.id}')" title="Abrir (Google Docs)">👁️</button>
+          <button class="btn btn-primary btn-sm" onclick="imprimirParecer('${p.id}')" title="Imprimir / Salvar PDF">🖨️ PDF</button>
           <button class="btn btn-sm btn-amber" onclick="toggleCorrigidoDash('par','${p.id}')">📝 Corrigir</button>
         </div>
       </div>`;
@@ -3177,7 +3178,8 @@ function renderPareceres() {
         ${canCorrect ? `<button class="btn btn-sm ${p.corrigido ? 'btn-primary' : 'btn-amber'}" onclick="toggleParecerCorrigido('${p.id}')">
           ${p.corrigido ? '✅ Corrigido' : '📝 Corrigir'}
         </button>` : ''}
-        <button class="btn btn-secondary btn-sm" onclick="verParecer('${p.id}')">👁️</button>
+        <button class="btn btn-secondary btn-sm" onclick="verParecer('${p.id}')" title="Abrir (Google Docs)">👁️</button>
+        <button class="btn btn-primary btn-sm" onclick="imprimirParecer('${p.id}')" title="Imprimir / Salvar PDF">🖨️ PDF</button>
         <button class="btn btn-danger btn-sm" onclick="deleteParecer('${p.id}')">🗑️</button>
       </div>
     </div>`;
@@ -3212,6 +3214,16 @@ async function verParecer(id) {
     } catch(e) { win.close(); /* cai para a janela de impressão */ }
   }
 
+  abrirJanelaParecer(p);
+}
+
+function imprimirParecer(id) {
+  const p = db.pareceres.find(x => x.id === id);
+  if (!p) return;
+  abrirJanelaParecer(p);
+}
+
+function abrirJanelaParecer(p) {
   const turma = db.turmas.find(t => t.id === p.turmaId);
   const dataImpressao = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
   const dataRegistro = new Date(p.criadoEm).toLocaleDateString('pt-BR');
@@ -3344,6 +3356,7 @@ async function verParecer(id) {
 </html>`);
   win.document.close();
 }
+
 
 function escapeHtml(str) {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
