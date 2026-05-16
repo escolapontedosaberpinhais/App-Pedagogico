@@ -2910,6 +2910,8 @@ async function verPlanejamento(id) {
 function imprimirPlanejamento(id) {
   const p = db.planejamentos.find(x => x.id === id);
   if (!p) return;
+  // Prioriza o Google Docs: correcoes sao feitas la
+  if (p.docUrl) { abrirDocPdf(p.docUrl); return; }
   const turma = db.turmas.find(t => t.id === p.turmaId);
   const dataFmt = p.data ? new Date(p.data + 'T12:00:00').toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'2-digit', year:'numeric'}) : '—';
   const logoEl = document.querySelector('header img');
@@ -3225,9 +3227,21 @@ async function verParecer(id) {
   abrirJanelaParecer(p);
 }
 
+// Abre o PDF export do Google Docs (conteudo ATUAL, com correcoes feitas la)
+function abrirDocPdf(docUrl) {
+  if (!docUrl) return false;
+  const m = String(docUrl).match(/\/document\/d\/([^/]+)/);
+  if (!m) { window.open(docUrl, '_blank'); return true; }
+  const pdfUrl = 'https://docs.google.com/document/d/' + m[1] + '/export?format=pdf';
+  window.open(pdfUrl, '_blank');
+  return true;
+}
+
 function imprimirParecer(id) {
   const p = db.pareceres.find(x => x.id === id);
   if (!p) return;
+  // Prioriza o Google Docs: correcoes sao feitas la
+  if (p.docUrl) { abrirDocPdf(p.docUrl); return; }
   abrirJanelaParecer(p);
 }
 
