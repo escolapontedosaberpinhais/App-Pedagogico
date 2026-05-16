@@ -2814,6 +2814,10 @@ function toggleCorrigido(id) {
 }
 
 function deletePlanejamento(id) {
+  if (currentUser?.papel !== 'diretor' && currentUser?.papel !== 'pedagoga') {
+    showToast('⚠️ Apenas diretor ou pedagoga podem excluir.');
+    return;
+  }
   if (!confirm('Excluir planejamento?')) return;
   db.planejamentos = db.planejamentos.filter(p => p.id !== id);
   save();
@@ -2861,7 +2865,7 @@ function renderPlanejamentos() {
         </button>` : ''}
         <button class="btn btn-secondary btn-sm" onclick="verPlanejamento('${p.id}')" title="Abrir no Google Docs">👁️</button>
         <button class="btn btn-secondary btn-sm" onclick="imprimirPlanejamento('${p.id}')" title="Imprimir">🖨️</button>
-        <button class="btn btn-danger btn-sm" onclick="deletePlanejamento('${p.id}')">🗑️</button>
+        ${canCorrect ? `<button class="btn btn-danger btn-sm" onclick="deletePlanejamento('${p.id}')" title="Excluir">🗑️</button>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -3146,6 +3150,10 @@ function copiarParecer() {
 }
 
 function deleteParecer(id) {
+  if (currentUser?.papel !== 'diretor' && currentUser?.papel !== 'pedagoga') {
+    showToast('⚠️ Apenas diretor ou pedagoga podem excluir.');
+    return;
+  }
   if (!confirm('Excluir parecer?')) return;
   db.pareceres = db.pareceres.filter(p => p.id !== id);
   save();
@@ -3180,7 +3188,7 @@ function renderPareceres() {
         </button>` : ''}
         <button class="btn btn-secondary btn-sm" onclick="verParecer('${p.id}')" title="Abrir (Google Docs)">👁️</button>
         <button class="btn btn-primary btn-sm" onclick="imprimirParecer('${p.id}')" title="Imprimir / Salvar PDF">🖨️ PDF</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteParecer('${p.id}')">🗑️</button>
+        ${canCorrect ? `<button class="btn btn-danger btn-sm" onclick="deleteParecer('${p.id}')" title="Excluir">🗑️</button>` : ''}
       </div>
     </div>`;
   }).join('');
