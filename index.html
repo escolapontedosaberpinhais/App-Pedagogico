@@ -1151,7 +1151,7 @@ function getFolder(path) {
   </div>
 
   <!-- TURMAS: visível apenas para diretor e pedagoga -->
-  <div id="cad-turmas-section" style="display:none;">
+  <div id="cad-turmas-section">
     <div class="card">
       <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
         <span>🏷️ Turmas</span>
@@ -1740,9 +1740,7 @@ function aplicarPapel() {
   const dCad  = document.getElementById('dnav-cadastro');
   if (dCad) dCad.style.display = ''; // Cadastro visível para todos
 
-  // Seção Turmas no Cadastro: só para gestão
-  const cadTurmasSec = document.getElementById('cad-turmas-section');
-  if (cadTurmasSec) cadTurmasSec.style.display = isGestao ? '' : 'none';
+  // Seção Turmas no Cadastro: controlada por renderTurmas()
   if (dDash) dDash.style.display = isGestao ? '' : 'none';
   if (dCorr) dCorr.style.display = isGestao ? '' : 'none';
 
@@ -2188,6 +2186,11 @@ function deleteTurma(id) {
 function renderTurmas() {
   const el = document.getElementById('turmas-list');
   if (!el) return;
+  // Controla visibilidade da seção inteira por papel
+  const sec = document.getElementById('cad-turmas-section');
+  const isGestao = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
+  if (sec) sec.style.display = isGestao ? '' : 'none';
+  if (!isGestao) return; // professora não vê turmas
   // Atualiza contador no título
   const countEl = document.getElementById('cad-turmas-count');
   if (countEl) countEl.textContent = db.turmas.length + ' turma(s)';
