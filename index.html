@@ -659,6 +659,8 @@
     font-size: 18px; color: #fff; transition: background 0.2s; flex-shrink: 0;
   }
   .btn-sino:hover { background: rgba(255,255,255,0.28); }
+  .btn-sino.btn-icon-active { background: #fff; }
+  .btn-sino:hover { background: rgba(255,255,255,0.28); }
   .sino-badge {
     position: absolute; top: -3px; right: -3px;
     background: var(--red); color: #fff; border-radius: 50%;
@@ -804,6 +806,7 @@
       <div class="user-av" id="header-av"></div>
       <span id="header-nome"></span>
     </div>
+    <button class="btn-sino" id="btn-config-icon" onclick="showTab('config')" title="Configurações" style="display:none;">⚙️</button>
     <button class="btn-sino" id="btn-sino" onclick="togglePainelNotif()" title="Notificações" style="display:none;">
       🔔
       <span class="sino-badge" id="sino-badge" style="display:none;"></span>
@@ -830,9 +833,6 @@
     <button class="dnav-btn" id="dnav-dashboard" onclick="drawerNav('dashboard')" style="display:none;">
       <span class="di">&#x1F3E0;</span> Dashboard
     </button>
-    <button class="dnav-btn dnav-active" id="dnav-config" onclick="drawerNav('config')">
-      <span class="di">&#x2699;&#xFE0F;</span> Configura&ccedil;&atilde;o
-    </button>
     <button class="dnav-btn" id="dnav-cadastro" onclick="drawerNav('cadastro')">
       <span class="di">&#x1F4DD;</span> Cadastro
     </button>
@@ -856,7 +856,6 @@
 </div>
 <nav id="nav">
   <button id="nav-dashboard" onclick="showTab('dashboard')" data-tab="dashboard" style="display:none;">🏠 Dashboard</button>
-  <button class="active" onclick="showTab('config')" data-tab="config" id="nav-config">⚙️ Configuração</button>
   <button onclick="showTab('cadastro')" data-tab="cadastro" id="nav-cadastro">📝 Cadastro</button>
   <button onclick="showTab('planejamento')" data-tab="planejamento">📋 Planejamentos</button>
   <button onclick="showTab('pareceres')" data-tab="pareceres">✨ Pareceres IA</button>
@@ -1723,8 +1722,9 @@ function aplicarPapel() {
   const isDiretor  = currentUser.papel === 'diretor';
   const isGestao   = isDiretor || currentUser.papel === 'pedagoga';
 
-  // Aba Config: só diretor
-  document.getElementById('nav-config').style.display = isDiretor ? '' : 'none';
+  // Ícone de configuração no header: só diretor
+  const cfgIcon = document.getElementById('btn-config-icon');
+  if (cfgIcon) cfgIcon.style.display = isDiretor ? 'flex' : 'none';
   // Card de usuários: só diretor
   const cardUsr = document.getElementById('card-usuarios');
   if (cardUsr) cardUsr.style.display = isDiretor ? '' : 'none';
@@ -1952,6 +1952,9 @@ function showTab(tab) {
   document.querySelectorAll('.dnav-btn').forEach(b => b.classList.remove('active'));
   const dBtn = document.getElementById('dnav-' + tab);
   if (dBtn) dBtn.classList.add('active');
+  // Destaca ícone de engrenagem quando config ativo
+  const cfgIcon = document.getElementById('btn-config-icon');
+  if (cfgIcon) cfgIcon.classList.toggle('btn-icon-active', tab === 'config');
 
   if (tab === 'dashboard')    { renderDashboard(); }
   if (tab === 'planejamento') { populateSelects(); renderPlanejamentos(); }
