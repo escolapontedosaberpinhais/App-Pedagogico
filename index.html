@@ -3253,17 +3253,24 @@ async function verParecer(id) {
 
 // Le o conteudo ATUAL de um Google Doc via Apps Script (correcoes sao feitas la)
 async function lerDocConteudo(docUrl) {
-  if (!docUrl || !appsScriptUrl) return null;
+  if (!docUrl) { showToast('⚠️ Sem docUrl', 6000); return null; }
+  if (!appsScriptUrl) { showToast('⚠️ Apps Script nao configurado', 6000); return null; }
   const m = String(docUrl).match(/\/document\/d\/([^/]+)/);
-  if (!m) return null;
+  if (!m) { showToast('⚠️ docUrl invalida: ' + String(docUrl).slice(0,60), 8000); return null; }
   try {
     const res = await fetch(appsScriptUrl, {
       method: 'POST',
       body: JSON.stringify({ action: 'read', docId: m[1] }),
     });
-    const json = JSON.parse(await res.text());
-    return json.ok ? (json.content || '') : null;
-  } catch (e) { return null; }
+    const raw = await res.text();
+    let json;
+    try { json = JSON.parse(raw); }
+    catch(pe) { showToast('🔍 Resposta nao-JSON: ' + raw.slice(0,140), 9000); return null; }
+    if (!json.ok) { showToast('⚠️ Apps Script erro: ' + (json.error || '?').slice(0,140), 9000); return null; }
+    if (!json.content || !json.content.trim()) { showToast('⚠️ Docs retornou vazio', 6000); return null; }
+    showToast('✅ Lido do Docs: ' + json.content.length + ' chars', 4000);
+    return json.content;
+  } catch (e) { showToast('⚠️ Falha fetch: ' + (e.message||e), 9000); return null; }
 }
 
 // Remove o cabecalho de metadados que buildParecerTxt prefixou, deixando so o corpo
