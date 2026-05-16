@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -1015,6 +1015,13 @@
       <textarea id="script-code" readonly rows="12" style="font-family:monospace;font-size:12px;background:#1e1e1e;color:#d4d4d4;border:none;border-radius:6px;padding:14px;width:100%;resize:none;line-height:1.6;">function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents);
+
+    if (data.action === 'read') {
+      var rd = DocumentApp.openById(data.docId);
+      return ContentService.createTextOutput(JSON.stringify({ok:true, content: rd.getBody().getText()}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
     var folder = getFolder(data.path);
     var filename = data.filename.replace(/\.txt$/i, '');
     var lines = data.content.split('\n');
@@ -2907,11 +2914,28 @@ async function verPlanejamento(id) {
   }
 }
 
+async function imprimirPlanejamentoDoDocs(p) {
+  const turma = db.turmas.find(t => t.id === p.turmaId);
+  const win = window.open('', '_blank', 'width=900,height=720');
+  if (win) win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Carregando…</title></head><body style="font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;color:#555;"><div style="text-align:center;"><div style="font-size:32px;">⏳</div><p style="margin-top:12px;">Buscando versão atual do Google Docs…</p></div></body></html>');
+  showToast('📄 Buscando versão corrigida do Google Docs…');
+  const bruto = await lerDocConteudo(p.docUrl);
+  if (!bruto || !bruto.trim()) { if (win) win.close(); imprimirPlanejamento.__local && imprimirPlanejamento.__local(p); showToast('⚠️ Não foi possível ler o Google Docs.'); return; }
+  const logoEl = document.querySelector('header img');
+  const logoSrc = logoEl ? logoEl.src : '';
+  const corpo = escapeHtml(bruto).replace(/\n/g, '<br>');
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Planejamento — ${turma ? turma.nome : ''}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;background:#e9e9e9;color:#000;padding:28px 16px 60px}.page{background:#fff;max-width:760px;margin:0 auto;padding:48px 60px 56px;box-shadow:0 3px 18px rgba(0,0,0,.15);min-height:1000px}.logo-top{text-align:center;margin-bottom:18px}.logo-top img{height:74px}h1{text-align:center;font-size:16px;margin:10px 0 22px;text-transform:uppercase}.corpo{font-size:13.5px;line-height:1.75;text-align:justify;white-space:pre-wrap}.toolbar{max-width:760px;margin:0 auto 16px;display:flex;gap:10px}.btn-print{padding:9px 20px;background:#1D9E75;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:bold;cursor:pointer}.btn-close{padding:9px 20px;background:#fff;color:#555;border:1.5px solid #ddd;border-radius:6px;font-size:14px;cursor:pointer}@media print{body{background:#fff;padding:0}.toolbar{display:none}.page{box-shadow:none;padding:18mm 20mm;min-height:auto}@page{size:A4;margin:12mm}}</style></head>
+<body><div class="toolbar"><button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button><button class="btn-close" onclick="window.close()">✕ Fechar</button></div>
+<div class="page">${logoSrc ? `<div class="logo-top"><img src="${logoSrc}"></div>` : ''}<h1>Planejamento — ${turma ? turma.nome : ''}</h1><div class="corpo">${corpo}</div></div></body></html>`;
+  if (win) { win.document.open(); win.document.write(html); win.document.close(); }
+}
+
 function imprimirPlanejamento(id) {
   const p = db.planejamentos.find(x => x.id === id);
   if (!p) return;
   // Prioriza o Google Docs: correcoes sao feitas la
-  if (p.docUrl) { abrirDocPdf(p.docUrl); return; }
+  if (p.docUrl && appsScriptUrl) { imprimirPlanejamentoDoDocs(p); return; }
   const turma = db.turmas.find(t => t.id === p.turmaId);
   const dataFmt = p.data ? new Date(p.data + 'T12:00:00').toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'2-digit', year:'numeric'}) : '—';
   const logoEl = document.querySelector('header img');
@@ -3227,33 +3251,62 @@ async function verParecer(id) {
   abrirJanelaParecer(p);
 }
 
-// Abre o PDF export do Google Docs (conteudo ATUAL, com correcoes feitas la)
-function abrirDocPdf(docUrl) {
-  if (!docUrl) return false;
+// Le o conteudo ATUAL de um Google Doc via Apps Script (correcoes sao feitas la)
+async function lerDocConteudo(docUrl) {
+  if (!docUrl || !appsScriptUrl) return null;
   const m = String(docUrl).match(/\/document\/d\/([^/]+)/);
-  if (!m) { window.open(docUrl, '_blank'); return true; }
-  const pdfUrl = 'https://docs.google.com/document/d/' + m[1] + '/export?format=pdf';
-  window.open(pdfUrl, '_blank');
-  return true;
+  if (!m) return null;
+  try {
+    const res = await fetch(appsScriptUrl, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'read', docId: m[1] }),
+    });
+    const json = JSON.parse(await res.text());
+    return json.ok ? (json.content || '') : null;
+  } catch (e) { return null; }
 }
 
-function imprimirParecer(id) {
+// Remove o cabecalho de metadados que buildParecerTxt prefixou, deixando so o corpo
+function limparHeaderDoc(txt) {
+  const lines = String(txt).replace(/\r/g, '').split('\n');
+  let i = 0;
+  const skip = (l) => {
+    const t = l.trim();
+    return t === ''
+      || /^=+$/.test(t)
+      || /^-+$/.test(t)
+      || /ESCOLA PONTE DO SABER/i.test(t)
+      || /^(Aluno\(a\)|Turma|Per[íi]odo|Data|Tom|Professora?\(?o?\)?|Professor\(a\))\s*:/i.test(t);
+  };
+  while (i < lines.length && skip(lines[i])) i++;
+  return lines.slice(i).join('\n').trim();
+}
+
+async function imprimirParecer(id) {
   const p = db.pareceres.find(x => x.id === id);
   if (!p) return;
-  // Prioriza o Google Docs: correcoes sao feitas la
-  if (p.docUrl) { abrirDocPdf(p.docUrl); return; }
+  if (p.docUrl && appsScriptUrl) {
+    const win = window.open('', '_blank', 'width=820,height=760');
+    if (win) win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Carregando…</title></head><body style="font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;color:#555;"><div style="text-align:center;"><div style="font-size:32px;">⏳</div><p style="margin-top:12px;">Buscando versão atual do Google Docs…</p></div></body></html>');
+    showToast('📄 Buscando versão corrigida do Google Docs…');
+    const bruto = await lerDocConteudo(p.docUrl);
+    const corpo = (bruto && bruto.trim()) ? limparHeaderDoc(bruto) : p.texto;
+    const html = montarHtmlParecer(p, corpo);
+    if (win) { win.document.open(); win.document.write(html); win.document.close(); }
+    else { abrirJanelaParecer(p, corpo); }
+    return;
+  }
   abrirJanelaParecer(p);
 }
 
-function abrirJanelaParecer(p) {
+function montarHtmlParecer(p, __corpo) {
   const turma = db.turmas.find(t => t.id === p.turmaId);
   const dataImpressao = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
   const dataRegistro = new Date(p.criadoEm).toLocaleDateString('pt-BR');
   const aluno = db.alunos.find(a => a.id === p.alunoId);
   const nascFmt = aluno?.nasc ? new Date(aluno.nasc + 'T12:00:00').toLocaleDateString('pt-BR') : null;
 
-  const win = window.open('', '_blank', 'width=820,height=760');
-  win.document.write(`<!DOCTYPE html>
+  return (`<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -3360,7 +3413,7 @@ function abrirJanelaParecer(p) {
 
   <h1 class="titulo">PARECER DESCRITIVO — ${(p.periodo || '').toUpperCase()}</h1>
 
-  <div class="corpo">${escapeHtml(p.texto)}</div>
+  <div class="corpo">${escapeHtml(__corpo != null ? __corpo : (p.texto || ''))}</div>
 
   <div class="assinaturas">
     <div class="assina">
@@ -3376,6 +3429,11 @@ function abrirJanelaParecer(p) {
 </div>
 </body>
 </html>`);
+}
+
+function abrirJanelaParecer(p, textoOverride) {
+  const win = window.open('', '_blank', 'width=820,height=760');
+  win.document.write(montarHtmlParecer(p, textoOverride));
   win.document.close();
 }
 
