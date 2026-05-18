@@ -547,6 +547,7 @@
 
   /* ROLE BADGE */
   .badge-pedagoga { background: #ede9fe; color: #5b21b6; }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
   .badge-professora { background: var(--green-light); color: var(--green-dark); }
 
   /* STUDENT TAG */
@@ -1991,8 +1992,10 @@ function renderUsuarios() {
   el.innerHTML = db.usuarios.map(u => {
     const ids = getUsrTurmaIds(u);
     const turmasNomes = ids.map(id => db.turmas.find(t => t.id === id)?.nome).filter(Boolean).join(', ');
-    const badge = u.papel === 'diretor' ? 'badge-amber' : u.papel === 'pedagoga' ? 'badge-pedagoga' : 'badge-professora';
-    const label = u.papel === 'diretor' ? 'Diretor(a)' : u.papel === 'pedagoga' ? 'Pedagoga' : 'Professora';
+    const badgeMap = { diretor: 'badge-amber', pedagoga: 'badge-pedagoga', secretaria: 'badge-blue' };
+    const badge = badgeMap[u.papel] || 'badge-professora';
+    const labelMap = { diretor: 'Diretor(a)', pedagoga: 'Pedagoga', secretaria: 'Secretaria', professora: 'Professora' };
+    const label = labelMap[u.papel] || u.papel;
     return `<div class="item-card">
       <div class="info">
         <strong>${u.nome}</strong>
