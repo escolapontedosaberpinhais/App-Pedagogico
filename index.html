@@ -2438,6 +2438,7 @@ function salvarPlanejamento() {
     conteudos,
     desenvolvimento,
     criadoEm: new Date().toISOString(),
+    historico: [{ acao: 'criado', por: currentUser?.nome || 'Professora', em: new Date().toISOString() }],
   };
   db.planejamentos.unshift(pl);
   save();
@@ -2799,6 +2800,7 @@ function renderCorrecoes() {
             &nbsp;📅 ${dataFmt} &nbsp;|&nbsp; 👩‍🏫 ${p.prof}
           </span>
           <span style="font-size:12px;color:var(--gray-400);">💾 Entregue: ${fmtDateTime(p.criadoEm)}</span>
+          ${htmlHistorico(p)}
         </div>
         <div class="actions">
           ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : ''}
@@ -2861,6 +2863,7 @@ function renderCorrecoes() {
           </span>
           <span style="font-size:12px;color:var(--gray-400);">💾 Entregue: ${fmtDateTime(p.criadoEm)}</span>
           ${preview ? `<div style="margin-top:4px;font-size:13px;color:var(--gray-600);">${preview}</div>` : ''}
+          ${htmlHistorico(p)}
         </div>
         <div class="actions">
           ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : ''}
@@ -2960,16 +2963,65 @@ function toggleCorrigidoDash(tipo, id) {
     const pl = db.planejamentos.find(p => p.id === id);
     if (!pl) return;
     pl.corrigido = true;
+    pushHistorico(pl, 'aprovado');
     save();
   } else {
     const par = db.pareceres.find(p => p.id === id);
     if (!par) return;
     par.corrigido = true;
+    pushHistorico(par, 'aprovado');
     save();
   }
   renderCorrecoes();
   renderDashboard();
-  showToast('✅ Marcado como corrigido!');
+  showToast('✅ Marcado como aprovado!');
+}
+
+// Helper: adiciona entrada no histórico do item
+function pushHistorico(item, acao, detalhe) {
+  if (!item.historico) item.historico = [];
+  item.historico.push({
+    acao,
+    por: currentUser?.nome || '—',
+    papel: currentUser?.papel || '—',
+    em: new Date().toISOString(),
+    detalhe: detalhe || '',
+  });
+}
+
+// Helper: gera HTML da linha do tempo de histórico
+function htmlHistorico(item) {
+  const hist = item.historico;
+  if (!hist || hist.length === 0) return '';
+  const acaoIcon = {
+    criado:    { icon: '📝', cor: '#6b7280', label: 'Criado' },
+    devolvido: { icon: '↩️', cor: '#f59e0b', label: 'Devolvido p/ correção' },
+    revisado:  { icon: '📤', cor: '#7c3aed', label: 'Correção enviada' },
+    aprovado:  { icon: '✅', cor: '#059669', label: 'Aprovado' },
+    liberado:  { icon: '🖨️', cor: '#2563eb', label: 'Liberado p/ impressão' },
+  };
+  const id = item.id;
+  const linhas = hist.map(h => {
+    const cfg = acaoIcon[h.acao] || { icon: '•', cor: '#6b7280', label: h.acao };
+    const dt = h.em ? new Date(h.em).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
+    return `<div style="display:flex;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:1px solid #f3f4f6;">
+      <span style="font-size:15px;line-height:1.3;">${cfg.icon}</span>
+      <div style="flex:1;min-width:0;">
+        <span style="font-size:12px;font-weight:700;color:${cfg.cor};">${cfg.label}</span>
+        <span style="font-size:11px;color:#6b7280;"> · ${h.por}</span>
+        <br><span style="font-size:11px;color:#9ca3af;">🕐 ${dt}</span>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div style="margin-top:8px;">
+    <button onclick="(function(el){el.style.display=el.style.display==='none'?'block':'none'})(document.getElementById('hist-${id}'))"
+      style="background:none;border:none;cursor:pointer;font-size:12px;color:#6b7280;padding:0;text-decoration:underline;">
+      🕐 Histórico (${hist.length} movimentação${hist.length > 1 ? 'ões' : ''})
+    </button>
+    <div id="hist-${id}" style="display:none;margin-top:6px;background:#f9fafb;border-radius:6px;padding:8px 10px;">
+      ${linhas}
+    </div>
+  </div>`;
 }
 
 // Pedagoga devolve para a professora corrigir
@@ -2982,6 +3034,7 @@ function devolverParaCorrecao(tipo, id) {
   item.corrigido = false;
   item.prontoImpressao = false;
   item.devolvidoEm = new Date().toISOString();
+  pushHistorico(item, 'devolvido');
   save();
   renderCorrecoes();
   renderPareceres();
@@ -2997,6 +3050,7 @@ function aprovarRevisao(tipo, id) {
   if (!item) return;
   item.revisao = 'aprovado';
   item.corrigido = true;
+  pushHistorico(item, 'aprovado');
   save();
   renderCorrecoes();
   renderDashboard();
@@ -3011,6 +3065,7 @@ function profEnviarCorrecao(tipo, id) {
   if (!item) return;
   item.revisao = 'revisado';
   item.revisadoEm = new Date().toISOString();
+  pushHistorico(item, 'revisado');
   save();
   renderPareceres();
   renderPlanejamentos();
@@ -3113,6 +3168,7 @@ function renderPlanejamentos() {
         <span style="font-size:12px;color:var(--gray-400);">💾 Salvo em: ${savedAt}</span>
         <div style="margin-top:4px;">${revisaoBadge}</div>
         ${p.desenvolvimento || p.metodologia ? `<div style="margin-top:4px;font-size:13px;color:var(--gray-600);">${(p.desenvolvimento || p.metodologia).slice(0,120)}${(p.desenvolvimento||p.metodologia).length>120?'…':''}</div>` : ''}
+        ${htmlHistorico(p)}
       </div>
       <div class="actions">
         ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')" title="Abrir no Google Docs">📄 Docs</button>` : ''}
@@ -3391,6 +3447,7 @@ function salvarParecer() {
     texto,
     tom: selectedTone,
     criadoEm: new Date().toISOString(),
+    historico: [{ acao: 'criado', por: currentUser?.nome || 'Professora', em: new Date().toISOString() }],
   };
   db.pareceres.unshift(p);
   save();
@@ -3440,7 +3497,10 @@ function toggleProntoImpressao(id) {
   const p = db.pareceres.find(x => x.id === id);
   if (!p) return;
   p.prontoImpressao = !p.prontoImpressao;
-  if (p.prontoImpressao) p.impresso = false; // reset impresso ao liberar novamente
+  if (p.prontoImpressao) {
+    p.impresso = false;
+    pushHistorico(p, 'liberado');
+  }
   save();
   renderPareceres();
   renderImpressao();
@@ -3587,6 +3647,7 @@ function renderPareceres() {
         <span style="font-size:12px;color:var(--gray-400);">💾 Salvo em: ${savedAt}</span>
         <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">${revisaoBadge}${prontoLabel}${impressoLabel}</div>
         <div style="margin-top:4px;font-size:13px;color:var(--gray-600);">${preview}</div>
+        ${htmlHistorico(p)}
       </div>
       <div class="actions" style="flex-direction:column; gap:5px;">
         ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')" title="Abrir no Google Docs">📄 Docs</button>` : ''}
