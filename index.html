@@ -2828,6 +2828,43 @@ function renderCorrecoes() {
     html += '</div></div>';
   }
 
+  // Pareceres corrigidos aguardando liberação para impressão
+  if (mostrarPar) {
+    let parsCorrigidos = db.pareceres.filter(p => p.corrigido && !p.prontoImpressao);
+    if (bimFiltro) parsCorrigidos = parsCorrigidos.filter(p => p.periodo === bimFiltro);
+    if (parsCorrigidos.length > 0) {
+      html += `<div style="margin-top:20px;">
+        <div style="font-size:13px;font-weight:700;color:#059669;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+          ✅ Corrigidos — aguardando liberação para impressão
+          <span style="background:#059669;color:#fff;border-radius:20px;padding:1px 9px;font-size:12px;">${parsCorrigidos.length}</span>
+        </div>
+        <div class="item-list">`;
+      parsCorrigidos.forEach(p => {
+        const turma = db.turmas.find(t => t.id === p.turmaId);
+        const savedAt = fmtDateTime(p.criadoEm);
+        html += `<div class="item-card" style="border-left:3px solid #059669;">
+          <div class="info">
+            <strong>${p.alunoNome}</strong>
+            <span>
+              <span class="badge badge-green">${turma ? turma.nome : '—'}</span>
+              &nbsp;${p.periodo}
+            </span>
+            <span style="font-size:12px;color:var(--gray-400);">💾 Entregue: ${savedAt}</span>
+            <span style="font-size:12px;color:#059669;font-weight:600;">✅ Correção concluída</span>
+          </div>
+          <div class="actions">
+            ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')" title="Abrir no Google Docs">📄 Docs</button>` : ''}
+            <button class="btn btn-primary btn-sm" onclick="imprimirParecer('${p.id}')" title="Visualizar PDF">🖨️ PDF</button>
+            <button class="btn btn-success btn-sm" onclick="toggleProntoImpressao('${p.id}')" title="Liberar para a secretaria imprimir">
+              🖨️ Liberar p/ impressão
+            </button>
+          </div>
+        </div>`;
+      });
+      html += '</div></div>';
+    }
+  }
+
   el.innerHTML = html;
 }
 
