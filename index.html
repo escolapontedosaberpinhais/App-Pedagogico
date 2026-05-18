@@ -3375,72 +3375,101 @@ async function imprimirPlanejamentoDoDocs(p) {
 function imprimirPlanejamento(id) {
   const p = db.planejamentos.find(x => x.id === id);
   if (!p) return;
-  // Prioriza o Google Docs: correcoes sao feitas la
-  if (p.docUrl && appsScriptUrl) { imprimirPlanejamentoDoDocs(p); return; }
   const turma = db.turmas.find(t => t.id === p.turmaId);
-  const dataFmt = p.data ? new Date(p.data + 'T12:00:00').toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'2-digit', year:'numeric'}) : '—';
   const logoEl = document.querySelector('header img');
   const logoSrc = logoEl ? logoEl.src : '';
-  const direitos = Array.isArray(p.direitos) && p.direitos.length ? p.direitos.join('<br>') : (p.area || '—');
-  const campos   = Array.isArray(p.campos)   && p.campos.length   ? p.campos.join('<br>')   : '—';
-  const conteudos = p.conteudos || p.tema || '—';
-  const desenvolvimento = p.desenvolvimento || p.metodologia || '—';
-  const bncc = (p.bncc || '—').replace(/\n/g, '<br>');
-  const win = window.open('', '_blank', 'width=900,height=700');
+
+  // Formata data com dia da semana entre parênteses
+  function fmtDataPlan(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr + 'T12:00:00');
+    const diasSemana = ['DOMINGO','SEGUNDA-FEIRA','TERÇA-FEIRA','QUARTA-FEIRA','QUINTA-FEIRA','SEXTA-FEIRA','SÁBADO'];
+    const dia = diasSemana[d.getDay()];
+    return `(${dia})<br>${d.toLocaleDateString('pt-BR')}`;
+  }
+
+  const direitos = Array.isArray(p.direitos) && p.direitos.length
+    ? p.direitos.map(d => `• ${d}`).join('<br>') : (p.area || '—');
+  const campos = Array.isArray(p.campos) && p.campos.length
+    ? p.campos.map(c => `${c};`).join('<br>') : '—';
+  const conteudos    = (p.conteudos || p.tema || '—').replace(/\n/g,'<br>');
+  const desenvolvimento = (p.desenvolvimento || p.metodologia || '—').replace(/\n/g,'<br>');
+  const bncc = (p.bncc || '—').replace(/\n/g,'<br>');
+
+  // Data de início e fim do período (mês do planejamento)
+  const dataInicio = p.data ? new Date(p.data + 'T12:00:00') : null;
+  const periodoLabel = dataInicio
+    ? `${String(dataInicio.getDate()).padStart(2,'0')}/${String(dataInicio.getMonth()+1).padStart(2,'0')}/${dataInicio.getFullYear()}`
+    : (p.bimestre || '—');
+
+  const win = window.open('', '_blank', 'width=1050,height=750');
   win.document.write(`<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Planejamento — ${conteudos}</title>
+<title>Planejamento — ${turma ? turma.nome : ''}</title>
 <style>
   * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family: Arial, sans-serif; padding:20px; color:#222; }
-  .header { display:flex; align-items:center; gap:16px; margin-bottom:12px; border-bottom:3px solid #1D9E75; padding-bottom:10px; }
-  .header img { height:60px; }
-  .header-text h1 { font-size:16px; color:#1D9E75; text-transform:uppercase; letter-spacing:1px; }
-  .header-text p { font-size:12px; color:#555; margin-top:4px; }
-  table { width:100%; border-collapse:collapse; margin-top:12px; font-size:12px; }
-  th { background:#1D9E75; color:#fff; padding:8px 6px; text-align:center; font-size:11px; border:1px solid #157a5b; }
-  td { border:1px solid #ccc; padding:8px 6px; vertical-align:top; }
-  td.data-cell { text-align:center; font-weight:bold; background:#f5f6f7; }
-  .footer { margin-top:20px; font-size:11px; color:#888; text-align:right; }
-  @media print { body { padding:8px; } .no-print { display:none; } }
+  body { font-family: Arial, sans-serif; background:#f0f0f0; padding:20px 10px 50px; color:#000; }
+  .toolbar { max-width:1000px; margin:0 auto 14px; display:flex; gap:10px; }
+  .btn-print { padding:9px 22px; background:#1D9E75; color:#fff; border:none; border-radius:6px; font-size:14px; font-weight:bold; cursor:pointer; }
+  .btn-close  { padding:9px 22px; background:#fff; color:#555; border:1.5px solid #ccc; border-radius:6px; font-size:14px; cursor:pointer; }
+  .page { background:#fff; max-width:1000px; margin:0 auto; padding:20px 24px 32px; box-shadow:0 2px 14px rgba(0,0,0,.15); }
+  .logo-wrap { text-align:center; margin-bottom:10px; }
+  .logo-wrap img { height:72px; width:auto; }
+  .titulo-box { border:1.5px solid #000; text-align:center; padding:8px 12px; font-size:14px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; }
+  .info-row { display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-bottom:12px; border-bottom:1px solid #000; padding-bottom:6px; }
+  .info-row span { font-size:12px; }
+  table { width:100%; border-collapse:collapse; font-size:11px; }
+  th { background:#fff; color:#000; padding:7px 5px; text-align:center; font-size:10.5px; font-weight:bold; border:1.5px solid #000; text-transform:uppercase; line-height:1.3; }
+  td { border:1px solid #000; padding:6px 5px; vertical-align:top; font-size:11px; line-height:1.45; }
+  td.data-cell { text-align:center; font-size:10px; font-weight:bold; background:#f8f8f8; min-width:72px; }
+  .footer { margin-top:14px; font-size:10px; color:#888; text-align:right; }
+  @media print {
+    body { background:#fff; padding:0; }
+    .toolbar { display:none; }
+    .page { box-shadow:none; max-width:100%; padding:8mm 10mm; }
+    @page { size:A4 landscape; margin:8mm; }
+  }
 </style>
 </head>
 <body>
-<div class="header">
-  ${logoSrc ? `<img src="${logoSrc}" />` : ''}
-  <div class="header-text">
-    <h1>Planejamento Mensal — Infantil</h1>
-    <p>Professora: <strong>${p.prof}</strong> &nbsp;|&nbsp; Turma: <strong>${turma ? turma.nome : '—'}</strong> &nbsp;|&nbsp; Período: <strong>${p.bimestre || '—'}</strong></p>
-  </div>
+<div class="toolbar">
+  <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+  <button class="btn-close" onclick="window.close()">✕ Fechar</button>
 </div>
-<table>
-  <thead>
-    <tr>
-      <th style="width:11%">DATA</th>
-      <th style="width:14%">DIREITO(S) DE APRENDIZAGEM</th>
-      <th style="width:18%">CAMPO(S) DE EXPERIÊNCIA(S)</th>
-      <th style="width:22%">OBJETIVOS BNCC</th>
-      <th style="width:12%">CONTEÚDOS</th>
-      <th style="width:23%">DESENVOLVIMENTO</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td class="data-cell">${dataFmt}</td>
-      <td>${direitos}</td>
-      <td>${campos}</td>
-      <td>${bncc}</td>
-      <td>${conteudos}</td>
-      <td>${desenvolvimento.replace(/\n/g,'<br>')}</td>
-    </tr>
-  </tbody>
-</table>
-<div class="footer">Escola Ponte do Saber — gerado em ${new Date().toLocaleDateString('pt-BR')}</div>
-<p class="no-print" style="margin-top:16px;text-align:center;">
-  <button onclick="window.print()" style="padding:8px 24px;background:#1D9E75;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;">🖨️ Imprimir</button>
-</p>
+<div class="page">
+  ${logoSrc ? `<div class="logo-wrap"><img src="${logoSrc}"></div>` : ''}
+  <div class="titulo-box">PLANEJAMENTO MENSAL – INFANTIL</div>
+  <div class="info-row">
+    <span><strong>Professor(a):</strong> ${p.prof || '—'}</span>
+    <span><strong>${p.bimestre || '—'}:</strong></span>
+    <span><strong>Data do Planejamento:</strong> ${periodoLabel}</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:9%">DATA</th>
+        <th style="width:13%">DIREITO(S) DE<br>APRENDIZAGEM</th>
+        <th style="width:16%">CAMPO(S) DE<br>EXPERIÊNCIA(S)</th>
+        <th style="width:24%">OBJETIVO(S) BNCC</th>
+        <th style="width:14%">CONTEÚDOS</th>
+        <th style="width:24%">DESENVOLVIMENTO</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="data-cell">${fmtDataPlan(p.data)}</td>
+        <td>${direitos}</td>
+        <td>${campos}</td>
+        <td>${bncc}</td>
+        <td>${conteudos}</td>
+        <td>${desenvolvimento}</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="footer">Escola Ponte do Saber — gerado em ${new Date().toLocaleDateString('pt-BR')}</div>
+</div>
 </body></html>`);
   win.document.close();
 }
