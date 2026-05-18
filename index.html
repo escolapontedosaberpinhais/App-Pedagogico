@@ -1351,6 +1351,7 @@ function getFolder(path) {
     </select>
   </div>
 
+  <div id="alerta-planejamentos-devolvidos"></div>
   <div id="planejamentos-list" class="item-list"></div>
 
 </div>
@@ -1446,6 +1447,7 @@ function getFolder(path) {
 
   <div class="divider"></div>
   <div class="card-title" style="margin-bottom:12px;">📁 Pareceres Salvos</div>
+  <div id="alerta-pareceres-devolvidos"></div>
   <div id="pareceres-list" class="item-list"></div>
 
 </div>
@@ -2978,6 +2980,7 @@ function devolverParaCorrecao(tipo, id) {
   if (!item) return;
   item.revisao = 'devolvido';
   item.corrigido = false;
+  item.prontoImpressao = false;
   item.devolvidoEm = new Date().toISOString();
   save();
   renderCorrecoes();
@@ -3051,12 +3054,29 @@ function deletePlanejamento(id) {
 
 function renderPlanejamentos() {
   const el = document.getElementById('planejamentos-list');
+  const alertEl = document.getElementById('alerta-planejamentos-devolvidos');
   const filtro = document.getElementById('filtro-pl-turma')?.value;
   let list = db.planejamentos;
   if (currentUser?.papel === 'professora') {
     list = list.filter(p => getUsrTurmaIds(currentUser).includes(p.turmaId));
   } else if (filtro) {
     list = list.filter(p => p.turmaId === filtro);
+  }
+
+  // Banner de alerta para professora quando há itens devolvidos
+  if (alertEl) {
+    const devolvidos = list.filter(p => p.revisao === 'devolvido');
+    if (currentUser?.papel === 'professora' && devolvidos.length > 0) {
+      alertEl.innerHTML = `<div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:10px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px;">
+        <span style="font-size:24px;">⚠️</span>
+        <div>
+          <strong style="color:#92400e;font-size:14px;">Você tem ${devolvidos.length} planejamento${devolvidos.length > 1 ? 's devolvidos' : ' devolvido'} para corrigir!</strong><br>
+          <span style="font-size:13px;color:#78350f;">A pedagoga solicitou correção. Faça os ajustes no Google Docs e clique em <strong>"📤 Enviei a correção"</strong>.</span>
+        </div>
+      </div>`;
+    } else {
+      alertEl.innerHTML = '';
+    }
   }
 
   if (list.length === 0) {
@@ -3510,9 +3530,27 @@ function renderImpressao() {
 
 function renderPareceres() {
   const el = document.getElementById('pareceres-list');
+  const alertEl = document.getElementById('alerta-pareceres-devolvidos');
   let list = db.pareceres;
   if (currentUser?.papel === 'professora')
     list = list.filter(p => getUsrTurmaIds(currentUser).includes(p.turmaId));
+
+  // Banner de alerta para professora quando há itens devolvidos
+  if (alertEl) {
+    const devolvidos = list.filter(p => p.revisao === 'devolvido');
+    if (currentUser?.papel === 'professora' && devolvidos.length > 0) {
+      alertEl.innerHTML = `<div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:10px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px;">
+        <span style="font-size:24px;">⚠️</span>
+        <div>
+          <strong style="color:#92400e;font-size:14px;">Você tem ${devolvidos.length} parecer${devolvidos.length > 1 ? 'es devolvidos' : ' devolvido'} para corrigir!</strong><br>
+          <span style="font-size:13px;color:#78350f;">A pedagoga solicitou correção. Faça os ajustes no Google Docs e clique em <strong>"📤 Enviei a correção"</strong>.</span>
+        </div>
+      </div>`;
+    } else {
+      alertEl.innerHTML = '';
+    }
+  }
+
   if (list.length === 0) {
     el.innerHTML = '<div class="empty"><div class="icon">✨</div><p>Nenhum parecer salvo.</p></div>';
     return;
