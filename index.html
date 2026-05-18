@@ -3373,122 +3373,158 @@ async function imprimirPlanejamentoDoDocs(p) {
 }
 
 function imprimirPlanejamento(id) {
-  const p = db.planejamentos.find(x => x.id === id);
-  if (!p) return;
-  const turma = db.turmas.find(t => t.id === p.turmaId);
-
-  // Resolve nome do professor: tenta db.usuarios vinculado à turma, depois p.prof
-  const profUsuario = db.usuarios.find(u => u.papel === 'professora' && getUsrTurmaIds(u).includes(p.turmaId));
-  const profNome = profUsuario?.nome || p.prof || turma?.prof || '—';
-
-  const logoEl = document.querySelector('header img');
-  const logoSrc = logoEl ? logoEl.src : '';
-
-  // Formata data com dia da semana entre parênteses
-  function fmtDataPlan(dateStr) {
-    if (!dateStr) return '—';
-    try {
-      const d = new Date(dateStr + 'T12:00:00');
-      if (isNaN(d.getTime())) return dateStr;
-      const diasSemana = ['DOMINGO','SEGUNDA-FEIRA','TERÇA-FEIRA','QUARTA-FEIRA','QUINTA-FEIRA','SEXTA-FEIRA','SÁBADO'];
-      const dia = diasSemana[d.getDay()];
-      return '(' + dia + ')<br>' + d.toLocaleDateString('pt-BR');
-    } catch(e) { return dateStr; }
-  }
-
-  const direitos = Array.isArray(p.direitos) && p.direitos.length
-    ? p.direitos.map(function(d){ return '&bull; ' + d; }).join('<br>') : (p.area || '—');
-  const campos = Array.isArray(p.campos) && p.campos.length
-    ? p.campos.map(function(c){ return c + ';'; }).join('<br>') : '—';
-  const conteudos      = (p.conteudos || p.tema || '—').replace(/\n/g,'<br>');
-  const desenvolvimento = (p.desenvolvimento || p.metodologia || '—').replace(/\n/g,'<br>');
-  const bncc           = (p.bncc || '—').replace(/\n/g,'<br>');
-
-  // Período formatado
-  const dataInicio = p.data ? new Date(p.data + 'T12:00:00') : null;
-  const periodoLabel = (dataInicio && !isNaN(dataInicio.getTime()))
-    ? String(dataInicio.getDate()).padStart(2,'0') + '/' + String(dataInicio.getMonth()+1).padStart(2,'0') + '/' + dataInicio.getFullYear()
-    : (p.bimestre || '—');
-
-  const win = window.open('', '_blank', 'width=1100,height=780');
-  if (!win) {
-    showToast('⚠️ Popup bloqueado! Habilite popups para este site e tente novamente.');
-    return;
-  }
-
-  const html = '<!DOCTYPE html>\n' +
-'<html lang="pt-BR">\n' +
-'<head>\n' +
-'<meta charset="UTF-8">\n' +
-'<title>Planejamento — ' + (turma ? turma.nome : '') + '</title>\n' +
-'<style>\n' +
-'@page { size:A4 landscape; margin:8mm; }\n' +
-'* { box-sizing:border-box; margin:0; padding:0; }\n' +
-'body { font-family: Arial, sans-serif; background:#f0f0f0; padding:20px 10px 50px; color:#000; }\n' +
-'.toolbar { max-width:1050px; margin:0 auto 14px; display:flex; gap:10px; }\n' +
-'.btn-print { padding:9px 22px; background:#1D9E75; color:#fff; border:none; border-radius:6px; font-size:14px; font-weight:bold; cursor:pointer; }\n' +
-'.btn-close  { padding:9px 22px; background:#fff; color:#555; border:1.5px solid #ccc; border-radius:6px; font-size:14px; cursor:pointer; }\n' +
-'.page { background:#fff; max-width:1050px; margin:0 auto; padding:20px 24px 32px; box-shadow:0 2px 14px rgba(0,0,0,.15); }\n' +
-'.logo-wrap { text-align:center; margin-bottom:8px; }\n' +
-'.logo-wrap img { height:70px; width:auto; }\n' +
-'.titulo-box { border:1.5px solid #000; text-align:center; padding:7px 12px; font-size:13px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; }\n' +
-'.info-row { display:flex; justify-content:space-between; align-items:center; font-size:11.5px; margin-bottom:10px; border-bottom:1px solid #000; padding-bottom:5px; gap:16px; }\n' +
-'.info-row span { font-size:11.5px; }\n' +
-'table { width:100%; border-collapse:collapse; font-size:11px; }\n' +
-'th { background:#fff; color:#000; padding:6px 4px; text-align:center; font-size:10px; font-weight:bold; border:1.5px solid #000; text-transform:uppercase; line-height:1.3; }\n' +
-'td { border:1px solid #000; padding:5px 4px; vertical-align:top; font-size:10.5px; line-height:1.45; }\n' +
-'td.data-cell { text-align:center; font-size:9.5px; font-weight:bold; background:#f8f8f8; min-width:68px; }\n' +
-'.footer { margin-top:12px; font-size:9.5px; color:#888; text-align:right; }\n' +
-'@media print {\n' +
-'  body { background:#fff; padding:0; }\n' +
-'  .toolbar { display:none; }\n' +
-'  .page { box-shadow:none; max-width:100%; padding:0; }\n' +
-'}\n' +
-'</style>\n' +
-'</head>\n' +
-'<body>\n' +
-'<div class="toolbar">\n' +
-'  <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>\n' +
-'  <button class="btn-close" onclick="window.close()">✕ Fechar</button>\n' +
-'</div>\n' +
-'<div class="page">\n' +
-  (logoSrc ? '  <div class="logo-wrap"><img src="' + logoSrc + '"></div>\n' : '') +
-'  <div class="titulo-box">PLANEJAMENTO MENSAL – INFANTIL</div>\n' +
-'  <div class="info-row">\n' +
-'    <span><strong>Professor(a):</strong> ' + profNome + '</span>\n' +
-'    <span><strong>Bimestre/Período:</strong> ' + (p.bimestre || '—') + '</span>\n' +
-'    <span><strong>Data do Planejamento:</strong> ' + periodoLabel + '</span>\n' +
-'    <span><strong>Turma:</strong> ' + (turma ? turma.nome : '—') + '</span>\n' +
-'  </div>\n' +
-'  <table>\n' +
-'    <thead><tr>\n' +
-'      <th style="width:9%">DATA</th>\n' +
-'      <th style="width:13%">DIREITO(S) DE<br>APRENDIZAGEM</th>\n' +
-'      <th style="width:17%">CAMPO(S) DE<br>EXPERIÊNCIA(S)</th>\n' +
-'      <th style="width:23%">OBJETIVO(S) BNCC</th>\n' +
-'      <th style="width:14%">CONTEÚDOS</th>\n' +
-'      <th style="width:24%">DESENVOLVIMENTO</th>\n' +
-'    </tr></thead>\n' +
-'    <tbody><tr>\n' +
-'      <td class="data-cell">' + fmtDataPlan(p.data) + '</td>\n' +
-'      <td>' + direitos + '</td>\n' +
-'      <td>' + campos + '</td>\n' +
-'      <td>' + bncc + '</td>\n' +
-'      <td>' + conteudos + '</td>\n' +
-'      <td>' + desenvolvimento + '</td>\n' +
-'    </tr></tbody>\n' +
-'  </table>\n' +
-'  <div class="footer">Escola Ponte do Saber — gerado em ' + new Date().toLocaleDateString('pt-BR') + '</div>\n' +
-'</div>\n' +
-'</body></html>';
-
   try {
-    win.document.open();
-    win.document.write(html);
-    win.document.close();
-  } catch(e) {
-    win.close();
-    showToast('⚠️ Erro ao gerar impressão: ' + e.message);
+    const p = db.planejamentos.find(function(x){ return x.id === id; });
+    if (!p) { showToast('⚠️ Planejamento não encontrado.'); return; }
+    const turma = db.turmas.find(function(t){ return t.id === p.turmaId; });
+
+    // Resolve nome do professor com fallbacks seguros
+    var profNome = '—';
+    try {
+      var profUsuario = (db.usuarios || []).find(function(u){
+        return u.papel === 'professora' && getUsrTurmaIds(u).includes(p.turmaId);
+      });
+      profNome = (profUsuario && profUsuario.nome) || String(p.prof || '') || (turma && turma.prof ? String(turma.prof) : '') || '—';
+      if (!profNome) profNome = '—';
+    } catch(e2) { profNome = String(p.prof || '—'); }
+
+    // Busca logo como Data URL para funcionar no popup
+    var logoSrc = '';
+    try {
+      var logoEl = document.querySelector('header img');
+      if (logoEl && logoEl.src) logoSrc = logoEl.src;
+    } catch(e3) {}
+
+    // Formata data com dia da semana
+    function fmtDataPlan(dateStr) {
+      if (!dateStr) return '—';
+      try {
+        var d = new Date(String(dateStr) + 'T12:00:00');
+        if (isNaN(d.getTime())) return String(dateStr);
+        var dias = ['DOMINGO','SEGUNDA','TERÇA','QUARTA','QUINTA','SEXTA','SÁBADO'];
+        return '(' + dias[d.getDay()] + ')<br>' + d.toLocaleDateString('pt-BR');
+      } catch(e) { return String(dateStr); }
+    }
+
+    // Converte campo para string segura
+    function toStr(v) {
+      if (v === null || v === undefined) return '';
+      if (Array.isArray(v)) return v.join(', ');
+      return String(v);
+    }
+
+    var direitos = (Array.isArray(p.direitos) && p.direitos.length)
+      ? p.direitos.map(function(d){ return '&bull; ' + toStr(d); }).join('<br>')
+      : (toStr(p.area) || '—');
+    var campos = (Array.isArray(p.campos) && p.campos.length)
+      ? p.campos.map(function(c){ return toStr(c) + ';'; }).join('<br>')
+      : '—';
+    var conteudos     = toStr(p.conteudos || p.tema || '—').replace(/\n/g,'<br>');
+    var desenvolv     = toStr(p.desenvolvimento || p.metodologia || '—').replace(/\n/g,'<br>');
+    var bncc          = toStr(p.bncc || '—').replace(/\n/g,'<br>');
+    var bimestre      = toStr(p.bimestre || '—');
+    var turmaNome     = turma ? toStr(turma.nome) : '—';
+
+    // Período formatado
+    var periodoLabel = '—';
+    try {
+      if (p.data) {
+        var di = new Date(String(p.data) + 'T12:00:00');
+        if (!isNaN(di.getTime())) {
+          periodoLabel = String(di.getDate()).padStart(2,'0') + '/' +
+                         String(di.getMonth()+1).padStart(2,'0') + '/' + di.getFullYear();
+        }
+      } else { periodoLabel = bimestre; }
+    } catch(e) {}
+
+    var logoHtml = logoSrc ? '<div class="logo-wrap"><img src="' + logoSrc + '" crossorigin="anonymous"></div>' : '';
+
+    var html = [
+      '<!DOCTYPE html>',
+      '<html lang="pt-BR">',
+      '<head>',
+      '<meta charset="UTF-8">',
+      '<title>Planejamento — ' + turmaNome + '</title>',
+      '<style>',
+      '@page { size: A4 landscape; margin: 10mm 8mm; }',
+      '* { box-sizing: border-box; margin: 0; padding: 0; }',
+      'body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #000; background: #f5f5f5; padding: 16px; }',
+      '.no-print { display: flex; gap: 10px; margin-bottom: 14px; }',
+      '.btn-p { padding: 8px 20px; background: #1D9E75; color: #fff; border: none; border-radius: 5px; font-size: 13px; font-weight: bold; cursor: pointer; }',
+      '.btn-f { padding: 8px 20px; background: #fff; color: #555; border: 1.5px solid #bbb; border-radius: 5px; font-size: 13px; cursor: pointer; }',
+      '.page { background: #fff; padding: 14px 16px 20px; box-shadow: 0 2px 12px rgba(0,0,0,.18); }',
+      '.logo-wrap { text-align: center; margin-bottom: 6px; }',
+      '.logo-wrap img { height: 64px; width: auto; }',
+      '.titulo { border: 2px solid #000; text-align: center; padding: 6px 10px; font-size: 12.5px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 7px; }',
+      '.info { display: table; width: 100%; border-collapse: collapse; border: 1.5px solid #000; margin-bottom: 8px; }',
+      '.info td { display: table-cell; border: 1px solid #000; padding: 4px 8px; font-size: 10.5px; width: 25%; }',
+      '.info td strong { display: block; font-size: 9.5px; color: #333; text-transform: uppercase; margin-bottom: 1px; }',
+      'table.plan { width: 100%; border-collapse: collapse; }',
+      'table.plan th { background: #eee; color: #000; padding: 5px 4px; text-align: center; font-size: 9.5px; font-weight: bold; border: 1.5px solid #000; text-transform: uppercase; line-height: 1.3; }',
+      'table.plan td { border: 1.5px solid #000; padding: 5px 5px; vertical-align: top; font-size: 10px; line-height: 1.5; min-height: 80px; }',
+      'table.plan td.data-cell { text-align: center; font-size: 9px; font-weight: bold; background: #f9f9f9; width: 9%; }',
+      '.footer { margin-top: 8px; font-size: 8.5px; color: #888; text-align: right; }',
+      '@media print {',
+      '  body { background: #fff; padding: 0; }',
+      '  .no-print { display: none !important; }',
+      '  .page { box-shadow: none; padding: 0; }',
+      '}',
+      '</style>',
+      '</head>',
+      '<body>',
+      '<div class="no-print">',
+      '  <button class="btn-p" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>',
+      '  <button class="btn-f" onclick="window.close()">✕ Fechar</button>',
+      '</div>',
+      '<div class="page">',
+      logoHtml,
+      '<div class="titulo">PLANEJAMENTO MENSAL – INFANTIL</div>',
+      '<table class="info"><tr>',
+      '<td><strong>Professor(a)</strong>' + profNome + '</td>',
+      '<td><strong>Turma</strong>' + turmaNome + '</td>',
+      '<td><strong>Bimestre / Período</strong>' + bimestre + '</td>',
+      '<td><strong>Data do Planejamento</strong>' + periodoLabel + '</td>',
+      '</tr></table>',
+      '<table class="plan">',
+      '<thead><tr>',
+      '<th style="width:9%">DATA</th>',
+      '<th style="width:14%">DIREITO(S) DE<br>APRENDIZAGEM</th>',
+      '<th style="width:17%">CAMPO(S) DE<br>EXPERIÊNCIA(S)</th>',
+      '<th style="width:22%">OBJETIVO(S) BNCC</th>',
+      '<th style="width:15%">CONTEÚDOS</th>',
+      '<th style="width:23%">DESENVOLVIMENTO</th>',
+      '</tr></thead>',
+      '<tbody>',
+      '<tr>',
+      '<td class="data-cell">' + fmtDataPlan(p.data) + '</td>',
+      '<td>' + direitos + '</td>',
+      '<td>' + campos + '</td>',
+      '<td>' + bncc + '</td>',
+      '<td>' + conteudos + '</td>',
+      '<td>' + desenvolv + '</td>',
+      '</tr>',
+      '</tbody>',
+      '</table>',
+      '<div class="footer">Escola Ponte do Saber — gerado em ' + new Date().toLocaleDateString('pt-BR') + '</div>',
+      '</div>',
+      '</body></html>'
+    ].join('\n');
+
+    // Abre via Blob URL — mais confiável que document.write em todos os browsers
+    var blob = new Blob([html], { type: 'text/html; charset=utf-8' });
+    var blobUrl = URL.createObjectURL(blob);
+    var win = window.open(blobUrl, '_blank');
+    if (!win) {
+      URL.revokeObjectURL(blobUrl);
+      showToast('⚠️ Popup bloqueado! Permita popups para este site e tente novamente.');
+      return;
+    }
+    // Limpa a URL do blob após 60s
+    setTimeout(function(){ URL.revokeObjectURL(blobUrl); }, 60000);
+
+  } catch(err) {
+    console.error('imprimirPlanejamento erro:', err);
+    showToast('⚠️ Erro ao gerar impressão: ' + (err.message || err));
   }
 }
 
