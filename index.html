@@ -1200,39 +1200,6 @@ function getFolder(path) {
     <h2>📝 Cadastro</h2>
   </div>
 
-  <!-- TURMAS: visível apenas para diretor e pedagoga -->
-  <div id="cad-turmas-section">
-    <div class="card">
-      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
-        <span>🏷️ Turmas</span>
-        <span id="cad-turmas-count" style="font-size:12px;font-weight:400;color:var(--gray-400);"></span>
-      </div>
-      <div class="form-grid">
-        <div class="form-group">
-          <label>Nome da turma</label>
-          <input type="text" id="turma-nome" placeholder="Ex: Jardim II — Turma A" />
-        </div>
-        <div class="form-group">
-          <label>Professora(o) responsável</label>
-          <input type="text" id="turma-prof" placeholder="Nome da professora" />
-        </div>
-        <div class="form-group">
-          <label>Período</label>
-          <select id="turma-periodo">
-            <option value="manhã">Manhã</option>
-            <option value="tarde">Tarde</option>
-            <option value="integral">Integral</option>
-          </select>
-        </div>
-      </div>
-      <div class="btn-row">
-        <button class="btn btn-primary" onclick="addTurma()">➕ Adicionar turma</button>
-      </div>
-      <div class="divider"></div>
-      <div id="turmas-list" class="item-list"></div>
-    </div>
-  </div>
-
   <!-- ALUNOS -->
   <div class="card">
     <div class="card-title">➕ Novo Aluno</div>
@@ -1266,6 +1233,39 @@ function getFolder(path) {
   </div>
 
   <div id="alunos-list" class="item-list"></div>
+
+  <!-- TURMAS: visível apenas para diretor, pedagoga e secretaria -->
+  <div id="cad-turmas-section">
+    <div class="card" style="margin-top:16px;">
+      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>🏷️ Turmas</span>
+        <span id="cad-turmas-count" style="font-size:12px;font-weight:400;color:var(--gray-400);"></span>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Nome da turma</label>
+          <input type="text" id="turma-nome" placeholder="Ex: Jardim II — Turma A" />
+        </div>
+        <div class="form-group">
+          <label>Professora(o) responsável</label>
+          <input type="text" id="turma-prof" placeholder="Nome da professora" />
+        </div>
+        <div class="form-group">
+          <label>Período</label>
+          <select id="turma-periodo">
+            <option value="manhã">Manhã</option>
+            <option value="tarde">Tarde</option>
+            <option value="integral">Integral</option>
+          </select>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="addTurma()">➕ Adicionar turma</button>
+      </div>
+      <div class="divider"></div>
+      <div id="turmas-list" class="item-list"></div>
+    </div>
+  </div>
 
 </div>
 
