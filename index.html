@@ -3376,102 +3376,120 @@ function imprimirPlanejamento(id) {
   const p = db.planejamentos.find(x => x.id === id);
   if (!p) return;
   const turma = db.turmas.find(t => t.id === p.turmaId);
+
+  // Resolve nome do professor: tenta db.usuarios vinculado à turma, depois p.prof
+  const profUsuario = db.usuarios.find(u => u.papel === 'professora' && getUsrTurmaIds(u).includes(p.turmaId));
+  const profNome = profUsuario?.nome || p.prof || turma?.prof || '—';
+
   const logoEl = document.querySelector('header img');
   const logoSrc = logoEl ? logoEl.src : '';
 
   // Formata data com dia da semana entre parênteses
   function fmtDataPlan(dateStr) {
     if (!dateStr) return '—';
-    const d = new Date(dateStr + 'T12:00:00');
-    const diasSemana = ['DOMINGO','SEGUNDA-FEIRA','TERÇA-FEIRA','QUARTA-FEIRA','QUINTA-FEIRA','SEXTA-FEIRA','SÁBADO'];
-    const dia = diasSemana[d.getDay()];
-    return `(${dia})<br>${d.toLocaleDateString('pt-BR')}`;
+    try {
+      const d = new Date(dateStr + 'T12:00:00');
+      if (isNaN(d.getTime())) return dateStr;
+      const diasSemana = ['DOMINGO','SEGUNDA-FEIRA','TERÇA-FEIRA','QUARTA-FEIRA','QUINTA-FEIRA','SEXTA-FEIRA','SÁBADO'];
+      const dia = diasSemana[d.getDay()];
+      return '(' + dia + ')<br>' + d.toLocaleDateString('pt-BR');
+    } catch(e) { return dateStr; }
   }
 
   const direitos = Array.isArray(p.direitos) && p.direitos.length
-    ? p.direitos.map(d => `• ${d}`).join('<br>') : (p.area || '—');
+    ? p.direitos.map(function(d){ return '&bull; ' + d; }).join('<br>') : (p.area || '—');
   const campos = Array.isArray(p.campos) && p.campos.length
-    ? p.campos.map(c => `${c};`).join('<br>') : '—';
-  const conteudos    = (p.conteudos || p.tema || '—').replace(/\n/g,'<br>');
+    ? p.campos.map(function(c){ return c + ';'; }).join('<br>') : '—';
+  const conteudos      = (p.conteudos || p.tema || '—').replace(/\n/g,'<br>');
   const desenvolvimento = (p.desenvolvimento || p.metodologia || '—').replace(/\n/g,'<br>');
-  const bncc = (p.bncc || '—').replace(/\n/g,'<br>');
+  const bncc           = (p.bncc || '—').replace(/\n/g,'<br>');
 
-  // Data de início e fim do período (mês do planejamento)
+  // Período formatado
   const dataInicio = p.data ? new Date(p.data + 'T12:00:00') : null;
-  const periodoLabel = dataInicio
-    ? `${String(dataInicio.getDate()).padStart(2,'0')}/${String(dataInicio.getMonth()+1).padStart(2,'0')}/${dataInicio.getFullYear()}`
+  const periodoLabel = (dataInicio && !isNaN(dataInicio.getTime()))
+    ? String(dataInicio.getDate()).padStart(2,'0') + '/' + String(dataInicio.getMonth()+1).padStart(2,'0') + '/' + dataInicio.getFullYear()
     : (p.bimestre || '—');
 
-  const win = window.open('', '_blank', 'width=1050,height=750');
-  win.document.write(`<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<title>Planejamento — ${turma ? turma.nome : ''}</title>
-<style>
-  * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family: Arial, sans-serif; background:#f0f0f0; padding:20px 10px 50px; color:#000; }
-  .toolbar { max-width:1000px; margin:0 auto 14px; display:flex; gap:10px; }
-  .btn-print { padding:9px 22px; background:#1D9E75; color:#fff; border:none; border-radius:6px; font-size:14px; font-weight:bold; cursor:pointer; }
-  .btn-close  { padding:9px 22px; background:#fff; color:#555; border:1.5px solid #ccc; border-radius:6px; font-size:14px; cursor:pointer; }
-  .page { background:#fff; max-width:1000px; margin:0 auto; padding:20px 24px 32px; box-shadow:0 2px 14px rgba(0,0,0,.15); }
-  .logo-wrap { text-align:center; margin-bottom:10px; }
-  .logo-wrap img { height:72px; width:auto; }
-  .titulo-box { border:1.5px solid #000; text-align:center; padding:8px 12px; font-size:14px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; }
-  .info-row { display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-bottom:12px; border-bottom:1px solid #000; padding-bottom:6px; }
-  .info-row span { font-size:12px; }
-  table { width:100%; border-collapse:collapse; font-size:11px; }
-  th { background:#fff; color:#000; padding:7px 5px; text-align:center; font-size:10.5px; font-weight:bold; border:1.5px solid #000; text-transform:uppercase; line-height:1.3; }
-  td { border:1px solid #000; padding:6px 5px; vertical-align:top; font-size:11px; line-height:1.45; }
-  td.data-cell { text-align:center; font-size:10px; font-weight:bold; background:#f8f8f8; min-width:72px; }
-  .footer { margin-top:14px; font-size:10px; color:#888; text-align:right; }
-  @media print {
-    body { background:#fff; padding:0; }
-    .toolbar { display:none; }
-    .page { box-shadow:none; max-width:100%; padding:8mm 10mm; }
-    @page { size:A4 landscape; margin:8mm; }
+  const win = window.open('', '_blank', 'width=1100,height=780');
+  if (!win) {
+    showToast('⚠️ Popup bloqueado! Habilite popups para este site e tente novamente.');
+    return;
   }
-</style>
-</head>
-<body>
-<div class="toolbar">
-  <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
-  <button class="btn-close" onclick="window.close()">✕ Fechar</button>
-</div>
-<div class="page">
-  ${logoSrc ? `<div class="logo-wrap"><img src="${logoSrc}"></div>` : ''}
-  <div class="titulo-box">PLANEJAMENTO MENSAL – INFANTIL</div>
-  <div class="info-row">
-    <span><strong>Professor(a):</strong> ${p.prof || '—'}</span>
-    <span><strong>${p.bimestre || '—'}:</strong></span>
-    <span><strong>Data do Planejamento:</strong> ${periodoLabel}</span>
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th style="width:9%">DATA</th>
-        <th style="width:13%">DIREITO(S) DE<br>APRENDIZAGEM</th>
-        <th style="width:16%">CAMPO(S) DE<br>EXPERIÊNCIA(S)</th>
-        <th style="width:24%">OBJETIVO(S) BNCC</th>
-        <th style="width:14%">CONTEÚDOS</th>
-        <th style="width:24%">DESENVOLVIMENTO</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td class="data-cell">${fmtDataPlan(p.data)}</td>
-        <td>${direitos}</td>
-        <td>${campos}</td>
-        <td>${bncc}</td>
-        <td>${conteudos}</td>
-        <td>${desenvolvimento}</td>
-      </tr>
-    </tbody>
-  </table>
-  <div class="footer">Escola Ponte do Saber — gerado em ${new Date().toLocaleDateString('pt-BR')}</div>
-</div>
-</body></html>`);
-  win.document.close();
+
+  const html = '<!DOCTYPE html>\n' +
+'<html lang="pt-BR">\n' +
+'<head>\n' +
+'<meta charset="UTF-8">\n' +
+'<title>Planejamento — ' + (turma ? turma.nome : '') + '</title>\n' +
+'<style>\n' +
+'@page { size:A4 landscape; margin:8mm; }\n' +
+'* { box-sizing:border-box; margin:0; padding:0; }\n' +
+'body { font-family: Arial, sans-serif; background:#f0f0f0; padding:20px 10px 50px; color:#000; }\n' +
+'.toolbar { max-width:1050px; margin:0 auto 14px; display:flex; gap:10px; }\n' +
+'.btn-print { padding:9px 22px; background:#1D9E75; color:#fff; border:none; border-radius:6px; font-size:14px; font-weight:bold; cursor:pointer; }\n' +
+'.btn-close  { padding:9px 22px; background:#fff; color:#555; border:1.5px solid #ccc; border-radius:6px; font-size:14px; cursor:pointer; }\n' +
+'.page { background:#fff; max-width:1050px; margin:0 auto; padding:20px 24px 32px; box-shadow:0 2px 14px rgba(0,0,0,.15); }\n' +
+'.logo-wrap { text-align:center; margin-bottom:8px; }\n' +
+'.logo-wrap img { height:70px; width:auto; }\n' +
+'.titulo-box { border:1.5px solid #000; text-align:center; padding:7px 12px; font-size:13px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; }\n' +
+'.info-row { display:flex; justify-content:space-between; align-items:center; font-size:11.5px; margin-bottom:10px; border-bottom:1px solid #000; padding-bottom:5px; gap:16px; }\n' +
+'.info-row span { font-size:11.5px; }\n' +
+'table { width:100%; border-collapse:collapse; font-size:11px; }\n' +
+'th { background:#fff; color:#000; padding:6px 4px; text-align:center; font-size:10px; font-weight:bold; border:1.5px solid #000; text-transform:uppercase; line-height:1.3; }\n' +
+'td { border:1px solid #000; padding:5px 4px; vertical-align:top; font-size:10.5px; line-height:1.45; }\n' +
+'td.data-cell { text-align:center; font-size:9.5px; font-weight:bold; background:#f8f8f8; min-width:68px; }\n' +
+'.footer { margin-top:12px; font-size:9.5px; color:#888; text-align:right; }\n' +
+'@media print {\n' +
+'  body { background:#fff; padding:0; }\n' +
+'  .toolbar { display:none; }\n' +
+'  .page { box-shadow:none; max-width:100%; padding:0; }\n' +
+'}\n' +
+'</style>\n' +
+'</head>\n' +
+'<body>\n' +
+'<div class="toolbar">\n' +
+'  <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>\n' +
+'  <button class="btn-close" onclick="window.close()">✕ Fechar</button>\n' +
+'</div>\n' +
+'<div class="page">\n' +
+  (logoSrc ? '  <div class="logo-wrap"><img src="' + logoSrc + '"></div>\n' : '') +
+'  <div class="titulo-box">PLANEJAMENTO MENSAL – INFANTIL</div>\n' +
+'  <div class="info-row">\n' +
+'    <span><strong>Professor(a):</strong> ' + profNome + '</span>\n' +
+'    <span><strong>Bimestre/Período:</strong> ' + (p.bimestre || '—') + '</span>\n' +
+'    <span><strong>Data do Planejamento:</strong> ' + periodoLabel + '</span>\n' +
+'    <span><strong>Turma:</strong> ' + (turma ? turma.nome : '—') + '</span>\n' +
+'  </div>\n' +
+'  <table>\n' +
+'    <thead><tr>\n' +
+'      <th style="width:9%">DATA</th>\n' +
+'      <th style="width:13%">DIREITO(S) DE<br>APRENDIZAGEM</th>\n' +
+'      <th style="width:17%">CAMPO(S) DE<br>EXPERIÊNCIA(S)</th>\n' +
+'      <th style="width:23%">OBJETIVO(S) BNCC</th>\n' +
+'      <th style="width:14%">CONTEÚDOS</th>\n' +
+'      <th style="width:24%">DESENVOLVIMENTO</th>\n' +
+'    </tr></thead>\n' +
+'    <tbody><tr>\n' +
+'      <td class="data-cell">' + fmtDataPlan(p.data) + '</td>\n' +
+'      <td>' + direitos + '</td>\n' +
+'      <td>' + campos + '</td>\n' +
+'      <td>' + bncc + '</td>\n' +
+'      <td>' + conteudos + '</td>\n' +
+'      <td>' + desenvolvimento + '</td>\n' +
+'    </tr></tbody>\n' +
+'  </table>\n' +
+'  <div class="footer">Escola Ponte do Saber — gerado em ' + new Date().toLocaleDateString('pt-BR') + '</div>\n' +
+'</div>\n' +
+'</body></html>';
+
+  try {
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+  } catch(e) {
+    win.close();
+    showToast('⚠️ Erro ao gerar impressão: ' + e.message);
+  }
 }
 
 function exportarPlanejamentos() {
