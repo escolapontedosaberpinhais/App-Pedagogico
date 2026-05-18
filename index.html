@@ -1785,8 +1785,8 @@ function aplicarPapel() {
 
   // Dashboard: diretor e pedagoga
   document.getElementById('nav-dashboard').style.display = isGestao ? '' : 'none';
-  // Cadastro: todos exceto... todos veem
-  document.getElementById('nav-cadastro').style.display = '';
+  // Cadastro: oculto para secretaria
+  document.getElementById('nav-cadastro').style.display = isSecretaria ? 'none' : '';
   // Impressão: só secretaria (e gestão pode ver também)
   const navImp = document.getElementById('nav-impressao');
   if (navImp) navImp.style.display = (isSecretaria || isGestao) ? '' : 'none';
@@ -1808,7 +1808,7 @@ function aplicarPapel() {
   const dPlan = document.getElementById('dnav-planejamento');
   const dPar  = document.getElementById('dnav-pareceres');
   const dAval = document.getElementById('dnav-avaliacoes');
-  if (dCad)  dCad.style.display  = '';
+  if (dCad)  dCad.style.display  = isSecretaria ? 'none' : '';
   if (dImp)  dImp.style.display  = (isSecretaria || isGestao) ? '' : 'none';
   if (dDash) dDash.style.display = isGestao ? '' : 'none';
   if (dCorr) dCorr.style.display = isGestao ? '' : 'none';
@@ -1840,7 +1840,7 @@ function aplicarPapel() {
   if (isGestao) {
     showTab('dashboard');
   } else if (isSecretaria) {
-    showTab('cadastro');
+    showTab('impressao');
   } else {
     showTab('planejamento');
   }
