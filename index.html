@@ -1879,7 +1879,9 @@ function getCheckedTurmas(containerId) {
 }
 
 function turmasVisiveis() {
-  if (!currentUser || currentUser.papel === 'diretor' || currentUser.papel === 'pedagoga') return db.turmas;
+  if (!currentUser) return db.turmas;
+  const p = currentUser.papel;
+  if (p === 'diretor' || p === 'pedagoga' || p === 'secretaria') return db.turmas;
   const ids = getUsrTurmaIds(currentUser);
   return db.turmas.filter(t => ids.includes(t.id));
 }
