@@ -3486,6 +3486,9 @@ function montarHtmlParecer(p, __corpo) {
   const dataRegistro = new Date(p.criadoEm).toLocaleDateString('pt-BR');
   const aluno = db.alunos.find(a => a.id === p.alunoId);
   const nascFmt = aluno?.nasc ? new Date(aluno.nasc + 'T12:00:00').toLocaleDateString('pt-BR') : null;
+  // Busca a professora vinculada à turma nos usuários cadastrados
+  const profUsuario = db.usuarios.find(u => u.papel === 'professora' && getUsrTurmaIds(u).includes(p.turmaId));
+  const profNome = profUsuario?.nome || turma?.prof || p.prof || '';
 
   return (`<!DOCTYPE html>
 <html lang="pt-BR">
@@ -3586,7 +3589,7 @@ function montarHtmlParecer(p, __corpo) {
   </div>
 
   <div class="cab">
-    <p>Professor(a): ${turma?.prof || p.prof || '_______________________________'}</p>
+    <p>Professor(a): ${profNome || '_______________________________'}</p>
     <p>Aluno(a): ${p.alunoNome}</p>
     <p>Turma: ${turma ? turma.nome : '—'}</p>
     <p>Data: ${dataImpressao}</p>
