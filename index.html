@@ -176,6 +176,8 @@
   .btn-sm { padding: 6px 12px; font-size: 13px; }
   .btn-amber { background: var(--amber); color: var(--white); }
   .btn-amber:hover { background: #c8882e; }
+  .btn-success { background: #059669; color: #fff; }
+  .btn-success:hover { background: #047857; }
   .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .btn-row {
@@ -753,6 +755,7 @@
         <option value="professora">Professora</option>
         <option value="pedagoga">Pedagoga</option>
         <option value="diretor">Diretor(a)</option>
+        <option value="secretaria">Secretaria</option>
       </select>
     </div>
     <div class="form-group" id="edit-usr-turma-group" style="margin-bottom:20px;">
@@ -836,6 +839,9 @@
     <button class="dnav-btn" id="dnav-cadastro" onclick="drawerNav('cadastro')">
       <span class="di">&#x1F4DD;</span> Cadastro
     </button>
+    <button class="dnav-btn" id="dnav-impressao" onclick="drawerNav('impressao')" style="display:none;">
+      <span class="di">&#x1F5A8;</span> Impress&atilde;o
+    </button>
     <button class="dnav-btn" id="dnav-planejamento" onclick="drawerNav('planejamento')">
       <span class="di">&#x1F4CB;</span> Planejamentos
     </button>
@@ -857,9 +863,10 @@
 <nav id="nav">
   <button id="nav-dashboard" onclick="showTab('dashboard')" data-tab="dashboard" style="display:none;">🏠 Dashboard</button>
   <button onclick="showTab('cadastro')" data-tab="cadastro" id="nav-cadastro">📝 Cadastro</button>
-  <button onclick="showTab('planejamento')" data-tab="planejamento">📋 Planejamentos</button>
-  <button onclick="showTab('pareceres')" data-tab="pareceres">✨ Pareceres IA</button>
-  <button onclick="showTab('avaliacoes')" data-tab="avaliacoes">📊 Avaliações</button>
+  <button id="nav-impressao" onclick="showTab('impressao')" data-tab="impressao" style="display:none;">🖨️ Impressão</button>
+  <button id="nav-planejamento" onclick="showTab('planejamento')" data-tab="planejamento">📋 Planejamentos</button>
+  <button id="nav-pareceres" onclick="showTab('pareceres')" data-tab="pareceres">✨ Pareceres IA</button>
+  <button id="nav-avaliacoes" onclick="showTab('avaliacoes')" data-tab="avaliacoes">📊 Avaliações</button>
   <button id="nav-correcao" onclick="showTab('correcao')" data-tab="correcao" style="display:none;">✅ Correção</button>
 </nav>
 
@@ -963,6 +970,42 @@
     </div>
     <div id="correcoes-list"></div>
   </div>
+
+</div>
+
+<!-- ===================== IMPRESSÃO (SECRETARIA) ===================== -->
+<div id="tab-impressao" class="section">
+
+  <div class="section-header">
+    <h2>🖨️ Impressão de Pareceres</h2>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <span>📋 Filtros</span>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <select id="imp-filtro-bimestre" onchange="renderImpressao()" style="font-size:13px;padding:5px 10px;border:1px solid var(--gray-200);border-radius:6px;">
+          <option value="">Todos os bimestres</option>
+          <option>1º Bimestre</option>
+          <option>2º Bimestre</option>
+          <option>3º Bimestre</option>
+          <option>4º Bimestre</option>
+          <option>1º Semestre</option>
+          <option>2º Semestre</option>
+        </select>
+        <select id="imp-filtro-turma" onchange="renderImpressao()" style="font-size:13px;padding:5px 10px;border:1px solid var(--gray-200);border-radius:6px;">
+          <option value="">Todas as turmas</option>
+        </select>
+        <select id="imp-filtro-status" onchange="renderImpressao()" style="font-size:13px;padding:5px 10px;border:1px solid var(--gray-200);border-radius:6px;">
+          <option value="prontos">✅ Prontos p/ impressão</option>
+          <option value="todos">Todos os pareceres</option>
+          <option value="impressos">🖨️ Já impressos</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div id="impressao-list"></div>
 
 </div>
 
@@ -1132,6 +1175,7 @@ function getFolder(path) {
           <option value="professora">Professora</option>
           <option value="pedagoga">Pedagoga</option>
           <option value="diretor">Diretor(a)</option>
+          <option value="secretaria">Secretaria</option>
         </select>
       </div>
       <div class="form-group" id="usr-turma-group">
@@ -1726,8 +1770,10 @@ function aplicarPapel() {
   document.getElementById('header-nome').textContent = currentUser.nome;
   document.getElementById('header-user').style.display = 'flex';
 
-  const isDiretor  = currentUser.papel === 'diretor';
-  const isGestao   = isDiretor || currentUser.papel === 'pedagoga';
+  const isDiretor    = currentUser.papel === 'diretor';
+  const isGestao     = isDiretor || currentUser.papel === 'pedagoga';
+  const isSecretaria = currentUser.papel === 'secretaria';
+  const isProfessora = currentUser.papel === 'professora';
 
   // Ícone de configuração no header: só diretor
   const cfgIcon = document.getElementById('btn-config-icon');
@@ -1736,25 +1782,43 @@ function aplicarPapel() {
   const cardUsr = document.getElementById('card-usuarios');
   if (cardUsr) cardUsr.style.display = isDiretor ? '' : 'none';
 
-  // Dashboard e Correção: diretor e pedagoga
+  // Dashboard: diretor e pedagoga
   document.getElementById('nav-dashboard').style.display = isGestao ? '' : 'none';
-  document.getElementById('nav-cadastro').style.display = ''; // Cadastro visível para todos
-  document.getElementById('nav-correcao').style.display  = isGestao ? '' : 'none';
+  // Cadastro: todos exceto... todos veem
+  document.getElementById('nav-cadastro').style.display = '';
+  // Impressão: só secretaria (e gestão pode ver também)
+  const navImp = document.getElementById('nav-impressao');
+  if (navImp) navImp.style.display = (isSecretaria || isGestao) ? '' : 'none';
+  // Planejamentos, Pareceres, Avaliações: ocultos para secretaria
+  const navPlan = document.getElementById('nav-planejamento');
+  const navPar  = document.getElementById('nav-pareceres');
+  const navAval = document.getElementById('nav-avaliacoes');
+  if (navPlan) navPlan.style.display = isSecretaria ? 'none' : '';
+  if (navPar)  navPar.style.display  = isSecretaria ? 'none' : '';
+  if (navAval) navAval.style.display = isSecretaria ? 'none' : '';
+  // Correção: diretor e pedagoga
+  document.getElementById('nav-correcao').style.display = isGestao ? '' : 'none';
 
   // Sync drawer visibility
   const dDash = document.getElementById('dnav-dashboard');
   const dCorr = document.getElementById('dnav-correcao');
   const dCad  = document.getElementById('dnav-cadastro');
-  if (dCad) dCad.style.display = ''; // Cadastro visível para todos
-
-  // Seção Turmas no Cadastro: controlada por renderTurmas()
+  const dImp  = document.getElementById('dnav-impressao');
+  const dPlan = document.getElementById('dnav-planejamento');
+  const dPar  = document.getElementById('dnav-pareceres');
+  const dAval = document.getElementById('dnav-avaliacoes');
+  if (dCad)  dCad.style.display  = '';
+  if (dImp)  dImp.style.display  = (isSecretaria || isGestao) ? '' : 'none';
   if (dDash) dDash.style.display = isGestao ? '' : 'none';
   if (dCorr) dCorr.style.display = isGestao ? '' : 'none';
+  if (dPlan) dPlan.style.display = isSecretaria ? 'none' : '';
+  if (dPar)  dPar.style.display  = isSecretaria ? 'none' : '';
+  if (dAval) dAval.style.display = isSecretaria ? 'none' : '';
 
   // Populate drawer user info
   const drawerUserInfo = document.getElementById('drawer-user-info');
   if (drawerUserInfo) {
-    const papelLabel = { diretor: 'Diretor(a)', pedagoga: 'Pedagoga', professora: 'Professora' };
+    const papelLabel = { diretor: 'Diretor(a)', pedagoga: 'Pedagoga', professora: 'Professora', secretaria: 'Secretaria' };
     drawerUserInfo.textContent = (currentUser?.nome || currentUser?.login || '') + ' · ' + (papelLabel[currentUser?.papel] || '');
   }
 
@@ -1774,6 +1838,8 @@ function aplicarPapel() {
 
   if (isGestao) {
     showTab('dashboard');
+  } else if (isSecretaria) {
+    showTab('cadastro');
   } else {
     showTab('planejamento');
   }
@@ -1784,6 +1850,7 @@ function aplicarPapel() {
   renderPlanejamentos();
   renderPareceres();
   renderUsuarios();
+  renderImpressao();
 }
 
 // turmas visíveis para o usuário atual
@@ -3186,6 +3253,100 @@ function deleteParecer(id) {
   renderPareceres();
 }
 
+function toggleProntoImpressao(id) {
+  if (currentUser?.papel !== 'diretor' && currentUser?.papel !== 'pedagoga') return;
+  const p = db.pareceres.find(x => x.id === id);
+  if (!p) return;
+  p.prontoImpressao = !p.prontoImpressao;
+  if (p.prontoImpressao) p.impresso = false; // reset impresso ao liberar novamente
+  save();
+  renderPareceres();
+  renderImpressao();
+  showToast(p.prontoImpressao ? '🖨️ Parecer liberado para impressão!' : '↩️ Liberação retirada.');
+}
+
+function marcarImpresso(id) {
+  const p = db.pareceres.find(x => x.id === id);
+  if (!p) return;
+  p.impresso = !p.impresso;
+  save();
+  renderImpressao();
+  renderPareceres();
+  showToast(p.impresso ? '✅ Marcado como impresso!' : '↩️ Marcação removida.');
+}
+
+function renderImpressao() {
+  const el = document.getElementById('impressao-list');
+  if (!el) return;
+
+  // Populate turma filter
+  const turmaFiltroEl = document.getElementById('imp-filtro-turma');
+  if (turmaFiltroEl && turmaFiltroEl.options.length <= 1) {
+    db.turmas.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.id; opt.textContent = t.nome;
+      turmaFiltroEl.appendChild(opt);
+    });
+  }
+
+  const bimFiltro    = document.getElementById('imp-filtro-bimestre')?.value || '';
+  const turmaFiltro  = document.getElementById('imp-filtro-turma')?.value || '';
+  const statusFiltro = document.getElementById('imp-filtro-status')?.value || 'prontos';
+
+  let list = db.pareceres;
+  if (bimFiltro)   list = list.filter(p => p.periodo === bimFiltro);
+  if (turmaFiltro) list = list.filter(p => p.turmaId === turmaFiltro);
+  if (statusFiltro === 'prontos')   list = list.filter(p => p.prontoImpressao && !p.impresso);
+  if (statusFiltro === 'impressos') list = list.filter(p => p.impresso);
+  // 'todos' = sem filtro adicional
+
+  if (list.length === 0) {
+    el.innerHTML = `<div class="empty"><div class="icon">🖨️</div>
+      <p>${statusFiltro === 'prontos' ? 'Nenhum parecer liberado para impressão ainda.<br><small>A pedagoga/diretor libera clicando em "🖨️ Liberar" no parecer.</small>' :
+          statusFiltro === 'impressos' ? 'Nenhum parecer marcado como impresso.' :
+          'Nenhum parecer encontrado.'}</p></div>`;
+    return;
+  }
+
+  // Group by turma
+  const porTurma = {};
+  list.forEach(p => {
+    const t = db.turmas.find(t => t.id === p.turmaId);
+    const key = t ? t.nome : 'Sem turma';
+    if (!porTurma[key]) porTurma[key] = [];
+    porTurma[key].push(p);
+  });
+
+  el.innerHTML = Object.entries(porTurma).map(([turmaNome, pareceres]) => `
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>📚 ${turmaNome} <span style="font-size:13px;color:var(--gray-500);font-weight:normal;">(${pareceres.length} parecer${pareceres.length > 1 ? 'es' : ''})</span></span>
+      </div>
+      ${pareceres.map(p => {
+        const savedAt = fmtDateTime(p.criadoEm);
+        const statusBadge = p.impresso
+          ? `<span class="badge" style="background:#e0e7ff;color:#3730a3;font-size:11px;">🖨️ Impresso</span>`
+          : `<span class="badge" style="background:#d1fae5;color:#065f46;font-size:11px;">✅ Aguardando impressão</span>`;
+        return `<div class="item-card" style="border-left:3px solid ${p.impresso ? '#818cf8' : '#10b981'};">
+          <div class="info">
+            <strong>${p.alunoNome}</strong>
+            <span>${p.periodo} &nbsp;|&nbsp; Tom: ${p.tom}</span>
+            <span style="font-size:12px;color:var(--gray-400);">Salvo em: ${savedAt}</span>
+            <div style="margin-top:4px;">${statusBadge}</div>
+          </div>
+          <div class="actions" style="flex-direction:column;gap:5px;">
+            <button class="btn btn-primary btn-sm" onclick="imprimirParecer('${p.id}')" title="Abrir PDF no modelo oficial">🖨️ PDF</button>
+            <button class="btn btn-sm ${p.impresso ? 'btn-secondary' : 'btn-success'}" onclick="marcarImpresso('${p.id}')">
+              ${p.impresso ? '↩️ Desmarcar' : '✅ Marcar impresso'}
+            </button>
+            ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : ''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  `).join('');
+}
+
 function renderPareceres() {
   const el = document.getElementById('pareceres-list');
   let list = db.pareceres;
@@ -3200,17 +3361,27 @@ function renderPareceres() {
     const savedAt = fmtDateTime(p.criadoEm);
     const preview = p.texto.slice(0, 140) + (p.texto.length > 140 ? '…' : '');
     const canCorrect = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
+    const prontoLabel = p.prontoImpressao
+      ? `<span class="badge" style="background:#d1fae5;color:#065f46;font-size:11px;">✅ Pronto p/ impressão</span>`
+      : '';
+    const impressoLabel = p.impresso
+      ? `<span class="badge" style="background:#e0e7ff;color:#3730a3;font-size:11px;">🖨️ Impresso</span>`
+      : '';
     return `<div class="item-card">
       <div class="info">
         <strong>${p.alunoNome}</strong>
         <span><span class="badge badge-green">${turma ? turma.nome : '—'}</span> &nbsp;${p.periodo} &nbsp;|&nbsp; Tom: ${p.tom}</span>
         <span style="font-size:12px;color:var(--gray-400);">💾 Salvo em: ${savedAt}</span>
+        <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">${prontoLabel}${impressoLabel}</div>
         <div style="margin-top:4px;font-size:13px;color:var(--gray-600);">${preview}</div>
       </div>
       <div class="actions" style="flex-direction:column; gap:5px;">
         ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')" title="Abrir no Google Docs">📄 Docs</button>` : ''}
         ${canCorrect ? `<button class="btn btn-sm ${p.corrigido ? 'btn-primary' : 'btn-amber'}" onclick="toggleParecerCorrigido('${p.id}')">
           ${p.corrigido ? '✅ Corrigido' : '📝 Corrigir'}
+        </button>` : ''}
+        ${canCorrect ? `<button class="btn btn-sm ${p.prontoImpressao ? 'btn-success' : 'btn-secondary'}" onclick="toggleProntoImpressao('${p.id}')" title="Marcar como pronto para impressão">
+          ${p.prontoImpressao ? '🖨️ Pronto' : '🖨️ Liberar'}
         </button>` : ''}
         <button class="btn btn-secondary btn-sm" onclick="verParecer('${p.id}')" title="Abrir (Google Docs)">👁️</button>
         <button class="btn btn-primary btn-sm" onclick="imprimirParecer('${p.id}')" title="Imprimir / Salvar PDF">🖨️ PDF</button>
