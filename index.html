@@ -2265,9 +2265,11 @@ function renderTurmas() {
   if (!el) return;
   // Controla visibilidade da seção inteira por papel
   const sec = document.getElementById('cad-turmas-section');
-  const isGestao = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
-  if (sec) sec.style.display = isGestao ? '' : 'none';
-  if (!isGestao) return; // professora não vê turmas
+  const isGestao     = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
+  const isSecretaria = currentUser?.papel === 'secretaria';
+  const podeTurmas   = isGestao || isSecretaria;
+  if (sec) sec.style.display = podeTurmas ? '' : 'none';
+  if (!podeTurmas) return; // professora não vê turmas
   // Atualiza contador no título
   const countEl = document.getElementById('cad-turmas-count');
   if (countEl) countEl.textContent = db.turmas.length + ' turma(s)';
