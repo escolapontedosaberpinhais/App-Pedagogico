@@ -3344,7 +3344,8 @@ async function verPlanejamento(id) {
     const turma = db.turmas.find(t => t.id === p.turmaId);
     const turmaNome = sanitizeName(turma ? turma.nome : 'Turma');
     const dataFmt2 = p.data ? p.data.replace(/-/g, '') : 'sem-data';
-    const filename = sanitizeName(`${p.tema} - ${dataFmt2}`) + '.txt';
+    const conteudoNome = p.conteudos || p.tema || 'planejamento';
+    const filename = sanitizeName(`${conteudoNome} - ${dataFmt2}`) + '.txt';
     const url = await uploadToDrive(filename, buildPlanejamentoTxt(p),
       'Escola Ponte do Saber', turmaNome, p.bimestre || 'Geral', 'Planejamentos');
     if (url) {
