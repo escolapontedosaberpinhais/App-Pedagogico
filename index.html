@@ -1090,6 +1090,7 @@
     } else {
       doc = DocumentApp.create(filename);
       var f = DriveApp.getFileById(doc.getId());
+      f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.EDIT);
       folder.addFile(f);
       DriveApp.getRootFolder().removeFile(f);
     }
@@ -1149,16 +1150,18 @@ function getFolder(path) {
     </ol>
 
     <div class="alert" style="background:#fef3c7;border-left:4px solid #f59e0b;border-radius:6px;padding:12px 14px;margin:0 0 16px;font-size:13px;color:#92400e;">
-      <strong>⚠️ Se aparecer pedido de autorização ao salvar documentos:</strong><br>
-      O script precisa ser reautorizado. Siga os passos:<br>
+      <strong>⚠️ Usuários veem "Você precisa ter acesso" ao abrir documentos?</strong><br>
+      O script precisa ser atualizado para compartilhar os docs automaticamente. Siga os passos:<br>
       <ol style="margin:6px 0 0 16px;line-height:2;">
         <li>Acesse <strong>script.google.com</strong> → abra o projeto</li>
-        <li>Clique em <strong>Implantar → Gerenciar implantações</strong></li>
-        <li>Clique no lápis ✏️ → <strong>Versão: Nova versão</strong> → Salvar</li>
-        <li>Na janela que abrir, clique em <strong>Autorizar acesso</strong> e aprove tudo</li>
-        <li>Copie a nova URL e cole aqui no campo abaixo → Conectar</li>
+        <li>Apague o código atual e cole o código novo acima (já corrigido) — clique em <strong>📋 Copiar</strong></li>
+        <li>Clique em <strong>Implantar → Gerenciar implantações</strong> → lápis ✏️</li>
+        <li>Escolha <strong>Versão: Nova versão</strong> → <strong>Implantar</strong></li>
+        <li>Se pedir autorização, aprove tudo</li>
       </ol>
-      Isso resolve o problema definitivamente.
+      Após isso, novos documentos serão criados já com permissão de acesso para todos.
+      <br><br>
+      <strong>Documentos antigos</strong> (já criados sem permissão): abra cada um no Drive → clique em <strong>Compartilhar</strong> → <strong>Qualquer pessoa com o link</strong>.
     </div>
 
     <div class="card-title" style="font-size:14px; margin-bottom:8px;">Passo 2 — Conectar o app</div>
