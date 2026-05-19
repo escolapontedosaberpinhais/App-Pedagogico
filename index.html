@@ -3464,9 +3464,14 @@ async function imprimirPlanejamento(id) {
 
     var logoHtml = logoSrc ? '<div class="logo-wrap"><img src="' + logoSrc + '" crossorigin="anonymous"></div>' : '';
 
-    // Se veio conteúdo do Google Docs, usa ele no lugar do desenvolvimento local
+    // Se veio conteúdo do Google Docs, parseia e sobrescreve apenas os campos alterados
     if (docsConteudo && docsConteudo.trim()) {
-      desenvolv = toStr(docsConteudo).replace(/\n/g,'<br>');
+      var parsed = parsePlanejamentoTxt(docsConteudo);
+      if (parsed.direitos)      direitos  = toStr(parsed.direitos).replace(/\n/g,'<br>');
+      if (parsed.campos)        campos    = toStr(parsed.campos).replace(/\n/g,'<br>');
+      if (parsed.bncc)          bncc      = toStr(parsed.bncc).replace(/\n/g,'<br>');
+      if (parsed.conteudos)     conteudos = toStr(parsed.conteudos).replace(/\n/g,'<br>');
+      if (parsed.desenvolvimento) desenvolv = toStr(parsed.desenvolvimento).replace(/\n/g,'<br>');
     }
 
     var html = [
@@ -4329,6 +4334,33 @@ function buildParecerTxt(p) {
   return `PARECER DESCRITIVO — ESCOLA PONTE DO SABER\n${'='.repeat(50)}\n`
     + `Aluno(a): ${p.alunoNome}\nTurma: ${turma ? turma.nome : '—'}\nPeríodo: ${p.periodo}\nData: ${data}\nTom: ${p.tom}\n\n`
     + p.texto + '\n';
+}
+
+// Parseia o texto do Google Docs de volta para os campos individuais
+function parsePlanejamentoTxt(txt) {
+  if (!txt) return {};
+  var result = {};
+  var sections = [
+    { key: 'direitos',      label: 'DIREITOS DE APRENDIZAGEM:' },
+    { key: 'campos',        label: 'CAMPO(S) DE EXPERIÊNCIA:' },
+    { key: 'bncc',          label: 'OBJETIVOS / HABILIDADES BNCC:' },
+    { key: 'conteudos',     label: 'CONTEÚDOS:' },
+    { key: 'desenvolvimento', label: 'DESENVOLVIMENTO DA ATIVIDADE:' },
+  ];
+  for (var i = 0; i < sections.length; i++) {
+    var s = sections[i];
+    var idx = txt.indexOf(s.label);
+    if (idx === -1) continue;
+    var start = idx + s.label.length;
+    var end = txt.length;
+    for (var j = i + 1; j < sections.length; j++) {
+      var nextIdx = txt.indexOf(sections[j].label, start);
+      if (nextIdx !== -1 && nextIdx < end) end = nextIdx;
+    }
+    var val = txt.slice(start, end).trim();
+    if (val && val !== '—') result[s.key] = val;
+  }
+  return result;
 }
 
 function buildPlanejamentoTxt(p) {
