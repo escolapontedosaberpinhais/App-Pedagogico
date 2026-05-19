@@ -1348,6 +1348,17 @@ function getFolder(path) {
       <div class="form-group full">
         <label>Desenvolvimento da Atividade *</label>
         <textarea id="pl-desenvolvimento" placeholder="Descreva como a atividade será desenvolvida…" style="min-height:100px;"></textarea>
+        <div style="margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:var(--green-light);border:1.5px solid var(--green-mid);border-radius:6px;font-size:13px;color:var(--green-dark);font-weight:600;">
+            📷 Adicionar imagem
+            <input type="file" id="pl-imagem-input" accept="image/*" style="display:none;" onchange="carregarImagemDesenvolvimento(this)">
+          </label>
+          <span style="font-size:11px;color:var(--gray-400);">PNG, JPG ou WEBP — será comprimida automaticamente</span>
+        </div>
+        <div id="pl-imagem-preview" style="display:none;margin-top:8px;position:relative;display:inline-block;">
+          <img id="pl-imagem-thumb" src="" style="max-width:220px;max-height:140px;border-radius:6px;border:1.5px solid var(--gray-200);display:block;">
+          <button onclick="removerImagemDesenvolvimento()" title="Remover imagem" style="position:absolute;top:-8px;right:-8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;">✕</button>
+        </div>
       </div>
     </div>
     <div class="btn-row">
@@ -2466,6 +2477,7 @@ function salvarPlanejamento() {
     bncc,
     conteudos,
     desenvolvimento,
+    imagemDesenvolvimento: window._plImagemBase64 || null,
     criadoEm: new Date().toISOString(),
     historico: [{ acao: 'criado', por: currentUser?.nome || 'Professora', em: new Date().toISOString() }],
   };
@@ -2506,7 +2518,45 @@ function limparFormPlanejamento() {
     c.checked = false;
     c.closest('.check-item')?.classList.remove('checked');
   });
+  removerImagemDesenvolvimento();
   renderProfField();
+}
+
+// Carrega e comprime imagem para base64 (max 900px, qualidade 0.75)
+function carregarImagemDesenvolvimento(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      const MAX = 900;
+      let w = img.width, h = img.height;
+      if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+      else if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const b64 = canvas.toDataURL('image/jpeg', 0.75);
+      window._plImagemBase64 = b64;
+      const thumb = document.getElementById('pl-imagem-thumb');
+      const preview = document.getElementById('pl-imagem-preview');
+      if (thumb) thumb.src = b64;
+      if (preview) preview.style.display = 'inline-block';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function removerImagemDesenvolvimento() {
+  window._plImagemBase64 = null;
+  const thumb = document.getElementById('pl-imagem-thumb');
+  const preview = document.getElementById('pl-imagem-preview');
+  const input = document.getElementById('pl-imagem-input');
+  if (thumb) thumb.src = '';
+  if (preview) preview.style.display = 'none';
+  if (input) input.value = '';
 }
 
 function toggleCheckStyle(cb) {
@@ -3302,6 +3352,7 @@ function renderPlanejamentos() {
       : p.corrigido
       ? `<span class="badge" style="background:#d1fae5;color:#065f46;font-size:11px;">✅ Aprovado</span>` : '';
     const cardStyle = devolvido ? 'border:2px solid #f59e0b;background:#fffbeb;' : '';
+    const imgBadge = p.imagemDesenvolvimento ? `<span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:11px;">🖼️ Com imagem</span>` : '';
     return `<div class="item-card" style="${cardStyle}">
       <div class="info">
         <strong>${conteudosTxt}</strong>
@@ -3312,7 +3363,7 @@ function renderPlanejamentos() {
         </span>
         ${direitosTxt ? `<span style="font-size:12px;color:var(--green-dark);">⭐ ${direitosTxt}</span>` : ''}
         <span style="font-size:12px;color:var(--gray-400);">💾 Salvo em: ${savedAt}</span>
-        <div style="margin-top:4px;">${revisaoBadge}</div>
+        <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">${revisaoBadge}${imgBadge}</div>
         ${p.desenvolvimento || p.metodologia ? `<div style="margin-top:4px;font-size:13px;color:var(--gray-600);">${(p.desenvolvimento || p.metodologia).slice(0,120)}${(p.desenvolvimento||p.metodologia).length>120?'…':''}</div>` : ''}
         ${htmlHistorico(p)}
       </div>
@@ -3554,7 +3605,7 @@ async function imprimirPlanejamento(id) {
       '<td>' + campos + '</td>',
       '<td>' + bncc + '</td>',
       '<td>' + conteudos + '</td>',
-      '<td>' + desenvolv + '</td>',
+      '<td>' + desenvolv + (p.imagemDesenvolvimento ? '<br><img src="' + p.imagemDesenvolvimento + '" style="max-width:100%;max-height:160px;margin-top:4px;border-radius:4px;">' : '') + '</td>',
       '</tr>',
       '</tbody>',
       '</table>',
@@ -4123,6 +4174,12 @@ function montarHtmlParecer(p, __corpo) {
 <div class="toolbar">
   <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
   <button class="btn-close" onclick="window.close()">✕ Fechar</button>
+  <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#555;margin-left:12px;">
+    📅 Data do parecer:
+    <input type="date" id="par-data-input" value="${new Date().toISOString().slice(0,10)}"
+      style="padding:5px 8px;border:1.5px solid #ccc;border-radius:5px;font-size:13px;"
+      onchange="(function(v){ const d=new Date(v+'T12:00:00'); document.getElementById('par-data-display').textContent = d.toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'}); })(this.value)">
+  </label>
 </div>
 
 <div class="page">
@@ -4135,7 +4192,7 @@ function montarHtmlParecer(p, __corpo) {
     <p>Professor(a): ${profNome || '_______________________________'}</p>
     <p>Aluno(a): ${p.alunoNome}</p>
     <p>Turma: ${turma ? turma.nome : '—'}</p>
-    <p>Data: ${dataImpressao}</p>
+    <p>Data: <span id="par-data-display">${dataImpressao}</span></p>
   </div>
 
   <h1 class="titulo">PARECER DESCRITIVO — ${(p.periodo || '').toUpperCase()}</h1>
