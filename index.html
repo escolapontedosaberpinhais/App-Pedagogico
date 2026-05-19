@@ -3922,10 +3922,9 @@ async function lerDocConteudo(docUrl) {
   const docId = m1 ? m1[1] : (m2 ? m2[1] : null);
   if (!docId) return null;
   try {
-    const res = await fetch(appsScriptUrl, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'read', docId }),
-    });
+    // GET com params — não dispara preflight CORS (simple request)
+    const getUrl = appsScriptUrl + '?action=read&docId=' + encodeURIComponent(docId);
+    const res = await fetch(getUrl);
     const json = JSON.parse(await res.text());
     return json.ok ? (json.content || '') : null;
   } catch (e) { return null; }
@@ -4274,23 +4273,22 @@ function updateCloudStatus(connected, msg) {
 
 async function uploadToDrive(filename, content, ...folderPath) {
   if (!appsScriptUrl) throw new Error('Apps Script não configurado.');
-  // Sem Content-Type e sem no-cors: text/plain não dispara preflight CORS
-  // e podemos ler a resposta com a URL do Google Doc.
-  const res = await fetch(appsScriptUrl, {
-    method: 'POST',
-    body: JSON.stringify({
-      path: folderPath.map(sanitizeName),
-      filename: sanitizeName(filename),
-      content,
-    }),
+  // Tenta com fetch normal primeiro; se falhar por CORS, tenta no-cors (upload ocorre mas sem retorno de URL)
+  const body = JSON.stringify({
+    path: folderPath.map(sanitizeName),
+    filename: sanitizeName(filename),
+    content,
   });
   try {
+    const res = await fetch(appsScriptUrl, { method: 'POST', body });
     const text = await res.text();
-    showToast('🔍 Resposta: ' + text.slice(0, 120), 8000);
     const json = JSON.parse(text);
     return json.url || null;
   } catch(e) {
-    showToast('🔍 Erro leitura: ' + e.message, 8000);
+    // CORS ou erro de rede: tenta no-cors (envia mas não lê resposta)
+    try {
+      await fetch(appsScriptUrl, { method: 'POST', body, mode: 'no-cors' });
+    } catch(e2) {}
     return null;
   }
 }
