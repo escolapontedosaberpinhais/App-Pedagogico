@@ -3323,7 +3323,14 @@ async function verPlanejamento(id) {
   const p = db.planejamentos.find(x => x.id === id);
   if (!p) return;
 
+  // Se já tem link do Docs, abre diretamente (qualquer perfil)
   if (p.docUrl) { window.open(p.docUrl, '_blank'); return; }
+
+  // Professor não faz upload — só pedagoga/diretor cria o Doc no Drive
+  if (currentUser?.papel === 'professora') {
+    showToast('📄 O documento ainda não foi enviado ao Google Drive. A pedagoga precisa abrir este planejamento primeiro.');
+    return;
+  }
 
   if (!appsScriptUrl) {
     showToast('⚠️ Configure o Google Drive na aba Configuração para abrir no Google Docs.');
@@ -3347,7 +3354,7 @@ async function verPlanejamento(id) {
       win.location.href = url;
     } else {
       win.close();
-      showToast('⚠️ Atualize e reimplante o Apps Script para obter o link do Google Docs.');
+      showToast('⚠️ Não foi possível criar o documento. Verifique o Apps Script nas Configurações.');
     }
   } catch(e) {
     win.close();
