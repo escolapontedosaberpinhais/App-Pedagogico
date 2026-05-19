@@ -4261,7 +4261,10 @@ function exportarAvaliacoes() {
 // =====================================================================
 // GOOGLE DRIVE — APPS SCRIPT
 // =====================================================================
-const DEFAULT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxFfHYVp_KHijRiTvRCqI9_DQLNXCzuJr4rmY6OhJkv32Wa0GbwB94XlcrEIM2E3Kb2/exec';
+const DEFAULT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzR37WjjJw5okokWgXeg6ATmyEl3ypIq0YOOrCCkhstAdP0Jp8qq0KLfp4vk29mqFwU/exec';
+const OLD_APPS_SCRIPT_URL     = 'https://script.google.com/macros/s/AKfycbxFfHYVp_KHijRiTvRCqI9_DQLNXCzuJr4rmY6OhJkv32Wa0GbwB94XlcrEIM2E3Kb2/exec';
+// Migração: troca URL antigo (script deletado) pelo novo em todos os dispositivos
+(function(){ const s = localStorage.getItem('ps_apps_script_url'); if (!s || s === OLD_APPS_SCRIPT_URL) localStorage.setItem('ps_apps_script_url', DEFAULT_APPS_SCRIPT_URL); })();
 let appsScriptUrl = localStorage.getItem('ps_apps_script_url') || DEFAULT_APPS_SCRIPT_URL;
 
 function saveAppsScript() {
