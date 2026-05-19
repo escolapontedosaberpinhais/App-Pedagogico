@@ -1142,11 +1142,24 @@ function getFolder(path) {
       <button class="btn btn-secondary btn-sm" style="position:absolute;top:8px;right:8px;" onclick="copiarScript()">📋 Copiar</button>
     </div>
 
-    <ol start="3" style="font-size:13px;color:var(--gray-600);margin:12px 0 16px 18px;line-height:2.2;">
+    <ol start="3" style="font-size:13px;color:var(--gray-600);margin:12px 0 8px 18px;line-height:2.2;">
       <li>Clique em <strong>Implantar → Nova implantação</strong></li>
       <li>Tipo: <strong>App da Web</strong> &nbsp;|&nbsp; Executar como: <strong>Eu</strong> &nbsp;|&nbsp; Acesso: <strong>Qualquer pessoa</strong></li>
       <li>Clique em <strong>Implantar</strong>, autorize e copie a <strong>URL do app da Web</strong></li>
     </ol>
+
+    <div class="alert" style="background:#fef3c7;border-left:4px solid #f59e0b;border-radius:6px;padding:12px 14px;margin:0 0 16px;font-size:13px;color:#92400e;">
+      <strong>⚠️ Se aparecer pedido de autorização ao salvar documentos:</strong><br>
+      O script precisa ser reautorizado. Siga os passos:<br>
+      <ol style="margin:6px 0 0 16px;line-height:2;">
+        <li>Acesse <strong>script.google.com</strong> → abra o projeto</li>
+        <li>Clique em <strong>Implantar → Gerenciar implantações</strong></li>
+        <li>Clique no lápis ✏️ → <strong>Versão: Nova versão</strong> → Salvar</li>
+        <li>Na janela que abrir, clique em <strong>Autorizar acesso</strong> e aprove tudo</li>
+        <li>Copie a nova URL e cole aqui no campo abaixo → Conectar</li>
+      </ol>
+      Isso resolve o problema definitivamente.
+    </div>
 
     <div class="card-title" style="font-size:14px; margin-bottom:8px;">Passo 2 — Conectar o app</div>
     <div class="config-row">
@@ -1302,14 +1315,12 @@ function getFolder(path) {
         <input type="date" id="pl-data" />
       </div>
       <div class="form-group">
-        <label>Período / Bimestre *</label>
+        <label>Bimestre *</label>
         <select id="pl-bimestre">
           <option>1º Bimestre</option>
           <option>2º Bimestre</option>
           <option>3º Bimestre</option>
           <option>4º Bimestre</option>
-          <option>1º Semestre</option>
-          <option>2º Semestre</option>
         </select>
       </div>
       <div class="form-group">
@@ -1395,10 +1406,8 @@ function getFolder(path) {
         <select id="par-turma" onchange="populateAlunosParecer()"></select>
       </div>
       <div class="form-group">
-        <label>Período / Bimestre</label>
+        <label>Bimestre</label>
         <select id="par-periodo">
-          <option>1º Semestre</option>
-          <option>2º Semestre</option>
           <option>1º Bimestre</option>
           <option>2º Bimestre</option>
           <option>3º Bimestre</option>
@@ -4395,24 +4404,44 @@ function updateCloudStatus(connected, msg) {
 
 async function uploadToDrive(filename, content, ...folderPath) {
   if (!appsScriptUrl) throw new Error('Apps Script não configurado.');
-  // Tenta com fetch normal primeiro; se falhar por CORS, tenta no-cors (upload ocorre mas sem retorno de URL)
   const body = JSON.stringify({
     path: folderPath.map(sanitizeName),
     filename: sanitizeName(filename),
     content,
   });
   try {
-    const res = await fetch(appsScriptUrl, { method: 'POST', body });
+    // redirect:'follow' + verificação de URL detecta redirecionamento para auth do Google
+    const res = await fetch(appsScriptUrl, { method: 'POST', body, redirect: 'follow' });
+    // Se o servidor redirecionou para login do Google, o script precisa ser reautorizado
+    if (res.url && (res.url.includes('accounts.google.com') || res.url.includes('google.com/ServiceLogin'))) {
+      console.warn('[Drive] Apps Script precisa de reautorização. Vá em Configurações > Google Drive.');
+      _alertarAutorizacao();
+      return null;
+    }
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json') && !contentType.includes('text/plain')) {
+      // Resposta inesperada (ex.: HTML de página de login) — envia sem-cors como fallback
+      await fetch(appsScriptUrl, { method: 'POST', body, mode: 'no-cors' }).catch(() => {});
+      return null;
+    }
     const text = await res.text();
     const json = JSON.parse(text);
     return json.url || null;
   } catch(e) {
-    // CORS ou erro de rede: tenta no-cors (envia mas não lê resposta)
+    // CORS ou erro de rede: envia via no-cors (chega no script mas sem retorno de URL)
     try {
       await fetch(appsScriptUrl, { method: 'POST', body, mode: 'no-cors' });
     } catch(e2) {}
     return null;
   }
+}
+
+let _authAlertPendente = false;
+function _alertarAutorizacao() {
+  if (_authAlertPendente) return;
+  _authAlertPendente = true;
+  setTimeout(() => { _authAlertPendente = false; }, 30000);
+  showToast('⚠️ O Apps Script precisa ser reautorizado. Veja as instruções em Configurações > Google Drive.', 8000);
 }
 
 function sanitizeName(str) {
