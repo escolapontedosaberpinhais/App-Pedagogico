@@ -2358,16 +2358,21 @@ function renderAlunos() {
   const el = document.getElementById('alunos-list');
   if (!el) return;
 
-  // Filtra turmas visíveis para o usuário atual
-  const minhasTurmas = turmasVisiveis();
-  const minhasTurmaIds = new Set(minhasTurmas.map(t => t.id));
-
   // Filtro adicional por select (se existir)
   const filtroEl = document.getElementById('filtro-cad-turma');
   const filtroTurma = filtroEl ? filtroEl.value : '';
 
-  // Alunos visíveis: só das turmas permitidas
-  let alunos = db.alunos.filter(a => minhasTurmaIds.has(a.turmaId));
+  // Admins veem TODOS os alunos (mesmo de turmas deletadas/recriadas)
+  // Professora vê só os alunos das suas turmas
+  let alunos;
+  const papel = currentUser?.papel;
+  if (papel === 'diretor' || papel === 'pedagoga' || papel === 'secretaria') {
+    alunos = [...db.alunos];
+  } else {
+    const minhasTurmas = turmasVisiveis();
+    const minhasTurmaIds = new Set(minhasTurmas.map(t => t.id));
+    alunos = db.alunos.filter(a => minhasTurmaIds.has(a.turmaId));
+  }
   if (filtroTurma) alunos = alunos.filter(a => a.turmaId === filtroTurma);
 
   if (alunos.length === 0) {
@@ -2396,10 +2401,15 @@ function renderAlunos() {
   let html = '';
   for (const turmaId in byTurma) {
     const turma = db.turmas.find(t => t.id === turmaId);
-    const nome = turma ? turma.nome : 'Turma desconhecida';
-    html += `<div class="card" style="margin-bottom:12px;">
-      <div style="font-size:13px;font-weight:700;color:var(--green-dark);margin-bottom:10px;">🏷️ ${nome} <span style="font-weight:400;color:var(--gray-400);font-size:12px;">(${byTurma[turmaId].length} aluno${byTurma[turmaId].length !== 1 ? 's' : ''})</span></div>
-      <div class="tags-list">`;
+    const orphan = !turma;
+    const nome = turma ? turma.nome : '⚠️ Turma removida (alunos órfãos)';
+    const cardBorder = orphan ? 'border:2px dashed #f59e0b;background:#fffbeb;' : '';
+    const aviso = orphan && canDelete(turmaId)
+      ? `<div style="font-size:11px;color:#92400e;margin-bottom:6px;">A turma desses alunos foi excluída. Exclua-os e recadastre na turma correta.</div>`
+      : '';
+    html += `<div class="card" style="margin-bottom:12px;${cardBorder}">
+      <div style="font-size:13px;font-weight:700;color:${orphan?'#b45309':'var(--green-dark)'};margin-bottom:6px;">🏷️ ${nome} <span style="font-weight:400;color:var(--gray-400);font-size:12px;">(${byTurma[turmaId].length} aluno${byTurma[turmaId].length !== 1 ? 's' : ''})</span></div>
+      ${aviso}<div class="tags-list">`;
     byTurma[turmaId].sort((a,b) => a.nome.localeCompare(b.nome)).forEach(a => {
       const av = a.nome.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
       const del = canDelete(turmaId)
