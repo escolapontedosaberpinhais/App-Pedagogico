@@ -3384,14 +3384,6 @@ async function imprimirPlanejamento(id) {
     const p = db.planejamentos.find(function(x){ return x.id === id; });
     if (!p) { showToast('⚠️ Planejamento não encontrado.'); return; }
 
-    // Abre janela ANTES de qualquer await (browsers bloqueiam window.open após async)
-    var win = window.open('', '_blank', 'width=1100,height=780');
-    if (!win) { showToast('⚠️ Popup bloqueado! Permita popups para este site.'); return; }
-    win.document.write('<html><head><meta charset="UTF-8"><title>Carregando…</title></head>' +
-      '<body style="font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;color:#555;">' +
-      '<div style="text-align:center"><div style="font-size:36px">⏳</div>' +
-      '<p style="margin-top:12px;font-size:15px">Buscando versão atualizada do documento…</p></div></body></html>');
-
     const turma = db.turmas.find(function(t){ return t.id === p.turmaId; });
 
     // Resolve nome do professor com fallbacks seguros
@@ -3404,9 +3396,23 @@ async function imprimirPlanejamento(id) {
       if (!profNome) profNome = '—';
     } catch(e2) { profNome = String(p.prof || '—'); }
 
+    // Decide se vai buscar do Google Docs
+    var temDocs = !!(p.docUrl && appsScriptUrl);
+    var win;
+
+    if (temDocs) {
+      // Fluxo com Docs: abre janela ANTES do await para não ser bloqueado
+      win = window.open('', '_blank', 'width=1100,height=780');
+      if (!win) { showToast('⚠️ Popup bloqueado! Permita popups para este site.'); return; }
+      win.document.write('<html><head><meta charset="UTF-8"><title>Carregando…</title></head>' +
+        '<body style="font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;color:#555;">' +
+        '<div style="text-align:center"><div style="font-size:36px">⏳</div>' +
+        '<p style="margin-top:12px;font-size:15px">Buscando versão atualizada do Google Docs…</p></div></body></html>');
+    }
+
     // Busca conteúdo atualizado do Google Docs (se houver link)
     var docsConteudo = null;
-    if (p.docUrl && appsScriptUrl) {
+    if (temDocs) {
       try {
         showToast('📄 Buscando versão atualizada do Google Docs…');
         docsConteudo = await lerDocConteudo(p.docUrl);
@@ -3546,12 +3552,24 @@ async function imprimirPlanejamento(id) {
       '</body></html>'
     ].join('\n');
 
-    // Navega a janela já aberta para o blob com o HTML final
+    // Abre o HTML final
     var blob = new Blob([html], { type: 'text/html; charset=utf-8' });
     var blobUrl = URL.createObjectURL(blob);
-    win.location.replace(blobUrl);
+
+    if (temDocs && win) {
+      // Navega a janela já aberta (foi aberta antes do await)
+      win.location.replace(blobUrl);
+    } else {
+      // Sem Docs: abre blob diretamente (sem await, popup não bloqueado)
+      win = window.open(blobUrl, '_blank');
+      if (!win) {
+        URL.revokeObjectURL(blobUrl);
+        showToast('⚠️ Popup bloqueado! Permita popups para este site.');
+        return;
+      }
+    }
     setTimeout(function(){ URL.revokeObjectURL(blobUrl); }, 60000);
-    if (docsConteudo) showToast('✅ Documento atualizado do Google Docs carregado!');
+    if (docsConteudo) showToast('✅ Conteúdo atualizado do Google Docs carregado!');
 
   } catch(err) {
     console.error('imprimirPlanejamento erro:', err);
