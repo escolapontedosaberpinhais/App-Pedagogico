@@ -1647,6 +1647,12 @@ function getFolder(path) {
     <div id="ha-grade" style="overflow-x:auto;"></div>
   </div>
 
+  <!-- Ponto eletrônico (professora only) -->
+  <div class="card" id="ha-card-ponto" style="display:none;">
+    <div class="card-title">🕐 Ponto Eletrônico — Hora-Atividade</div>
+    <div id="ha-ponto"></div>
+  </div>
+
   <!-- Controle de cumprimento -->
   <div class="card">
     <div class="card-title">✅ Controle de Cumprimento Semanal</div>
@@ -1978,8 +1984,10 @@ function aplicarPapel() {
 
   // Request push notification permission (gestÃ£o only)
   // Hora-Atividade: config só para gestão
-  const haCardCfg = document.getElementById('ha-card-config');
+  const haCardCfg   = document.getElementById('ha-card-config');
   if (haCardCfg) haCardCfg.style.display = isGestao ? '' : 'none';
+  const haCardPonto = document.getElementById('ha-card-ponto');
+  if (haCardPonto) haCardPonto.style.display = isProfessora ? '' : 'none';
 
   if (isGestao) pedirPermissaoNotificacao();
 
@@ -2173,6 +2181,7 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 // NAVIGATION
 // =====================================================================
 function showTab(tab) {
+  if (tab !== 'hora-atividade' && _pontoInterval) { clearInterval(_pontoInterval); _pontoInterval = null; }
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
@@ -4572,10 +4581,177 @@ function salvarHaProf() {
   showToast('✅ Hora-atividade configurada!');
 }
 
+// =====================================================================
+// PONTO ELETRÔNICO — HORA-ATIVIDADE
+// =====================================================================
+let _pontoInterval = null;
+
+function formatarDuracao(seg) {
+  if (seg < 60)  return `${seg}s`;
+  const h = Math.floor(seg / 3600);
+  const m = Math.floor((seg % 3600) / 60);
+  const s = seg % 60;
+  return h > 0 ? `${h}h ${m}min` : `${m}min ${String(s).padStart(2,'0')}s`;
+}
+
+function renderHaPonto() {
+  const el = document.getElementById('ha-ponto');
+  if (!el) return;
+  if (currentUser?.papel !== 'professora') return;
+
+  const meuId = currentUser?.id || '';
+  const ha    = db.horaAtividade.find(h => h.professoraId === meuId);
+
+  if (!ha) {
+    el.innerHTML = `<p style="color:var(--gray-400);font-size:13px;padding:8px 0;">Sua hora-atividade ainda não foi configurada pela gestão. Aguarde.</p>`;
+    return;
+  }
+
+  const meta      = ha.metaSemanal ?? calcMetaHa(ha.cargaHorariaSemanal ?? 0);
+  const metaSeg   = meta * 3600;
+  const semana    = getISOWeek(new Date());
+  const regSem    = (ha.registros || []).filter(r => r.semana === semana);
+  const usadoSeg  = regSem.reduce((s, r) => s + (r.duracao || 0), 0);
+  const usadoH    = Math.round(usadoSeg / 360) / 10;
+  const pct       = Math.min(100, Math.round(usadoSeg / metaSeg * 100));
+  const excedido  = usadoSeg >= metaSeg;
+  const ativa     = ha.sessaoAtiva?.inicio;
+  const barCor    = usadoSeg > metaSeg * 0.9 ? 'var(--red)' : usadoSeg > metaSeg * 0.75 ? '#e8a045' : 'var(--green)';
+
+  el.innerHTML = `
+    <div style="text-align:center;padding:12px 0 8px;">
+      <div style="font-size:12px;color:var(--gray-400);margin-bottom:6px;">Semana ${semanaLabel(semana)}</div>
+
+      <div id="ha-ponto-timer" style="font-size:52px;font-weight:700;font-family:monospace;letter-spacing:3px;
+           color:${ativa ? 'var(--green)' : '#ccc'};margin:4px 0 8px;">
+        ${ativa ? '00:00:00' : '--:--:--'}
+      </div>
+      <div style="font-size:13px;color:${ativa ? 'var(--green-dark)' : 'var(--gray-400)'}; margin-bottom:16px;">
+        ${ativa ? '🟢 Sessão em andamento — você está em hora-atividade' : '⚪ Aguardando início'}
+      </div>
+
+      ${ativa
+        ? `<button class="btn btn-danger" style="font-size:15px;padding:12px 36px;border-radius:30px;"
+             onclick="encerrarHaPonto()">⏹️ Encerrar hora-atividade</button>`
+        : `<button class="btn btn-primary" style="font-size:15px;padding:12px 36px;border-radius:30px;"
+             onclick="iniciarHaPonto()" ${excedido ? 'disabled title="Quota semanal esgotada"' : ''}>
+             ▶️ Iniciar hora-atividade</button>`
+      }
+
+      <div style="max-width:340px;margin:20px auto 0;">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;">
+          <span style="font-weight:600;">Usado esta semana: <strong style="color:${barCor};">${usadoH}h</strong></span>
+          <span style="color:var(--gray-400);">Meta: ${meta}h</span>
+        </div>
+        <div style="background:var(--gray-100);border-radius:20px;height:12px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:${barCor};border-radius:20px;transition:width 0.4s;"></div>
+        </div>
+        <div style="font-size:11px;color:var(--gray-400);margin-top:4px;">${pct}% da quota semanal${excedido ? ' · ⚠️ Quota esgotada' : ''}</div>
+      </div>
+    </div>
+
+    ${regSem.length > 0 ? `
+    <div style="margin-top:16px;border-top:1px solid var(--gray-100);padding-top:14px;">
+      <div style="font-weight:600;font-size:13px;color:var(--green-dark);margin-bottom:8px;">📋 Sessões desta semana</div>
+      ${regSem.map(r => {
+        const exc = r.duracao > 3600;
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;
+                  background:${exc ? '#fef2f2' : '#f0fdf4'};border-radius:8px;margin-bottom:5px;
+                  border:1px solid ${exc ? '#fca5a5' : '#86efac'};">
+          <span style="font-size:18px;">${exc ? '⚠️' : '✅'}</span>
+          <div style="flex:1;font-size:12px;">
+            <strong>${r.data}</strong> &nbsp; ${r.inicio} → ${r.fim}
+            ${exc ? `<span style="color:var(--red);font-size:11px;"> · excedeu 1h</span>` : ''}
+          </div>
+          <strong style="color:${exc ? 'var(--red)' : 'var(--green-dark)'};">${formatarDuracao(r.duracao)}</strong>
+        </div>`;
+      }).join('')}
+    </div>` : `<div style="font-size:13px;color:var(--gray-400);margin-top:12px;text-align:center;">Nenhuma sessão registrada esta semana.</div>`}
+  `;
+
+  if (_pontoInterval) { clearInterval(_pontoInterval); _pontoInterval = null; }
+  if (ativa) {
+    atualizarRelogioPonto();
+    _pontoInterval = setInterval(atualizarRelogioPonto, 1000);
+  }
+}
+
+function atualizarRelogioPonto() {
+  const meuId = currentUser?.id || '';
+  const ha    = db.horaAtividade.find(h => h.professoraId === meuId);
+  const timerEl = document.getElementById('ha-ponto-timer');
+  if (!timerEl) { clearInterval(_pontoInterval); _pontoInterval = null; return; }
+  if (!ha?.sessaoAtiva?.inicio) { timerEl.textContent = '--:--:--'; return; }
+
+  const diff = Math.floor((Date.now() - new Date(ha.sessaoAtiva.inicio)) / 1000);
+  const h = Math.floor(diff / 3600);
+  const m = Math.floor((diff % 3600) / 60);
+  const s = diff % 60;
+  timerEl.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+
+  if (diff >= 3600) {
+    timerEl.style.color = 'var(--red)';
+    if (!timerEl.dataset.aviso60) {
+      timerEl.dataset.aviso60 = '1';
+      showToast('⚠️ Você já está há 1 hora em hora-atividade! Considere retornar à sala.', 7000);
+    }
+  }
+}
+
+function iniciarHaPonto() {
+  const meuId = currentUser?.id || '';
+  const ha    = db.horaAtividade.find(h => h.professoraId === meuId);
+  if (!ha)              { showToast('Hora-atividade não configurada pela gestão.'); return; }
+  if (ha.sessaoAtiva)   { showToast('Já há uma sessão em andamento.'); return; }
+  const meta    = ha.metaSemanal ?? calcMetaHa(ha.cargaHorariaSemanal ?? 0);
+  const semana  = getISOWeek(new Date());
+  const usadoSeg = (ha.registros || []).filter(r => r.semana === semana).reduce((s,r) => s + r.duracao, 0);
+  if (usadoSeg >= meta * 3600) { showToast('⚠️ Quota semanal de hora-atividade já esgotada.'); return; }
+
+  ha.sessaoAtiva = { inicio: new Date().toISOString() };
+  save();
+  renderHaPonto();
+  showToast('▶️ Hora-atividade iniciada! Bom planejamento!');
+}
+
+function encerrarHaPonto() {
+  const meuId = currentUser?.id || '';
+  const ha    = db.horaAtividade.find(h => h.professoraId === meuId);
+  if (!ha?.sessaoAtiva?.inicio) { showToast('Nenhuma sessão ativa.'); return; }
+
+  const inicio  = new Date(ha.sessaoAtiva.inicio);
+  const fim     = new Date();
+  const duracao = Math.floor((fim - inicio) / 1000);
+  const semana  = getISOWeek(new Date());
+
+  if (!ha.registros) ha.registros = [];
+  ha.registros.push({
+    id: uid(), semana,
+    data:   inicio.toLocaleDateString('pt-BR'),
+    inicio: inicio.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }),
+    fim:    fim.toLocaleTimeString('pt-BR',    { hour:'2-digit', minute:'2-digit' }),
+    duracao
+  });
+  ha.sessaoAtiva = null;
+
+  if (_pontoInterval) { clearInterval(_pontoInterval); _pontoInterval = null; }
+  save();
+
+  const meta     = ha.metaSemanal ?? calcMetaHa(ha.cargaHorariaSemanal ?? 0);
+  const usadoSeg = ha.registros.filter(r => r.semana === semana).reduce((s,r) => s + r.duracao, 0);
+  const usadoH   = Math.round(usadoSeg / 360) / 10;
+  let msg = `⏹️ Sessão encerrada: ${formatarDuracao(duracao)}`;
+  if (duracao > 3600) msg += ' · ⚠️ Excedeu 1h nesta sessão!';
+  if (usadoSeg > meta * 3600) msg += ` · Quota semanal excedida (${usadoH}h / ${meta}h)`;
+  showToast(msg, 6000);
+  renderHaPonto();
+}
+
 function renderHoraAtividade() {
   populateHaProfSelect();
   renderHaGrade();
   renderHaCumprimento();
+  renderHaPonto();
 }
 
 function renderHaGrade() {
