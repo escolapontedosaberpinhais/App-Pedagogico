@@ -2426,6 +2426,18 @@ function deleteTurma(id) {
   populateSelects();
 }
 
+function ordemTurma(nome) {
+  if (!nome) return 99;
+  const n = nome.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  if (n.match(/berc/)) return 0;
+  // Checar do mais longo pro mais curto para evitar ambiguidade (iv antes de i, v)
+  const rom = [['viii',8],['vii',7],['vi',6],['iv',4],['iii',3],['ii',2],['v',5],['i',1]];
+  for (const [r, v] of rom) {
+    if (n.includes('infantil') && new RegExp('\\b' + r + '\\b').test(n)) return v;
+  }
+  return 99;
+}
+
 function renderTurmas() {
   const el = document.getElementById('turmas-list');
   if (!el) return;
@@ -2443,7 +2455,8 @@ function renderTurmas() {
     el.innerHTML = '<div class="empty"><div class="icon">🏷️</div><p>Nenhuma turma cadastrada.</p></div>';
     return;
   }
-  el.innerHTML = db.turmas.map(t => {
+  const turmasOrdenadas = [...db.turmas].sort((a, b) => ordemTurma(a.nome) - ordemTurma(b.nome));
+  el.innerHTML = turmasOrdenadas.map(t => {
     const count = db.alunos.filter(a => a.turmaId === t.id).length;
     const canEdit = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
     const delBtn = canEdit
@@ -2539,7 +2552,12 @@ function renderAlunos() {
   };
 
   let html = '';
-  for (const turmaId in byTurma) {
+  const turmaIdsOrdenados = Object.keys(byTurma).sort((a, b) => {
+    const nA = db.turmas.find(t => t.id === a)?.nome || 'zzz';
+    const nB = db.turmas.find(t => t.id === b)?.nome || 'zzz';
+    return ordemTurma(nA) - ordemTurma(nB);
+  });
+  for (const turmaId of turmaIdsOrdenados) {
     const turma = db.turmas.find(t => t.id === turmaId);
     const orphan = !turma;
     const nome = turma ? turma.nome : '⚠️ Turma removida (alunos órfãos)';
