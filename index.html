@@ -3012,6 +3012,7 @@ function renderCorrecoes() {
     return;
   }
 
+  const isDiretorCorr = currentUser?.papel === 'diretor';
   let html = '';
 
   // ── SEÇÃO 1: Planejamentos aguardando 1ª revisão
@@ -3041,6 +3042,7 @@ function renderCorrecoes() {
           <button class="btn btn-secondary btn-sm" onclick="verPlanejamento('${p.id}')">👁️</button>
           <button class="btn btn-sm btn-amber" onclick="devolverParaCorrecao('pl','${p.id}')">↩️ Devolver</button>
           <button class="btn btn-sm btn-success" onclick="toggleCorrigidoDash('pl','${p.id}')">✅ Aprovar</button>
+          ${isDiretorCorr ? `<button class="btn btn-danger btn-sm" onclick="deletePlanejamento('${p.id}')" title="Excluir">🗑️</button>` : ''}
         </div>
       </div>`;
     });
@@ -3072,6 +3074,7 @@ function renderCorrecoes() {
           <button class="btn btn-secondary btn-sm" onclick="verPlanejamento('${p.id}')">👁️</button>
           <button class="btn btn-sm btn-amber" onclick="devolverParaCorrecao('pl','${p.id}')">↩️ Devolver novamente</button>
           <button class="btn btn-sm btn-success" onclick="aprovarRevisao('pl','${p.id}')">✅ Aprovar</button>
+          ${isDiretorCorr ? `<button class="btn btn-danger btn-sm" onclick="deletePlanejamento('${p.id}')" title="Excluir">🗑️</button>` : ''}
         </div>
       </div>`;
     });
@@ -3105,6 +3108,7 @@ function renderCorrecoes() {
           <button class="btn btn-primary btn-sm" onclick="imprimirParecer('${p.id}')">🖨️ PDF</button>
           <button class="btn btn-sm btn-amber" onclick="devolverParaCorrecao('par','${p.id}')">↩️ Devolver</button>
           <button class="btn btn-sm btn-success" onclick="toggleCorrigidoDash('par','${p.id}')">✅ Aprovar</button>
+          ${isDiretorCorr ? `<button class="btn btn-danger btn-sm" onclick="deleteParecer('${p.id}')" title="Excluir">🗑️</button>` : ''}
         </div>
       </div>`;
     });
@@ -3135,6 +3139,7 @@ function renderCorrecoes() {
           <button class="btn btn-primary btn-sm" onclick="imprimirParecer('${p.id}')">🖨️ PDF</button>
           <button class="btn btn-sm btn-amber" onclick="devolverParaCorrecao('par','${p.id}')">↩️ Devolver novamente</button>
           <button class="btn btn-sm btn-success" onclick="aprovarRevisao('par','${p.id}')">✅ Aprovar</button>
+          ${isDiretorCorr ? `<button class="btn btn-danger btn-sm" onclick="deleteParecer('${p.id}')" title="Excluir">🗑️</button>` : ''}
         </div>
       </div>`;
     });
@@ -3161,6 +3166,7 @@ function renderCorrecoes() {
           ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : ''}
           <button class="btn btn-primary btn-sm" onclick="imprimirParecer('${p.id}')">🖨️ PDF</button>
           <button class="btn btn-success btn-sm" onclick="toggleProntoImpressao('${p.id}')">🖨️ Liberar p/ impressão</button>
+          ${isDiretorCorr ? `<button class="btn btn-danger btn-sm" onclick="deleteParecer('${p.id}')" title="Excluir">🗑️</button>` : ''}
         </div>
       </div>`;
     });
