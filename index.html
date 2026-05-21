@@ -855,6 +855,9 @@
     <button class="dnav-btn" id="dnav-correcao" onclick="drawerNav('correcao')" style="display:none;">
       <span class="di">&#x2705;</span> Corre&ccedil;&atilde;o
     </button>
+    <button class="dnav-btn" id="dnav-hora-atividade" onclick="drawerNav('hora-atividade')" style="display:none;">
+      <span class="di">&#x23F0;</span> Hora-Atividade
+    </button>
   </div>
   <div class="drawer-footer">
     <button class="drawer-key" onclick="fecharDrawer();abrirTrocarSenha();">&#x1F511; Trocar senha</button>
@@ -869,6 +872,7 @@
   <button id="nav-pareceres" onclick="showTab('pareceres')" data-tab="pareceres">✨ Pareceres IA</button>
   <button id="nav-avaliacoes" onclick="showTab('avaliacoes')" data-tab="avaliacoes">📊 Avaliações</button>
   <button id="nav-correcao" onclick="showTab('correcao')" data-tab="correcao" style="display:none;">✅ Correção</button>
+  <button id="nav-hora-atividade" onclick="showTab('hora-atividade')" data-tab="hora-atividade" style="display:none;">⏰ Hora-Atividade</button>
 </nav>
 
 <main>
@@ -1567,6 +1571,63 @@ function getFolder(path) {
 
 </div>
 
+<!-- ===================== HORA-ATIVIDADE ===================== -->
+<div id="tab-hora-atividade" class="section">
+
+  <div class="section-header">
+    <h2>⏰ Hora-Atividade</h2>
+    <button class="btn btn-secondary" onclick="imprimirHoraAtividade()">🖨️ Imprimir Grade</button>
+  </div>
+
+  <!-- Configuração (gestão only) -->
+  <div class="card" id="ha-card-config">
+    <div class="card-title">⚙️ Configurar por Professora</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Professora</label>
+        <select id="ha-prof-select" onchange="carregarHaProf()">
+          <option value="">-- Selecione --</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Carga horária semanal (h)</label>
+        <input type="number" id="ha-carga" min="1" max="60" placeholder="ex: 40" oninput="atualizarHaTotal()">
+      </div>
+      <div class="form-group">
+        <label>% Hora-Atividade</label>
+        <input type="number" id="ha-percent" min="1" max="50" placeholder="ex: 33" oninput="atualizarHaTotal()">
+      </div>
+    </div>
+    <div style="margin-top:4px;">
+      <label style="font-weight:600;font-size:13px;color:var(--green-dark);display:block;margin-bottom:8px;">Distribuição semanal (horas por dia):</label>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="form-group" style="min-width:68px;"><label>Seg</label><input type="number" id="ha-seg" min="0" max="10" step="0.5" value="0" oninput="atualizarHaTotal()"></div>
+        <div class="form-group" style="min-width:68px;"><label>Ter</label><input type="number" id="ha-ter" min="0" max="10" step="0.5" value="0" oninput="atualizarHaTotal()"></div>
+        <div class="form-group" style="min-width:68px;"><label>Qua</label><input type="number" id="ha-qua" min="0" max="10" step="0.5" value="0" oninput="atualizarHaTotal()"></div>
+        <div class="form-group" style="min-width:68px;"><label>Qui</label><input type="number" id="ha-qui" min="0" max="10" step="0.5" value="0" oninput="atualizarHaTotal()"></div>
+        <div class="form-group" style="min-width:68px;"><label>Sex</label><input type="number" id="ha-sex" min="0" max="10" step="0.5" value="0" oninput="atualizarHaTotal()"></div>
+        <div style="padding-bottom:6px;font-size:13px;" id="ha-total-label">Total: 0h / Meta: 0h</div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="salvarHaProf()">💾 Salvar configuração</button>
+    </div>
+  </div>
+
+  <!-- Grade visual -->
+  <div class="card">
+    <div class="card-title">📅 Grade Semanal</div>
+    <div id="ha-grade" style="overflow-x:auto;"></div>
+  </div>
+
+  <!-- Controle de cumprimento -->
+  <div class="card">
+    <div class="card-title">✅ Controle de Cumprimento Semanal</div>
+    <div id="ha-cumprimento"></div>
+  </div>
+
+</div>
+
 </main>
 
 <script>
@@ -1594,11 +1655,12 @@ const FSREF  = (col) => fstore.collection('appdata').doc(col);
 
 async function loadFromFirestore() {
   try {
-    const [rT, rA, rP, rPar, rAv, rU, rCfg, rNot] = await Promise.all([
+    const [rT, rA, rP, rPar, rAv, rU, rCfg, rNot, rHa] = await Promise.all([
       FSREF('turmas').get(), FSREF('alunos').get(),
       FSREF('planejamentos').get(), FSREF('pareceres').get(),
       FSREF('avaliacoes').get(), FSREF('usuarios').get(),
       FSREF('config').get(), FSREF('notificacoes').get(),
+      FSREF('horaAtividade').get(),
     ]);
     if (rT.exists)   db.turmas        = rT.data().data   ?? [];
     if (rA.exists)   db.alunos        = rA.data().data   ?? [];
@@ -1607,6 +1669,7 @@ async function loadFromFirestore() {
     if (rAv.exists)  db.avaliacoes    = rAv.data().data  ?? {};
     if (rU.exists)   db.usuarios      = rU.data().data   ?? [];
     if (rNot.exists) db.notificacoes  = rNot.data().data ?? [];
+    if (rHa.exists)  db.horaAtividade = rHa.data().data  ?? [];
     if (rCfg.exists) {
       db.apiKey = rCfg.data().apiKey ?? '';
       if (rCfg.data().model) localStorage.setItem('ps_gemini_model', rCfg.data().model);
@@ -1620,6 +1683,7 @@ async function loadFromFirestore() {
       db.avaliacoes    = LS.get('ps_avaliacoes', {});
       db.usuarios      = LS.get('ps_usuarios', []);
       db.apiKey        = localStorage.getItem('ps_apikey') || '';
+      db.horaAtividade = LS.get('ps_hora_atividade', []);
       saveToFirestore();
     }
   } catch (e) {
@@ -1631,6 +1695,7 @@ async function loadFromFirestore() {
     db.avaliacoes    = LS.get('ps_avaliacoes', {});
     db.usuarios      = LS.get('ps_usuarios', []);
     db.apiKey        = localStorage.getItem('ps_apikey') || '';
+    db.horaAtividade = LS.get('ps_hora_atividade', []);
   }
 }
 
@@ -1643,6 +1708,7 @@ function saveToFirestore() {
   batch.set(FSREF('avaliacoes'),    { data: db.avaliacoes });
   batch.set(FSREF('usuarios'),      { data: db.usuarios });
   batch.set(FSREF('notificacoes'),  { data: db.notificacoes });
+  batch.set(FSREF('horaAtividade'), { data: db.horaAtividade });
   batch.commit().catch(e => console.warn('Firestore write error:', e));
 }
 
@@ -1659,6 +1725,7 @@ function setupSync() {
   FSREF('pareceres').onSnapshot(handle('pareceres', []));
   FSREF('avaliacoes').onSnapshot(handle('avaliacoes', {}));
   FSREF('usuarios').onSnapshot(handle('usuarios', []));
+  FSREF('horaAtividade').onSnapshot(handle('horaAtividade', []));
   FSREF('notificacoes').onSnapshot((doc) => {
     if (doc.exists && !doc.metadata.hasPendingWrites) {
       const novas = doc.data().data ?? [];
@@ -1693,8 +1760,9 @@ function refreshCurrentView() {
   if (id === 'tab-planejamento') { populateSelects(); renderPlanejamentos(); }
   if (id === 'tab-pareceres')    { populateSelects(); renderPareceres(); }
   if (id === 'tab-avaliacoes')   { populateSelects(); renderTabelaAvaliacoes(); }
-  if (id === 'tab-correcao')     { renderCorrecoes(); }
-  if (id === 'tab-cadastro')   { populateSelects(); populateFiltroTurmas(); renderTurmas(); renderAlunos(); }
+  if (id === 'tab-correcao')        { renderCorrecoes(); }
+  if (id === 'tab-cadastro')        { populateSelects(); populateFiltroTurmas(); renderTurmas(); renderAlunos(); }
+  if (id === 'tab-hora-atividade')  { renderHoraAtividade(); }
 }
 
 // =====================================================================
@@ -1709,6 +1777,7 @@ let db = {
   avaliacoes: {},
   usuarios: [],
   notificacoes: [],
+  horaAtividade: [],
 };
 
 function save() {
@@ -1719,6 +1788,7 @@ function save() {
   LS.set('ps_pareceres', db.pareceres);
   LS.set('ps_avaliacoes', db.avaliacoes);
   LS.set('ps_usuarios', db.usuarios);
+  LS.set('ps_hora_atividade', db.horaAtividade);
   // Firestore
   saveToFirestore();
 }
@@ -1841,6 +1911,9 @@ function aplicarPapel() {
   if (navAval) navAval.style.display = isSecretaria ? 'none' : '';
   // Correção: diretor e pedagoga
   document.getElementById('nav-correcao').style.display = isGestao ? '' : 'none';
+  // Hora-Atividade: gestão + professoras (professoras veem só as próprias)
+  const navHa = document.getElementById('nav-hora-atividade');
+  if (navHa) navHa.style.display = (isGestao || isProfessora) ? '' : 'none';
 
   // Sync drawer visibility
   const dDash = document.getElementById('dnav-dashboard');
@@ -1854,6 +1927,8 @@ function aplicarPapel() {
   if (dImp)  dImp.style.display  = (isSecretaria || isGestao) ? '' : 'none';
   if (dDash) dDash.style.display = (isGestao || isProfessora) ? '' : 'none';
   if (dCorr) dCorr.style.display = isGestao ? '' : 'none';
+  const dHa = document.getElementById('dnav-hora-atividade');
+  if (dHa) dHa.style.display = (isGestao || isProfessora) ? '' : 'none';
   if (dPlan) dPlan.style.display = isSecretaria ? 'none' : '';
   if (dPar)  dPar.style.display  = isSecretaria ? 'none' : '';
   if (dAval) dAval.style.display = isSecretaria ? 'none' : '';
@@ -1875,6 +1950,10 @@ function aplicarPapel() {
   if (hamburger) hamburger.style.display = '';
 
   // Request push notification permission (gestÃ£o only)
+  // Hora-Atividade: config só para gestão
+  const haCardCfg = document.getElementById('ha-card-config');
+  if (haCardCfg) haCardCfg.style.display = isGestao ? '' : 'none';
+
   if (isGestao) pedirPermissaoNotificacao();
 
   renderSino();
@@ -1896,6 +1975,7 @@ function aplicarPapel() {
   renderPareceres();
   renderUsuarios();
   renderImpressao();
+  renderHoraAtividade();
 }
 
 // turmas visíveis para o usuário atual
@@ -2491,6 +2571,7 @@ function salvarPlanejamento() {
     desenvolvimento,
     imagemDesenvolvimento: window._plImagemBase64 || null,
     criadoEm: new Date().toISOString(),
+    criadoPor: currentUser?.login || currentUser?.usuario || currentUser?.nome || '',
     historico: [{ acao: 'criado', por: currentUser?.nome || 'Professora', em: new Date().toISOString() }],
   };
   db.planejamentos.unshift(pl);
@@ -3305,10 +3386,11 @@ function toggleCorrigido(id) {
 }
 
 function deletePlanejamento(id) {
-  if (currentUser?.papel !== 'diretor' && currentUser?.papel !== 'pedagoga') {
-    showToast('⚠️ Apenas diretor ou pedagoga podem excluir.');
-    return;
-  }
+  const pl = db.planejamentos.find(p => p.id === id);
+  if (!pl) return;
+  const meuLogin = currentUser?.login || currentUser?.usuario || currentUser?.nome || '';
+  const podeExcluir = currentUser?.papel === 'diretor' || pl.criadoPor === meuLogin;
+  if (!podeExcluir) { showToast('⚠️ Apenas o autor ou o diretor podem excluir.'); return; }
   if (!confirm('Excluir planejamento?')) return;
   db.planejamentos = db.planejamentos.filter(p => p.id !== id);
   save();
@@ -3353,6 +3435,8 @@ function renderPlanejamentos() {
     const savedAt = fmtDateTime(p.criadoEm);
     const canCorrect = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
     const isProf = currentUser?.papel === 'professora';
+    const meuLoginPl = currentUser?.login || currentUser?.usuario || currentUser?.nome || '';
+    const canDeletePl = currentUser?.papel === 'diretor' || p.criadoPor === meuLoginPl;
     const conteudosTxt = p.conteudos || p.tema || '—';
     const direitosTxt  = Array.isArray(p.direitos) && p.direitos.length ? p.direitos.join(' · ') : (p.area || '');
     const devolvido = p.revisao === 'devolvido';
@@ -3386,7 +3470,7 @@ function renderPlanejamentos() {
         ${canCorrect ? `<button class="btn btn-sm btn-success" onclick="${revisado ? `aprovarRevisao('pl','${p.id}')` : `toggleCorrigido('${p.id}')`}">✅ Aprovar</button>` : ''}
         <button class="btn btn-secondary btn-sm" onclick="verPlanejamento('${p.id}')" title="Abrir no Google Docs">👁️</button>
         <button class="btn btn-secondary btn-sm" onclick="imprimirPlanejamento('${p.id}')" title="Imprimir">🖨️</button>
-        ${canCorrect ? `<button class="btn btn-danger btn-sm" onclick="deletePlanejamento('${p.id}')" title="Excluir">🗑️</button>` : ''}
+        ${canDeletePl ? `<button class="btn btn-danger btn-sm" onclick="deletePlanejamento('${p.id}')" title="Excluir">🗑️</button>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -3789,6 +3873,7 @@ function salvarParecer() {
     texto,
     tom: selectedTone,
     criadoEm: new Date().toISOString(),
+    criadoPor: currentUser?.login || currentUser?.usuario || currentUser?.nome || '',
     historico: [{ acao: 'criado', por: currentUser?.nome || 'Professora', em: new Date().toISOString() }],
   };
   db.pareceres.unshift(p);
@@ -3824,10 +3909,11 @@ function copiarParecer() {
 }
 
 function deleteParecer(id) {
-  if (currentUser?.papel !== 'diretor' && currentUser?.papel !== 'pedagoga') {
-    showToast('⚠️ Apenas diretor ou pedagoga podem excluir.');
-    return;
-  }
+  const par = db.pareceres.find(p => p.id === id);
+  if (!par) return;
+  const meuLogin = currentUser?.login || currentUser?.usuario || currentUser?.nome || '';
+  const podeExcluir = currentUser?.papel === 'diretor' || par.criadoPor === meuLogin;
+  if (!podeExcluir) { showToast('⚠️ Apenas o autor ou o diretor podem excluir.'); return; }
   if (!confirm('Excluir parecer?')) return;
   db.pareceres = db.pareceres.filter(p => p.id !== id);
   save();
@@ -3963,6 +4049,8 @@ function renderPareceres() {
     const preview = p.texto.slice(0, 140) + (p.texto.length > 140 ? '…' : '');
     const canCorrect = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
     const isProf = currentUser?.papel === 'professora';
+    const meuLoginPar = currentUser?.login || currentUser?.usuario || currentUser?.nome || '';
+    const canDeletePar = currentUser?.papel === 'diretor' || p.criadoPor === meuLoginPar;
     const devolvido = p.revisao === 'devolvido';
     const revisado  = p.revisao === 'revisado';
 
@@ -3999,7 +4087,7 @@ function renderPareceres() {
         ${canCorrect && !p.prontoImpressao && p.corrigido ? `<button class="btn btn-sm btn-success" onclick="toggleProntoImpressao('${p.id}')">🖨️ Liberar</button>` : ''}
         <button class="btn btn-secondary btn-sm" onclick="verParecer('${p.id}')" title="Abrir (Google Docs)">👁️</button>
         <button class="btn btn-primary btn-sm" onclick="imprimirParecer('${p.id}')" title="Imprimir / Salvar PDF">🖨️ PDF</button>
-        ${canCorrect ? `<button class="btn btn-danger btn-sm" onclick="deleteParecer('${p.id}')" title="Excluir">🗑️</button>` : ''}
+        ${canDeletePar ? `<button class="btn btn-danger btn-sm" onclick="deleteParecer('${p.id}')" title="Excluir">🗑️</button>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -4337,6 +4425,235 @@ function exportarAvaliacoes() {
     txt += '\n';
   });
   downloadTxt(txt, 'avaliacoes_ponte_do_saber.txt');
+}
+
+// =====================================================================
+// HORA-ATIVIDADE
+// =====================================================================
+function getISOWeek(date) {
+  const d = new Date(date);
+  d.setHours(0,0,0,0);
+  d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+  const y = d.getFullYear();
+  const yearStart = new Date(y, 0, 1);
+  const wk = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return `${y}-W${String(wk).padStart(2,'0')}`;
+}
+
+function semanaLabel(isoWeek) {
+  const [year, w] = isoWeek.split('-W');
+  const jan1 = new Date(parseInt(year), 0, 1);
+  const monday = new Date(jan1);
+  monday.setDate(jan1.getDate() + (parseInt(w) - 1) * 7 - (jan1.getDay() || 7) + 1);
+  const friday = new Date(monday);
+  friday.setDate(monday.getDate() + 4);
+  const fmt = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+  return `${fmt(monday)} a ${fmt(friday)}`;
+}
+
+function populateHaProfSelect() {
+  const sel = document.getElementById('ha-prof-select');
+  if (!sel) return;
+  const profs = db.usuarios.filter(u => u.papel === 'professora');
+  sel.innerHTML = '<option value="">-- Selecione --</option>' +
+    profs.map(u => `<option value="${u.id}">${u.nome}</option>`).join('');
+}
+
+function carregarHaProf() {
+  const id = document.getElementById('ha-prof-select').value;
+  const ha = db.horaAtividade.find(h => h.professoraId === id);
+  document.getElementById('ha-carga').value    = ha?.cargaHorariaSemanal || '';
+  document.getElementById('ha-percent').value  = ha?.percentualPlanejamento || '';
+  ['seg','ter','qua','qui','sex'].forEach(d => {
+    document.getElementById(`ha-${d}`).value = ha?.distribuicao?.[d] ?? 0;
+  });
+  atualizarHaTotal();
+}
+
+function atualizarHaTotal() {
+  const carga = parseFloat(document.getElementById('ha-carga')?.value) || 0;
+  const pct   = parseFloat(document.getElementById('ha-percent')?.value) || 0;
+  const meta  = Math.round(carga * pct / 100 * 10) / 10;
+  const total = ['seg','ter','qua','qui','sex'].reduce((s,d) => {
+    return s + (parseFloat(document.getElementById(`ha-${d}`)?.value) || 0);
+  }, 0);
+  const lbl = document.getElementById('ha-total-label');
+  if (!lbl) return;
+  const diff = Math.round((total - meta) * 10) / 10;
+  const cor = diff > 0.05 ? 'var(--red)' : diff < -0.05 ? '#e8a045' : 'var(--green)';
+  lbl.innerHTML = `Distribuído: <strong style="color:${cor}">${total}h</strong> &nbsp;/&nbsp; Meta: <strong>${meta}h</strong>${diff > 0.05 ? ' ⚠️ excede' : diff < -0.05 ? ' ⚠️ faltam ' + Math.abs(diff) + 'h' : ' ✅'}`;
+}
+
+function salvarHaProf() {
+  const id = document.getElementById('ha-prof-select').value;
+  if (!id) { showToast('Selecione uma professora.'); return; }
+  const prof  = db.usuarios.find(u => u.id === id);
+  const carga = parseFloat(document.getElementById('ha-carga').value);
+  const pct   = parseFloat(document.getElementById('ha-percent').value);
+  if (!carga || !pct) { showToast('Preencha carga horária e percentual.'); return; }
+  const distribuicao = {};
+  ['seg','ter','qua','qui','sex'].forEach(d => {
+    distribuicao[d] = parseFloat(document.getElementById(`ha-${d}`).value) || 0;
+  });
+  let ha = db.horaAtividade.find(h => h.professoraId === id);
+  if (ha) {
+    ha.cargaHorariaSemanal    = carga;
+    ha.percentualPlanejamento = pct;
+    ha.distribuicao           = distribuicao;
+    ha.professoraNome         = prof.nome;
+  } else {
+    db.horaAtividade.push({ id: uid(), professoraId: id, professoraNome: prof.nome,
+      cargaHorariaSemanal: carga, percentualPlanejamento: pct, distribuicao, cumprimento: [] });
+  }
+  save();
+  renderHoraAtividade();
+  showToast('✅ Hora-atividade configurada!');
+}
+
+function renderHoraAtividade() {
+  populateHaProfSelect();
+  renderHaGrade();
+  renderHaCumprimento();
+}
+
+function renderHaGrade() {
+  const el = document.getElementById('ha-grade');
+  if (!el) return;
+  const dias = ['Seg','Ter','Qua','Qui','Sex'];
+  const keys = ['seg','ter','qua','qui','sex'];
+  if (db.horaAtividade.length === 0) {
+    el.innerHTML = '<p style="color:var(--gray-400);font-size:13px;padding:8px 0;">Nenhuma professora configurada ainda. Use o formulário acima para começar.</p>';
+    return;
+  }
+  let html = `<table style="width:100%;border-collapse:collapse;font-size:13px;min-width:480px;">
+    <thead><tr>
+      <th style="text-align:left;padding:9px 12px;background:var(--green-light);color:var(--green-dark);">Professora</th>
+      <th style="padding:9px 8px;background:var(--green-light);color:var(--green-dark);text-align:center;">Carga<br><small style="font-weight:400;">semanal</small></th>
+      <th style="padding:9px 8px;background:var(--green-light);color:var(--green-dark);text-align:center;">Meta<br><small style="font-weight:400;">planej.</small></th>
+      ${dias.map(d=>`<th style="padding:9px 10px;background:var(--green-light);color:var(--green-dark);text-align:center;">${d}</th>`).join('')}
+      <th style="padding:9px 8px;background:var(--green-light);color:var(--green-dark);text-align:center;">Ação</th>
+    </tr></thead><tbody>`;
+  db.horaAtividade.forEach((ha, i) => {
+    const meta = Math.round(ha.cargaHorariaSemanal * ha.percentualPlanejamento / 100 * 10) / 10;
+    const bg   = i % 2 === 0 ? '#fff' : '#f8fffe';
+    html += `<tr style="background:${bg};">
+      <td style="padding:10px 12px;border-bottom:1px solid var(--gray-100);font-weight:600;">${ha.professoraNome}</td>
+      <td style="padding:10px;border-bottom:1px solid var(--gray-100);text-align:center;">${ha.cargaHorariaSemanal}h</td>
+      <td style="padding:10px;border-bottom:1px solid var(--gray-100);text-align:center;"><strong style="color:var(--green-dark);">${meta}h</strong><div style="font-size:10px;color:var(--gray-400);">${ha.percentualPlanejamento}%</div></td>
+      ${keys.map(k=>{
+        const h = ha.distribuicao?.[k] || 0;
+        return h > 0
+          ? `<td style="padding:10px;border-bottom:1px solid var(--gray-100);text-align:center;background:#d1fae5;font-weight:700;color:#065f46;">${h}h</td>`
+          : `<td style="padding:10px;border-bottom:1px solid var(--gray-100);text-align:center;color:var(--gray-200);">—</td>`;
+      }).join('')}
+      <td style="padding:10px;border-bottom:1px solid var(--gray-100);text-align:center;">
+        <button class="btn btn-secondary btn-sm" style="font-size:11px;padding:3px 8px;" onclick="editarHaProf('${ha.professoraId}')">✏️ Editar</button>
+      </td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+function editarHaProf(professoraId) {
+  const sel = document.getElementById('ha-prof-select');
+  if (sel) { sel.value = professoraId; carregarHaProf(); }
+  document.getElementById('ha-card-config')?.scrollIntoView({ behavior: 'smooth' });
+}
+
+function renderHaCumprimento() {
+  const el = document.getElementById('ha-cumprimento');
+  if (!el) return;
+  const semanaAtual = getISOWeek(new Date());
+  const semanas = Array.from({length: 5}, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - i * 7); return getISOWeek(d);
+  });
+  const papel  = currentUser?.papel;
+  const meuId  = currentUser?.id || '';
+  let lista    = db.horaAtividade;
+  if (papel === 'professora') lista = lista.filter(h => h.professoraId === meuId);
+  if (lista.length === 0) {
+    el.innerHTML = '<p style="color:var(--gray-400);font-size:13px;">Nenhuma professora configurada.</p>'; return;
+  }
+  let html = '';
+  semanas.forEach(sem => {
+    const isAtual = sem === semanaAtual;
+    html += `<div style="margin-bottom:20px;">
+      <div style="font-weight:700;font-size:13px;color:var(--green-dark);margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+        ${isAtual ? '📍 ' : '📆 '}Semana ${semanaLabel(sem)}
+        ${isAtual ? '<span style="font-size:11px;background:var(--green);color:#fff;padding:2px 8px;border-radius:20px;font-weight:600;">Atual</span>' : ''}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;">`;
+    lista.forEach(ha => {
+      const meta  = Math.round(ha.cargaHorariaSemanal * ha.percentualPlanejamento / 100 * 10) / 10;
+      const reg   = ha.cumprimento?.find(c => c.semana === sem);
+      const status = reg?.cumprido === true ? '✅' : reg?.cumprido === false ? '❌' : '⏳';
+      const bgCard = reg?.cumprido === true ? '#f0fdf4' : reg?.cumprido === false ? '#fef2f2' : '#f8fffe';
+      const podeEditar = papel === 'diretor' || papel === 'pedagoga' || ha.professoraId === meuId;
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:${bgCard};border-radius:8px;border:1px solid var(--gray-100);">
+        <span style="font-size:22px;">${status}</span>
+        <div style="flex:1;">
+          <strong style="font-size:13px;">${ha.professoraNome}</strong>
+          <div style="font-size:11px;color:var(--gray-400);">Meta: ${meta}h/semana${reg?.obs ? ' · ' + reg.obs : ''}</div>
+        </div>
+        ${podeEditar ? `<div style="display:flex;gap:5px;flex-wrap:wrap;">
+          <button class="btn btn-success btn-sm" style="font-size:11px;padding:4px 10px;" onclick="registrarHaCumprimento('${ha.id}','${sem}',true)">✅ Cumpriu</button>
+          <button class="btn btn-danger btn-sm" style="font-size:11px;padding:4px 10px;" onclick="registrarHaCumprimento('${ha.id}','${sem}',false)">❌ Não cumpriu</button>
+        </div>` : ''}
+      </div>`;
+    });
+    html += `</div></div>`;
+  });
+  el.innerHTML = html;
+}
+
+function registrarHaCumprimento(haId, semana, cumprido) {
+  const ha = db.horaAtividade.find(h => h.id === haId);
+  if (!ha) return;
+  if (!ha.cumprimento) ha.cumprimento = [];
+  const idx = ha.cumprimento.findIndex(c => c.semana === semana);
+  if (idx >= 0) ha.cumprimento[idx].cumprido = cumprido;
+  else ha.cumprimento.push({ semana, cumprido, obs: '' });
+  save();
+  renderHaCumprimento();
+  if (!cumprido) {
+    criarNotificacao('⚠️ Hora-atividade não cumprida',
+      `${ha.professoraNome} — semana ${semanaLabel(semana)}`, 'hora-atividade', ha.id);
+  }
+  showToast(cumprido ? '✅ Cumprimento registrado!' : '❌ Não cumprimento registrado.');
+}
+
+function imprimirHoraAtividade() {
+  const dias = ['Segunda','Terça','Quarta','Quinta','Sexta'];
+  const keys = ['seg','ter','qua','qui','sex'];
+  const logoEl = document.querySelector('header img');
+  const logoSrc = logoEl ? logoEl.src : '';
+  if (db.horaAtividade.length === 0) { showToast('Nenhuma hora-atividade configurada.'); return; }
+  const rows = db.horaAtividade.map(ha => {
+    const meta = Math.round(ha.cargaHorariaSemanal * ha.percentualPlanejamento / 100 * 10) / 10;
+    return `<tr>
+      <td>${ha.professoraNome}</td>
+      <td style="text-align:center;">${ha.cargaHorariaSemanal}h</td>
+      <td style="text-align:center;">${ha.percentualPlanejamento}%</td>
+      <td style="text-align:center;font-weight:700;color:#1D9E75;">${meta}h</td>
+      ${keys.map(k=>{const h=ha.distribuicao?.[k]||0;return h>0?`<td style="text-align:center;background:#d1fae5;font-weight:700;">${h}h</td>`:`<td style="text-align:center;color:#bbb;">—</td>`;}).join('')}
+    </tr>`;
+  }).join('');
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Grade Hora-Atividade</title>
+  <style>body{font-family:Arial,sans-serif;padding:16mm 20mm;color:#222;}
+  h1{color:#1D9E75;font-size:17px;margin:8px 0 2px;}h2{font-size:12px;color:#666;font-weight:normal;margin:0 0 16px;}
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  th{background:#1D9E75;color:#fff;padding:8px 10px;}td{padding:8px 10px;border-bottom:1px solid #eee;}
+  tr:nth-child(even) td{background:#f8fffe;}.logo{max-height:48px;margin-bottom:10px;}
+  @media print{@page{size:A4 landscape;margin:10mm;}}</style></head><body>
+  ${logoSrc?`<img class="logo" src="${logoSrc}"><br>`:''}
+  <h1>⏰ Grade de Hora-Atividade</h1>
+  <h2>Escola Ponte do Saber &nbsp;|&nbsp; Emitido em ${new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'})}</h2>
+  <table><thead><tr><th>Professora</th><th>Carga Semanal</th><th>% Planej.</th><th>Meta/Semana</th>
+  ${dias.map(d=>`<th>${d}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>
+  <script>window.onload=()=>window.print()<\/script></body></html>`;
+  const win = window.open('','_blank','width=1000,height=680');
+  if (win){win.document.write(html);win.document.close();}
 }
 
 // =====================================================================
