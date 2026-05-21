@@ -1673,17 +1673,25 @@ function getFolder(path) {
 <div id="tab-rotina" class="section">
 
   <div class="section-header">
-    <h2>📅 Rotina Diária</h2>
+    <h2>📅 Rotina</h2>
     <button class="btn btn-secondary" onclick="imprimirRotina()" id="btn-imprimir-rotina" style="display:none;">🖨️ Imprimir</button>
   </div>
 
-  <!-- Seleção de turma -->
+  <!-- Seleção de turma e tipo -->
   <div class="card">
-    <div class="card-title">🏷️ Turma</div>
+    <div class="card-title">🏷️ Turma &amp; Tipo</div>
     <div class="form-grid">
       <div class="form-group">
         <label>Selecione a turma</label>
         <select id="rotina-turma-sel" onchange="carregarRotina()"></select>
+      </div>
+      <div class="form-group">
+        <label>Tipo de rotina</label>
+        <select id="rotina-tipo-sel" onchange="carregarRotina()" style="max-width:220px;">
+          <option value="diaria">📅 Rotina Diária</option>
+          <option value="contraturno">🌅 Contraturno</option>
+          <option value="colonia">🏕️ Colônia de Férias</option>
+        </select>
       </div>
       <div class="form-group">
         <label>Ano letivo</label>
@@ -1719,7 +1727,7 @@ function getFolder(path) {
 
   <!-- Visualização -->
   <div class="card" id="rotina-card-view">
-    <div class="card-title">📋 Rotina da Turma</div>
+    <div class="card-title" id="rotina-card-view-title">📋 Rotina da Turma</div>
     <div id="rotina-view"></div>
   </div>
 
@@ -5274,12 +5282,17 @@ function renderRotina() {
 
 function carregarRotina() {
   const turmaId = document.getElementById('rotina-turma-sel')?.value;
-  const rotina  = turmaId ? db.rotinas.find(r => r.turmaId === turmaId) : null;
+  const tipo    = _getTipoRotina();
+  const rotina  = turmaId ? db.rotinas.find(r => r.turmaId === turmaId && (r.tipo || 'diaria') === tipo) : null;
   const isGestaoRot = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
+
+  // Atualiza título do card de visualização
+  const tituloEl = document.getElementById('rotina-card-view-title');
+  if (tituloEl) tituloEl.textContent = `📋 ${ROTINA_TIPOS[tipo]?.label || 'Rotina'} da Turma`;
 
   // Preenche ano letivo
   const anoEl = document.getElementById('rotina-ano');
-  if (anoEl && rotina?.ano) anoEl.value = rotina.ano;
+  if (anoEl) anoEl.value = rotina?.ano || new Date().getFullYear();
 
   // Monta linhas no editor (gestão)
   if (isGestaoRot) {
@@ -5288,10 +5301,24 @@ function carregarRotina() {
   }
 
   // Renderiza visualização
-  _renderRotinaView(turmaId, rotina);
+  _renderRotinaView(turmaId, tipo, rotina);
 
   const btnImp = document.getElementById('btn-imprimir-rotina');
   if (btnImp) btnImp.style.display = turmaId ? '' : 'none';
+}
+
+// ── tipo de rotina ──
+const ROTINA_TIPOS = {
+  diaria:      { label: 'Rotina Diária',    icon: '📅' },
+  contraturno: { label: 'Contraturno',      icon: '🌅' },
+  colonia:     { label: 'Colônia de Férias', icon: '🏕️' },
+};
+function _getTipoRotina() {
+  return document.getElementById('rotina-tipo-sel')?.value || 'diaria';
+}
+function _labelTipoRotina(tipo) {
+  const t = ROTINA_TIPOS[tipo] || ROTINA_TIPOS.diaria;
+  return `${t.icon} ${t.label}`;
 }
 
 // ── helpers de tempo para rotina ──
@@ -5462,7 +5489,8 @@ function rotinaRemoveLinha(idx) {
 function salvarRotina() {
   const turmaId = document.getElementById('rotina-turma-sel')?.value;
   if (!turmaId) { showToast('⚠️ Selecione uma turma.'); return; }
-  const ano = document.getElementById('rotina-ano')?.value || String(new Date().getFullYear());
+  const tipo = _getTipoRotina();
+  const ano  = document.getElementById('rotina-ano')?.value || String(new Date().getFullYear());
   const itens = _coletarItensEditor()
     .map(i => ({ id: uid(), inicio: i.inicio.trim(), fim: i.fim.trim(), atividade: i.atividade.trim() }))
     .filter(i => i.inicio || i.fim || i.atividade);
@@ -5477,10 +5505,11 @@ function salvarRotina() {
   }));
   if (temConflito && !confirm('Existem conflitos de horário. Deseja salvar mesmo assim?')) return;
 
-  const idx = db.rotinas.findIndex(r => r.turmaId === turmaId);
+  const idx = db.rotinas.findIndex(r => r.turmaId === turmaId && (r.tipo || 'diaria') === tipo);
   const rotina = {
     id:          idx >= 0 ? db.rotinas[idx].id : uid(),
     turmaId,
+    tipo,
     ano,
     itens,
     atualizadoEm: new Date().toISOString(),
@@ -5493,29 +5522,34 @@ function salvarRotina() {
   LS.set('ps_rotinas', db.rotinas);
   FSREF('rotinas').set({ data: db.rotinas })
     .catch(e => console.warn('Rotina direct Firestore write error:', e));
-  showToast('✅ Rotina salva!');
-  _renderRotinaView(turmaId, rotina);
+  showToast(`✅ ${_labelTipoRotina(tipo)} salva!`);
+  _renderRotinaView(turmaId, tipo, rotina);
 }
 
-function deleteRotina(turmaId) {
+function deleteRotina(turmaId, tipo) {
   if (currentUser?.papel !== 'diretor') { showToast('⚠️ Apenas o diretor pode excluir rotinas.'); return; }
-  if (!confirm('Excluir a rotina desta turma?')) return;
-  db.rotinas = db.rotinas.filter(r => r.turmaId !== turmaId);
+  tipo = tipo || _getTipoRotina();
+  if (!confirm(`Excluir a rotina de ${_labelTipoRotina(tipo)} desta turma?`)) return;
+  db.rotinas = db.rotinas.filter(r => !(r.turmaId === turmaId && (r.tipo || 'diaria') === tipo));
   save();
+  LS.set('ps_rotinas', db.rotinas);
+  FSREF('rotinas').set({ data: db.rotinas }).catch(e => console.warn('Rotina delete error:', e));
   carregarRotina();
   showToast('🗑️ Rotina excluída.');
 }
 
-function _renderRotinaView(turmaId, rotina) {
+function _renderRotinaView(turmaId, tipo, rotina) {
   const el = document.getElementById('rotina-view');
   if (!el) return;
   if (!turmaId) { el.innerHTML = ''; return; }
+  tipo = tipo || 'diaria';
   const turma = db.turmas.find(t => t.id === turmaId);
   const isDiretorRot = currentUser?.papel === 'diretor';
+  const tipoLabel = _labelTipoRotina(tipo);
 
   if (!rotina || !rotina.itens?.length) {
-    el.innerHTML = `<div class="empty"><div class="icon">📅</div>
-      <p>Nenhuma rotina cadastrada para ${turma?.nome || 'esta turma'}.</p>
+    el.innerHTML = `<div class="empty"><div class="icon">${ROTINA_TIPOS[tipo]?.icon || '📅'}</div>
+      <p>Nenhuma rotina de ${tipoLabel} cadastrada para ${turma?.nome || 'esta turma'}.</p>
       ${(currentUser?.papel==='diretor'||currentUser?.papel==='pedagoga')
         ? '<p style="font-size:13px;color:var(--gray-400);">Use o editor acima para criar a rotina.</p>' : ''}
     </div>`;
@@ -5543,9 +5577,10 @@ function _renderRotinaView(turmaId, rotina) {
 
   el.innerHTML = `
     <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-size:13px;font-weight:600;color:var(--green-dark);background:var(--green-light);padding:2px 10px;border-radius:12px;">${tipoLabel}</span>
       <span style="font-size:13px;color:var(--gray-400);">Ano letivo: <strong>${rotina.ano||'—'}</strong></span>
       ${rotina.atualizadoPor ? `<span style="font-size:12px;color:var(--gray-400);">Atualizado por: ${rotina.atualizadoPor}</span>` : ''}
-      ${isDiretorRot ? `<button class="btn btn-danger btn-sm" onclick="deleteRotina('${turmaId}')">🗑️ Excluir</button>` : ''}
+      ${isDiretorRot ? `<button class="btn btn-danger btn-sm" onclick="deleteRotina('${turmaId}','${tipo}')">🗑️ Excluir</button>` : ''}
     </div>
     <div style="overflow-x:auto;">
       <table style="border-collapse:collapse;width:100%;min-width:320px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
@@ -5563,9 +5598,11 @@ function _renderRotinaView(turmaId, rotina) {
 
 function imprimirRotina() {
   const turmaId = document.getElementById('rotina-turma-sel')?.value;
-  const rotina  = turmaId ? db.rotinas.find(r => r.turmaId === turmaId) : null;
+  const tipo    = _getTipoRotina();
+  const rotina  = turmaId ? db.rotinas.find(r => r.turmaId === turmaId && (r.tipo || 'diaria') === tipo) : null;
   const turma   = db.turmas.find(t => t.id === turmaId);
   if (!rotina?.itens?.length) { showToast('⚠️ Nenhuma rotina para imprimir.'); return; }
+  const tipoLabel = _labelTipoRotina(tipo);
 
   const fmtFaixaImp = i => {
     const ini = i.inicio || (i.horario ? _parseHorarioAntigo(i.horario).inicio : '');
@@ -5584,7 +5621,7 @@ function imprimirRotina() {
   }).join('');
 
   const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
-<title>Rotina — ${turma?.nome||''}</title>
+<title>${tipoLabel} — ${turma?.nome||''}</title>
 <style>
   body { font-family: Arial, sans-serif; margin: 36px 48px; color: #000; }
   h1 { font-size: 20px; margin-bottom: 4px; color: #1D9E75; }
@@ -5596,7 +5633,7 @@ function imprimirRotina() {
   @media print { body { margin: 20px 32px; } }
 </style>
 </head><body>
-<h1>Rotina — ${turma?.nome||'Turma'}</h1>
+<h1>${tipoLabel} — ${turma?.nome||'Turma'}</h1>
 <h2>Ano Letivo ${rotina.ano||new Date().getFullYear()} &nbsp;|&nbsp; Escola Ponte do Saber</h2>
 <table><thead><tr>
   <th style="width:150px;">Horário</th>
