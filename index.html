@@ -1647,8 +1647,8 @@ function getFolder(path) {
     <div id="ha-grade" style="overflow-x:auto;"></div>
   </div>
 
-  <!-- Ponto eletrônico (professora only) -->
-  <div class="card" id="ha-card-ponto" style="display:none;">
+  <!-- Ponto eletrônico -->
+  <div class="card" id="ha-card-ponto">
     <div class="card-title">🕐 Ponto Eletrônico — Hora-Atividade</div>
     <div id="ha-ponto"></div>
   </div>
@@ -1986,8 +1986,6 @@ function aplicarPapel() {
   // Hora-Atividade: config só para gestão
   const haCardCfg   = document.getElementById('ha-card-config');
   if (haCardCfg) haCardCfg.style.display = isGestao ? '' : 'none';
-  const haCardPonto = document.getElementById('ha-card-ponto');
-  if (haCardPonto) haCardPonto.style.display = isProfessora ? '' : 'none';
 
   if (isGestao) pedirPermissaoNotificacao();
 
@@ -4597,8 +4595,34 @@ function formatarDuracao(seg) {
 function renderHaPonto() {
   const el = document.getElementById('ha-ponto');
   if (!el) return;
-  if (currentUser?.papel !== 'professora') return;
+  const papel = currentUser?.papel;
+  if (!papel) return;
 
+  // Gestão: ver sessões ativas de todas as professoras
+  if (papel === 'diretor' || papel === 'pedagoga') {
+    const ativas = db.horaAtividade.filter(h => h.sessaoAtiva?.inicio);
+    if (ativas.length === 0) {
+      el.innerHTML = `<p style="color:var(--gray-400);font-size:13px;padding:8px 0;">Nenhuma professora em hora-atividade agora.</p>`;
+    } else {
+      el.innerHTML = `<div style="font-weight:600;font-size:13px;color:var(--green-dark);margin-bottom:10px;">🟢 Em hora-atividade agora:</div>` +
+        ativas.map(h => {
+          const inicio = new Date(h.sessaoAtiva.inicio);
+          const diff   = Math.floor((Date.now() - inicio) / 1000);
+          const hh = Math.floor(diff/3600), mm = Math.floor((diff%3600)/60);
+          const dur = hh > 0 ? `${hh}h ${mm}min` : `${mm}min`;
+          const alerta = diff >= 3600 ? ' ⚠️ acima de 1h' : '';
+          return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f0fdf4;border-radius:8px;border:1px solid #86efac;margin-bottom:6px;">
+            <span style="font-size:20px;">🟢</span>
+            <div style="flex:1;font-size:13px;"><strong>${h.professoraNome}</strong>
+              <div style="font-size:11px;color:var(--gray-400);">Início: ${inicio.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})} · Há ${dur}${alerta}</div>
+            </div>
+          </div>`;
+        }).join('');
+    }
+    return;
+  }
+
+  // Professora: ponto próprio
   const meuId = currentUser?.id || '';
   const ha    = db.horaAtividade.find(h => h.professoraId === meuId);
 
