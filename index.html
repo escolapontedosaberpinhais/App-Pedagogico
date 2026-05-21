@@ -5610,41 +5610,120 @@ function imprimirRotina() {
     return (ini && fim) ? `${ini} – ${fim}` : (ini || i.horario || '—');
   };
 
+  // cores alternadas por período do dia
+  const _corFaixa = (ini) => {
+    const m = _toMinRot(ini);
+    if (m === null) return '#fff';
+    if (m < 7*60)   return '#fefce8'; // madrugada
+    if (m < 10*60)  return '#fff7ed'; // manhã
+    if (m < 12*60)  return '#fef9c3'; // meio da manhã
+    if (m < 14*60)  return '#f0fdf4'; // almoço
+    if (m < 17*60)  return '#eff6ff'; // tarde
+    return '#f5f3ff';                  // fim de tarde
+  };
+
   const linhas = rotina.itens.map((i, idx) => {
-    const ini = i.inicio || (i.horario ? _parseHorarioAntigo(i.horario).inicio : '');
-    const fim = i.fim    || (i.horario ? _parseHorarioAntigo(i.horario).fim    : '');
-    return `<tr style="background:${idx%2===0?'#fff':'#f9fafb'}">
-      <td style="padding:9px 16px;border-bottom:1px solid #e5e7eb;font-weight:600;white-space:nowrap;">${fmtFaixaImp(i)}</td>
-      <td style="padding:9px 12px;border-bottom:1px solid #e5e7eb;text-align:center;color:#059669;font-size:12px;">${_durRotStr(ini,fim)}</td>
-      <td style="padding:9px 16px;border-bottom:1px solid #e5e7eb;">${i.atividade||'—'}</td>
+    const ini  = i.inicio || (i.horario ? _parseHorarioAntigo(i.horario).inicio : '');
+    const fim  = i.fim    || (i.horario ? _parseHorarioAntigo(i.horario).fim    : '');
+    const dur  = _durRotStr(ini, fim);
+    const faixa = fmtFaixaImp(i);
+    const bg   = _corFaixa(ini);
+    return `<tr style="background:${bg};border-bottom:1px solid #e5e7eb;">
+      <td style="width:24px;text-align:center;color:#9ca3af;font-size:11px;padding:0 4px 0 12px;vertical-align:middle;">${idx+1}</td>
+      <td style="padding:11px 14px;font-weight:700;font-size:15px;color:#065f46;white-space:nowrap;vertical-align:middle;">${faixa}</td>
+      <td style="padding:11px 10px;text-align:center;color:#059669;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">${dur}</td>
+      <td style="padding:11px 16px;font-size:15px;color:#1a1a1a;vertical-align:middle;">${i.atividade||'—'}</td>
     </tr>`;
   }).join('');
+
+  const logoEl  = document.querySelector('header img');
+  const logoSrc = logoEl ? logoEl.src : '';
+  const logoHtml = logoSrc
+    ? `<img src="${logoSrc}" style="max-height:72px;max-width:110px;object-fit:contain;background:#fff;border-radius:10px;padding:6px;box-shadow:0 1px 4px rgba(0,0,0,.15);" alt="Logo">`
+    : `<div style="width:72px;height:72px;background:rgba(255,255,255,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px;">🏫</div>`;
+
+  const tipoIcons = { diaria:'📅', contraturno:'🌅', colonia:'🏕️' };
+  const tipoIcon  = tipoIcons[tipo] || '📅';
 
   const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <title>${tipoLabel} — ${turma?.nome||''}</title>
 <style>
-  body { font-family: Arial, sans-serif; margin: 36px 48px; color: #000; }
-  h1 { font-size: 20px; margin-bottom: 4px; color: #1D9E75; }
-  h2 { font-size: 15px; font-weight: normal; color: #555; margin-bottom: 20px; }
-  table { border-collapse: collapse; width: 100%; }
-  th { background: #d1fae5; color: #065f46; padding: 9px 16px; text-align: left; font-size: 13px; }
-  td { font-size: 13px; }
-  tr:last-child td { border-bottom: none; }
-  @media print { body { margin: 20px 32px; } }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#f1f5f9;color:#1a1a1a;}
+  /* toolbar (só tela) */
+  .toolbar{position:fixed;top:0;left:0;right:0;background:#111827;padding:9px 20px;display:flex;gap:8px;align-items:center;z-index:999;box-shadow:0 2px 8px rgba(0,0,0,.4);}
+  .btn-p{background:#059669;color:#fff;border:none;padding:7px 18px;border-radius:7px;cursor:pointer;font-size:14px;font-weight:600;}
+  .btn-p:hover{background:#047857;}
+  .btn-c{background:transparent;color:#d1d5db;border:1px solid #374151;padding:7px 14px;border-radius:7px;cursor:pointer;font-size:14px;}
+  .btn-c:hover{background:#1f2937;}
+  /* página */
+  .page{width:210mm;min-height:297mm;margin:52px auto 32px;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 32px rgba(0,0,0,.18);}
+  /* cabeçalho */
+  .header{background:linear-gradient(135deg,#064e3b 0%,#065f46 40%,#059669 80%,#34d399 100%);color:#fff;padding:28px 36px 24px;display:flex;align-items:center;gap:22px;position:relative;overflow:hidden;}
+  .header::before{content:'';position:absolute;right:-40px;top:-40px;width:220px;height:220px;background:rgba(255,255,255,.06);border-radius:50%;}
+  .header::after{content:'';position:absolute;right:60px;bottom:-60px;width:160px;height:160px;background:rgba(255,255,255,.04);border-radius:50%;}
+  .hdr-logo{flex-shrink:0;z-index:1;}
+  .hdr-text{flex:1;z-index:1;}
+  .hdr-escola{font-size:11.5px;font-weight:500;opacity:.8;text-transform:uppercase;letter-spacing:1.8px;margin-bottom:5px;}
+  .hdr-turma{font-size:30px;font-weight:800;line-height:1.05;letter-spacing:-.5px;}
+  .hdr-ano{font-size:14px;opacity:.85;margin-top:5px;}
+  .hdr-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);border-radius:20px;padding:4px 14px;font-size:13px;font-weight:600;letter-spacing:.3px;margin-top:9px;}
+  /* faixa decorativa */
+  .stripe{height:6px;background:linear-gradient(90deg,#10b981,#3b82f6,#a855f7,#f59e0b,#10b981);}
+  /* tabela */
+  .twrap{padding:24px 30px 20px;}
+  table{width:100%;border-collapse:collapse;border-radius:10px;overflow:hidden;box-shadow:0 1px 8px rgba(0,0,0,.08);}
+  thead tr{background:#065f46;}
+  thead th{padding:11px 14px;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;}
+  tbody tr:last-child td{border-bottom:none;}
+  /* rodapé */
+  .footer{padding:14px 30px;border-top:2px solid #d1fae5;background:#f8fafc;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;}
+  .footer span{font-size:11px;color:#6b7280;}
+  .footer strong{color:#065f46;}
+  /* print */
+  @media print{
+    body{background:#fff;}
+    .toolbar{display:none!important;}
+    .page{margin:0;border-radius:0;box-shadow:none;width:100%;}
+    @page{size:A4 portrait;margin:0;}
+  }
 </style>
 </head><body>
-<h1>${tipoLabel} — ${turma?.nome||'Turma'}</h1>
-<h2>Ano Letivo ${rotina.ano||new Date().getFullYear()} &nbsp;|&nbsp; Escola Ponte do Saber</h2>
-<table><thead><tr>
-  <th style="width:150px;">Horário</th>
-  <th style="width:70px;text-align:center;">Duração</th>
-  <th>Atividades</th>
-</tr></thead>
-<tbody>${linhas}</tbody></table>
-<script>window.onload=()=>window.print()<\/script>
+<div class="toolbar">
+  <button class="btn-p" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+  <button class="btn-c" onclick="window.close()">✕ Fechar</button>
+  <span style="color:#6b7280;font-size:12px;margin-left:8px;">Dica: salvar como PDF para enviar digitalmente</span>
+</div>
+<div class="page">
+  <div class="header">
+    <div class="hdr-logo">${logoHtml}</div>
+    <div class="hdr-text">
+      <div class="hdr-escola">Escola Ponte do Saber &mdash; Pinhais / PR</div>
+      <div class="hdr-turma">${turma?.nome || 'Turma'}</div>
+      <div class="hdr-ano">Ano Letivo ${rotina.ano || new Date().getFullYear()}</div>
+      <div class="hdr-badge">${tipoIcon}&nbsp;${tipoLabel}</div>
+    </div>
+  </div>
+  <div class="stripe"></div>
+  <div class="twrap">
+    <table>
+      <thead><tr>
+        <th style="width:24px;"></th>
+        <th style="width:150px;text-align:left;">Horário</th>
+        <th style="width:74px;text-align:center;">Duração</th>
+        <th style="text-align:left;">Atividades</th>
+      </tr></thead>
+      <tbody>${linhas}</tbody>
+    </table>
+  </div>
+  <div class="footer">
+    <span>Gerado em <strong>${new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'})}</strong></span>
+    <span>Escola Ponte do Saber &nbsp;&bull;&nbsp; Pinhais / PR</span>
+  </div>
+</div>
 </body></html>`;
 
-  const win = window.open('','_blank','width=860,height=700');
+  const win = window.open('','_blank','width=920,height=780');
   if (win) { win.document.write(html); win.document.close(); }
 }
 
