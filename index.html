@@ -1653,8 +1653,8 @@ function getFolder(path) {
     <div id="ha-ponto"></div>
   </div>
 
-  <!-- Controle de cumprimento -->
-  <div class="card">
+  <!-- Controle de cumprimento (gestão only) -->
+  <div class="card" id="ha-card-cumprimento">
     <div class="card-title">✅ Controle de Cumprimento Semanal</div>
     <div id="ha-cumprimento"></div>
   </div>
@@ -1984,8 +1984,10 @@ function aplicarPapel() {
 
   // Request push notification permission (gestÃ£o only)
   // Hora-Atividade: config só para gestão
-  const haCardCfg   = document.getElementById('ha-card-config');
+  const haCardCfg  = document.getElementById('ha-card-config');
   if (haCardCfg) haCardCfg.style.display = isGestao ? '' : 'none';
+  const haCardCump = document.getElementById('ha-card-cumprimento');
+  if (haCardCump) haCardCump.style.display = isGestao ? '' : 'none';
 
   if (isGestao) pedirPermissaoNotificacao();
 
@@ -4781,8 +4783,9 @@ function renderHoraAtividade() {
 function renderHaGrade() {
   const el = document.getElementById('ha-grade');
   if (!el) return;
-  const diasLabel = ['Segunda','Terça','Quarta','Quinta','Sexta'];
-  const keys      = ['seg','ter','qua','qui','sex'];
+  const diasLabel  = ['Segunda','Terça','Quarta','Quinta','Sexta'];
+  const keys       = ['seg','ter','qua','qui','sex'];
+  const isGestaoHa = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
   if (db.horaAtividade.length === 0) {
     el.innerHTML = '<p style="color:var(--gray-400);font-size:13px;padding:8px 0;">Nenhuma professora configurada ainda.</p>';
     return;
@@ -4795,7 +4798,7 @@ function renderHaGrade() {
       <th style="padding:8px;background:var(--green-light);color:var(--green-dark);text-align:center;">Carga</th>
       <th style="padding:8px;background:var(--green-light);color:var(--green-dark);text-align:center;">Meta/sem</th>
       ${diasLabel.map(d=>`<th style="padding:8px 10px;background:var(--green-light);color:var(--green-dark);text-align:center;">${d}</th>`).join('')}
-      <th style="padding:8px;background:var(--green-light);color:var(--green-dark);text-align:center;"></th>
+      ${isGestaoHa ? `<th style="padding:8px;background:var(--green-light);color:var(--green-dark);text-align:center;"></th>` : ''}
     </tr></thead><tbody>`;
   db.horaAtividade.forEach((ha, i) => {
     const meta = ha.metaSemanal ?? calcMetaHa(ha.cargaHorariaSemanal ?? 0);
@@ -4810,9 +4813,9 @@ function renderHaGrade() {
           ? `<td style="padding:9px 6px;border-bottom:1px solid var(--gray-100);text-align:center;background:#d1fae5;color:#065f46;font-size:12px;font-weight:600;">${dist.saida}<br><span style="font-weight:400;">até ${dist.retorno}</span></td>`
           : `<td style="padding:9px 6px;border-bottom:1px solid var(--gray-100);text-align:center;color:var(--gray-200);">—</td>`;
       }).join('')}
-      <td style="padding:9px 8px;border-bottom:1px solid var(--gray-100);text-align:center;">
+      ${isGestaoHa ? `<td style="padding:9px 8px;border-bottom:1px solid var(--gray-100);text-align:center;">
         <button class="btn btn-secondary btn-sm" style="font-size:11px;padding:3px 8px;" onclick="editarHaProf('${ha.professoraId}')">✏️</button>
-      </td>
+      </td>` : ''}
     </tr>`;
   });
   resumo += '</tbody></table>';
