@@ -1421,6 +1421,10 @@ function getFolder(path) {
           <option>4º Bimestre</option>
         </select>
       </div>
+      <div class="form-group">
+        <label>Data</label>
+        <input type="date" id="par-data" />
+      </div>
     </div>
     <div style="margin-top:14px;">
       <label style="font-size:13px;font-weight:600;color:var(--gray-600);">Aluno</label>
@@ -3930,6 +3934,7 @@ function salvarParecer() {
 
   const turmaId = document.getElementById('par-turma').value;
   const periodo = document.getElementById('par-periodo').value;
+  const data    = document.getElementById('par-data')?.value || '';
 
   const p = {
     id: uid(),
@@ -3937,6 +3942,7 @@ function salvarParecer() {
     alunoNome: aluno.nome,
     turmaId,
     periodo,
+    data,
     texto,
     tom: selectedTone,
     criadoEm: new Date().toISOString(),
@@ -4134,10 +4140,11 @@ function renderPareceres() {
     // Borda de destaque para devolvido
     const cardStyle = devolvido ? 'border:2px solid #f59e0b;background:#fffbeb;' : '';
 
+    const dataFmtPar = p.data ? new Date(p.data + 'T12:00:00').toLocaleDateString('pt-BR') : '';
     return `<div class="item-card" style="${cardStyle}">
       <div class="info">
         <strong>${p.alunoNome}</strong>
-        <span><span class="badge badge-green">${turma ? turma.nome : '—'}</span> &nbsp;${p.periodo} &nbsp;|&nbsp; Tom: ${p.tom}</span>
+        <span><span class="badge badge-green">${turma ? turma.nome : '—'}</span> &nbsp;${p.periodo}${dataFmtPar ? ` &nbsp;|&nbsp; 📅 ${dataFmtPar}` : ''} &nbsp;|&nbsp; Tom: ${p.tom}</span>
         <span style="font-size:12px;color:var(--gray-400);">💾 Salvo em: ${savedAt}</span>
         <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">${revisaoBadge}${prontoLabel}${impressoLabel}</div>
         <div style="margin-top:4px;font-size:13px;color:var(--gray-600);">${preview}</div>
@@ -4241,7 +4248,9 @@ async function imprimirParecer(id) {
 function montarHtmlParecer(p, __corpo) {
   const turma = db.turmas.find(t => t.id === p.turmaId);
   const dataImpressao = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
-  const dataRegistro = new Date(p.criadoEm).toLocaleDateString('pt-BR');
+  const dataRegistro = p.data
+    ? new Date(p.data + 'T12:00:00').toLocaleDateString('pt-BR')
+    : new Date(p.criadoEm).toLocaleDateString('pt-BR');
   const aluno = db.alunos.find(a => a.id === p.alunoId);
   const nascFmt = aluno?.nasc ? new Date(aluno.nasc + 'T12:00:00').toLocaleDateString('pt-BR') : null;
   // Busca a professora vinculada à turma nos usuários cadastrados
@@ -5248,9 +5257,11 @@ function sanitizeName(str) {
 
 function buildParecerTxt(p) {
   const turma = db.turmas.find(t => t.id === p.turmaId);
-  const data = new Date(p.criadoEm).toLocaleDateString('pt-BR');
+  const dataDoc = p.data
+    ? new Date(p.data + 'T12:00:00').toLocaleDateString('pt-BR')
+    : new Date(p.criadoEm).toLocaleDateString('pt-BR');
   return `PARECER DESCRITIVO — ESCOLA PONTE DO SABER\n${'='.repeat(50)}\n`
-    + `Aluno(a): ${p.alunoNome}\nTurma: ${turma ? turma.nome : '—'}\nPeríodo: ${p.periodo}\nData: ${data}\nTom: ${p.tom}\n\n`
+    + `Aluno(a): ${p.alunoNome}\nTurma: ${turma ? turma.nome : '—'}\nPeríodo: ${p.periodo}\nData: ${dataDoc}\nTom: ${p.tom}\n\n`
     + p.texto + '\n';
 }
 
