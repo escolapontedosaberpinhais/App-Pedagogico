@@ -1767,7 +1767,18 @@ async function loadFromFirestore() {
     if (rU.exists)   db.usuarios      = rU.data().data   ?? [];
     if (rNot.exists) db.notificacoes  = rNot.data().data ?? [];
     if (rHa.exists)  db.horaAtividade = rHa.data().data  ?? [];
-    if (rRot.exists) db.rotinas       = rRot.data().data ?? [];
+    if (rRot.exists) {
+      db.rotinas = rRot.data().data ?? [];
+    } else {
+      // Firestore ainda não tem rotinas — recupera do localStorage se houver
+      const lsRot = LS.get('ps_rotinas', []);
+      if (lsRot.length > 0) {
+        db.rotinas = lsRot;
+        FSREF('rotinas').set({ data: db.rotinas })
+          .catch(e => console.warn('Rotina restore to Firestore error:', e));
+      }
+    }
+    _rotinasCarregadas = true;
     if (rCfg.exists) {
       db.apiKey = rCfg.data().apiKey ?? '';
       if (rCfg.data().model) localStorage.setItem('ps_gemini_model', rCfg.data().model);
@@ -1788,6 +1799,7 @@ async function loadFromFirestore() {
       db.apiKey        = localStorage.getItem('ps_apikey') || '';
       db.horaAtividade = LS.get('ps_hora_atividade', []);
       db.rotinas       = LS.get('ps_rotinas', []);
+      _rotinasCarregadas = true;
       saveToFirestore();
     }
   } catch (e) {
@@ -1801,6 +1813,7 @@ async function loadFromFirestore() {
     db.apiKey        = localStorage.getItem('ps_apikey') || '';
     db.horaAtividade = LS.get('ps_hora_atividade', []);
     db.rotinas       = LS.get('ps_rotinas', []);
+    _rotinasCarregadas = true;
   }
 }
 
@@ -1814,7 +1827,10 @@ function saveToFirestore() {
   batch.set(FSREF('usuarios'),      { data: db.usuarios });
   batch.set(FSREF('notificacoes'),  { data: db.notificacoes });
   batch.set(FSREF('horaAtividade'), { data: db.horaAtividade });
-  batch.set(FSREF('rotinas'),       { data: db.rotinas });
+  // Só sobrescreve rotinas após confirmação de que os dados foram carregados
+  if (_rotinasCarregadas) {
+    batch.set(FSREF('rotinas'), { data: db.rotinas });
+  }
   batch.commit().catch(e => console.warn('Firestore write error:', e));
 }
 
@@ -1832,7 +1848,14 @@ function setupSync() {
   FSREF('avaliacoes').onSnapshot(handle('avaliacoes', {}));
   FSREF('usuarios').onSnapshot(handle('usuarios', []));
   FSREF('horaAtividade').onSnapshot(handle('horaAtividade', []));
-  FSREF('rotinas').onSnapshot(handle('rotinas', []));
+  FSREF('rotinas').onSnapshot((doc) => {
+    if (doc.exists && !doc.metadata.hasPendingWrites) {
+      db.rotinas = doc.data().data ?? [];
+      _rotinasCarregadas = true;
+      LS.set('ps_rotinas', db.rotinas); // espelho local sempre atualizado
+      refreshCurrentView();
+    }
+  });
   FSREF('notificacoes').onSnapshot((doc) => {
     if (doc.exists && !doc.metadata.hasPendingWrites) {
       const novas = doc.data().data ?? [];
@@ -1888,6 +1911,8 @@ let db = {
   horaAtividade: [],
   rotinas: [],
 };
+// Guardas: evita sobrescrever dados no Firestore antes de carregá-los
+let _rotinasCarregadas = false;
 
 function save() {
   // Backup local
@@ -5464,6 +5489,10 @@ function salvarRotina() {
   if (idx >= 0) db.rotinas[idx] = rotina;
   else db.rotinas.push(rotina);
   save();
+  // Escrita direta só para rotinas — garante persistência independente do batch
+  LS.set('ps_rotinas', db.rotinas);
+  FSREF('rotinas').set({ data: db.rotinas })
+    .catch(e => console.warn('Rotina direct Firestore write error:', e));
   showToast('✅ Rotina salva!');
   _renderRotinaView(turmaId, rotina);
 }
