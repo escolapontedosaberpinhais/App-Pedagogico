@@ -2416,7 +2416,7 @@ function addTurma() {
 }
 
 function deleteTurma(id) {
-  if (currentUser?.papel !== 'diretor' && currentUser?.papel !== 'pedagoga') { showToast('⚠️ Sem permissão.'); return; }
+  if (currentUser?.papel !== 'diretor') { showToast('⚠️ Apenas o diretor pode excluir turmas.'); return; }
   if (!confirm('Excluir turma e todos os alunos vinculados?')) return;
   db.turmas = db.turmas.filter(t => t.id !== id);
   db.alunos = db.alunos.filter(a => a.turmaId !== id);
@@ -2547,8 +2547,7 @@ function renderAlunos() {
   // Pode editar: diretores, pedagogas e a professora da própria turma
   const canDelete = (turmaId) => {
     if (!currentUser) return false;
-    if (currentUser.papel === 'diretor' || currentUser.papel === 'pedagoga') return true;
-    return getUsrTurmaIds(currentUser).includes(turmaId);
+    return currentUser.papel === 'diretor';
   };
 
   let html = '';
@@ -3443,9 +3442,7 @@ function toggleCorrigido(id) {
 function deletePlanejamento(id) {
   const pl = db.planejamentos.find(p => p.id === id);
   if (!pl) return;
-  const meuLogin = currentUser?.login || currentUser?.usuario || currentUser?.nome || '';
-  const podeExcluir = currentUser?.papel === 'diretor' || pl.criadoPor === meuLogin;
-  if (!podeExcluir) { showToast('⚠️ Apenas o autor ou o diretor podem excluir.'); return; }
+  if (currentUser?.papel !== 'diretor') { showToast('⚠️ Apenas o diretor pode excluir planejamentos.'); return; }
   if (!confirm('Excluir planejamento?')) return;
   db.planejamentos = db.planejamentos.filter(p => p.id !== id);
   save();
@@ -3490,8 +3487,7 @@ function renderPlanejamentos() {
     const savedAt = fmtDateTime(p.criadoEm);
     const canCorrect = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
     const isProf = currentUser?.papel === 'professora';
-    const meuLoginPl = currentUser?.login || currentUser?.usuario || currentUser?.nome || '';
-    const canDeletePl = currentUser?.papel === 'diretor' || p.criadoPor === meuLoginPl;
+    const canDeletePl = currentUser?.papel === 'diretor';
     const conteudosTxt = p.conteudos || p.tema || '—';
     const direitosTxt  = Array.isArray(p.direitos) && p.direitos.length ? p.direitos.join(' · ') : (p.area || '');
     const devolvido = p.revisao === 'devolvido';
@@ -3966,9 +3962,7 @@ function copiarParecer() {
 function deleteParecer(id) {
   const par = db.pareceres.find(p => p.id === id);
   if (!par) return;
-  const meuLogin = currentUser?.login || currentUser?.usuario || currentUser?.nome || '';
-  const podeExcluir = currentUser?.papel === 'diretor' || par.criadoPor === meuLogin;
-  if (!podeExcluir) { showToast('⚠️ Apenas o autor ou o diretor podem excluir.'); return; }
+  if (currentUser?.papel !== 'diretor') { showToast('⚠️ Apenas o diretor pode excluir pareceres.'); return; }
   if (!confirm('Excluir parecer?')) return;
   db.pareceres = db.pareceres.filter(p => p.id !== id);
   save();
@@ -4104,8 +4098,7 @@ function renderPareceres() {
     const preview = p.texto.slice(0, 140) + (p.texto.length > 140 ? '…' : '');
     const canCorrect = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
     const isProf = currentUser?.papel === 'professora';
-    const meuLoginPar = currentUser?.login || currentUser?.usuario || currentUser?.nome || '';
-    const canDeletePar = currentUser?.papel === 'diretor' || p.criadoPor === meuLoginPar;
+    const canDeletePar = currentUser?.papel === 'diretor';
     const devolvido = p.revisao === 'devolvido';
     const revisado  = p.revisao === 'revisado';
 
@@ -4980,7 +4973,7 @@ function renderHaCumprimento() {
                   ${exc ? '<span style="color:var(--red);font-size:10px;"> · excedeu 1h</span>' : ''}
                 </span>
                 <strong style="color:${exc?'var(--red)':'var(--green-dark)'};">${formatarDuracao(r.duracao)}</strong>
-                <button onclick="haDeletarSessao('${ha.id}','${r.id}')" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px;padding:0 2px;" title="Remover sessão">✕</button>
+                ${currentUser?.papel === 'diretor' ? `<button onclick="haDeletarSessao('${ha.id}','${r.id}')" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px;padding:0 2px;" title="Remover sessão">✕</button>` : ''}
               </div>`;
             }).join('')}
           </div>`
@@ -5049,6 +5042,7 @@ function haSalvarAjuste(haId) {
 }
 
 function haDeletarSessao(haId, sessaoId) {
+  if (currentUser?.papel !== 'diretor') { showToast('⚠️ Apenas o diretor pode remover sessões.'); return; }
   const ha = db.horaAtividade.find(h => h.id === haId);
   if (!ha || !ha.registros) return;
   if (!confirm('Remover esta sessão?')) return;
