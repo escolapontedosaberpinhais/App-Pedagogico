@@ -5310,6 +5310,7 @@ function _renderLinhasEditor(itens) {
     const ini = item.inicio || (item.horario ? _parseHorarioAntigo(item.horario).inicio : '');
     const fim = item.fim    || (item.horario ? _parseHorarioAntigo(item.horario).fim    : '');
     const dur = _durRotStr(ini, fim);
+    const isLast = idx === itens.length - 1;
     return `<tr id="rot-row-${idx}" style="border-bottom:1px solid var(--gray-100);">
       <td style="padding:4px 8px;text-align:center;">
         <input type="time" value="${ini}" data-field="inicio"
@@ -5327,8 +5328,11 @@ function _renderLinhasEditor(itens) {
           style="width:100%;font-size:13px;padding:5px 8px;border:1px solid var(--gray-200);border-radius:5px;"
           data-field="atividade">
       </td>
-      <td style="padding:4px 4px;text-align:center;">
-        <button onclick="rotinaRemoveLinha(${idx})" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:16px;padding:0 2px;" title="Remover">✕</button>
+      <td style="padding:4px 2px;text-align:center;white-space:nowrap;">
+        <button onclick="rotinaInserirApos(${idx})" title="Inserir linha abaixo"
+          style="background:none;border:1px solid var(--green);border-radius:4px;cursor:pointer;color:var(--green);font-size:13px;padding:1px 5px;margin-right:2px;">＋</button>
+        <button onclick="rotinaRemoveLinha(${idx})" title="Remover linha"
+          style="background:none;border:none;cursor:pointer;color:var(--red);font-size:16px;padding:0 2px;">✕</button>
       </td>
     </tr>`;
   }).join('');
@@ -5407,6 +5411,20 @@ function rotinaAddLinha() {
   const ultima = [...itens].reverse().find(i => i.fim);
   itens.push({ inicio: ultima?.fim || '', fim: '', atividade: '' });
   _renderLinhasEditor(itens);
+}
+
+function rotinaInserirApos(idx) {
+  const itens = _coletarItensEditor();
+  // Sugere início = fim da linha atual, fim = início da próxima (se existir)
+  const fimAtual    = itens[idx]?.fim    || '';
+  const inicioProx  = itens[idx + 1]?.inicio || '';
+  itens.splice(idx + 1, 0, { inicio: fimAtual, fim: inicioProx, atividade: '' });
+  _renderLinhasEditor(itens);
+  // Foca no campo atividade da nova linha
+  setTimeout(() => {
+    const novaLinha = document.getElementById(`rot-row-${idx + 1}`);
+    novaLinha?.querySelector('[data-field="atividade"]')?.focus();
+  }, 50);
 }
 
 function rotinaRemoveLinha(idx) {
