@@ -1590,12 +1590,12 @@ function getFolder(path) {
         </select>
       </div>
       <div class="form-group">
-        <label>Carga horária semanal (h)</label>
-        <input type="number" id="ha-carga" min="1" max="60" placeholder="ex: 40" oninput="atualizarHaTotal()">
-      </div>
-      <div class="form-group">
-        <label>% Hora-Atividade</label>
-        <input type="number" id="ha-percent" min="1" max="50" placeholder="ex: 33" oninput="atualizarHaTotal()">
+        <label>Carga horária semanal</label>
+        <select id="ha-carga" onchange="atualizarHaTotal()">
+          <option value="">-- Selecione --</option>
+          <option value="44">44 horas → 4h/semana</option>
+          <option value="22">22 horas → 2h/semana</option>
+        </select>
       </div>
     </div>
     <div style="margin-top:4px;">
@@ -4463,18 +4463,22 @@ function populateHaProfSelect() {
 function carregarHaProf() {
   const id = document.getElementById('ha-prof-select').value;
   const ha = db.horaAtividade.find(h => h.professoraId === id);
-  document.getElementById('ha-carga').value    = ha?.cargaHorariaSemanal || '';
-  document.getElementById('ha-percent').value  = ha?.percentualPlanejamento || '';
+  document.getElementById('ha-carga').value = ha?.cargaHorariaSemanal || '';
   ['seg','ter','qua','qui','sex'].forEach(d => {
     document.getElementById(`ha-${d}`).value = ha?.distribuicao?.[d] ?? 0;
   });
   atualizarHaTotal();
 }
 
+function calcMetaHa(carga) {
+  if (carga === 44) return 4;
+  if (carga === 22) return 2;
+  return Math.round(carga / 11 * 10) / 10;
+}
+
 function atualizarHaTotal() {
   const carga = parseFloat(document.getElementById('ha-carga')?.value) || 0;
-  const pct   = parseFloat(document.getElementById('ha-percent')?.value) || 0;
-  const meta  = Math.round(carga * pct / 100 * 10) / 10;
+  const meta  = carga ? calcMetaHa(carga) : 0;
   const total = ['seg','ter','qua','qui','sex'].reduce((s,d) => {
     return s + (parseFloat(document.getElementById(`ha-${d}`)?.value) || 0);
   }, 0);
@@ -4490,21 +4494,21 @@ function salvarHaProf() {
   if (!id) { showToast('Selecione uma professora.'); return; }
   const prof  = db.usuarios.find(u => u.id === id);
   const carga = parseFloat(document.getElementById('ha-carga').value);
-  const pct   = parseFloat(document.getElementById('ha-percent').value);
-  if (!carga || !pct) { showToast('Preencha carga horária e percentual.'); return; }
+  if (!carga) { showToast('Selecione a carga horária da professora.'); return; }
+  const metaSemanal  = calcMetaHa(carga);
   const distribuicao = {};
   ['seg','ter','qua','qui','sex'].forEach(d => {
     distribuicao[d] = parseFloat(document.getElementById(`ha-${d}`).value) || 0;
   });
   let ha = db.horaAtividade.find(h => h.professoraId === id);
   if (ha) {
-    ha.cargaHorariaSemanal    = carga;
-    ha.percentualPlanejamento = pct;
-    ha.distribuicao           = distribuicao;
-    ha.professoraNome         = prof.nome;
+    ha.cargaHorariaSemanal = carga;
+    ha.metaSemanal         = metaSemanal;
+    ha.distribuicao        = distribuicao;
+    ha.professoraNome      = prof.nome;
   } else {
     db.horaAtividade.push({ id: uid(), professoraId: id, professoraNome: prof.nome,
-      cargaHorariaSemanal: carga, percentualPlanejamento: pct, distribuicao, cumprimento: [] });
+      cargaHorariaSemanal: carga, metaSemanal, distribuicao, cumprimento: [] });
   }
   save();
   renderHoraAtividade();
@@ -4535,12 +4539,12 @@ function renderHaGrade() {
       <th style="padding:9px 8px;background:var(--green-light);color:var(--green-dark);text-align:center;">Ação</th>
     </tr></thead><tbody>`;
   db.horaAtividade.forEach((ha, i) => {
-    const meta = Math.round(ha.cargaHorariaSemanal * ha.percentualPlanejamento / 100 * 10) / 10;
+    const meta = ha.metaSemanal ?? calcMetaHa(ha.cargaHorariaSemanal ?? 0);
     const bg   = i % 2 === 0 ? '#fff' : '#f8fffe';
     html += `<tr style="background:${bg};">
       <td style="padding:10px 12px;border-bottom:1px solid var(--gray-100);font-weight:600;">${ha.professoraNome}</td>
       <td style="padding:10px;border-bottom:1px solid var(--gray-100);text-align:center;">${ha.cargaHorariaSemanal}h</td>
-      <td style="padding:10px;border-bottom:1px solid var(--gray-100);text-align:center;"><strong style="color:var(--green-dark);">${meta}h</strong><div style="font-size:10px;color:var(--gray-400);">${ha.percentualPlanejamento}%</div></td>
+      <td style="padding:10px;border-bottom:1px solid var(--gray-100);text-align:center;"><strong style="color:var(--green-dark);">${meta}h/sem</strong></td>
       ${keys.map(k=>{
         const h = ha.distribuicao?.[k] || 0;
         return h > 0
@@ -4586,7 +4590,7 @@ function renderHaCumprimento() {
       </div>
       <div style="display:flex;flex-direction:column;gap:6px;">`;
     lista.forEach(ha => {
-      const meta  = Math.round(ha.cargaHorariaSemanal * ha.percentualPlanejamento / 100 * 10) / 10;
+      const meta  = ha.metaSemanal ?? calcMetaHa(ha.cargaHorariaSemanal ?? 0);
       const reg   = ha.cumprimento?.find(c => c.semana === sem);
       const status = reg?.cumprido === true ? '✅' : reg?.cumprido === false ? '❌' : '⏳';
       const bgCard = reg?.cumprido === true ? '#f0fdf4' : reg?.cumprido === false ? '#fef2f2' : '#f8fffe';
@@ -4631,12 +4635,11 @@ function imprimirHoraAtividade() {
   const logoSrc = logoEl ? logoEl.src : '';
   if (db.horaAtividade.length === 0) { showToast('Nenhuma hora-atividade configurada.'); return; }
   const rows = db.horaAtividade.map(ha => {
-    const meta = Math.round(ha.cargaHorariaSemanal * ha.percentualPlanejamento / 100 * 10) / 10;
+    const meta = ha.metaSemanal ?? calcMetaHa(ha.cargaHorariaSemanal ?? 0);
     return `<tr>
       <td>${ha.professoraNome}</td>
       <td style="text-align:center;">${ha.cargaHorariaSemanal}h</td>
-      <td style="text-align:center;">${ha.percentualPlanejamento}%</td>
-      <td style="text-align:center;font-weight:700;color:#1D9E75;">${meta}h</td>
+      <td style="text-align:center;font-weight:700;color:#1D9E75;">${meta}h/sem</td>
       ${keys.map(k=>{const h=ha.distribuicao?.[k]||0;return h>0?`<td style="text-align:center;background:#d1fae5;font-weight:700;">${h}h</td>`:`<td style="text-align:center;color:#bbb;">—</td>`;}).join('')}
     </tr>`;
   }).join('');
