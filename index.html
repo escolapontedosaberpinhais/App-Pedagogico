@@ -2163,8 +2163,9 @@ function showTab(tab) {
   if (tab === 'planejamento') { populateSelects(); renderPlanejamentos(); }
   if (tab === 'pareceres')    { populateSelects(); renderPareceres(); }
   if (tab === 'avaliacoes')   { populateSelects(); renderTabelaAvaliacoes(); }
-  if (tab === 'correcao')     { renderCorrecoes(); }
-  if (tab === 'cadastro')     { populateSelects(); populateFiltroTurmas(); renderTurmas(); renderAlunos(); }
+  if (tab === 'correcao')       { renderCorrecoes(); }
+  if (tab === 'cadastro')       { populateSelects(); populateFiltroTurmas(); renderTurmas(); renderAlunos(); }
+  if (tab === 'hora-atividade') { renderHoraAtividade(); }
 }
 
 // --- DRAWER functions ---
