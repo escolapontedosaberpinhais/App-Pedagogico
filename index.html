@@ -1696,19 +1696,22 @@ function getFolder(path) {
   <div class="card" id="rotina-card-editor">
     <div class="card-title">✏️ Editor de Rotina</div>
     <div style="overflow-x:auto;">
-      <table id="rotina-tabela" style="border-collapse:collapse;width:100%;min-width:360px;">
+      <table id="rotina-tabela" style="border-collapse:collapse;width:100%;min-width:500px;">
         <thead>
           <tr>
-            <th style="padding:8px 12px;background:var(--green-light);color:var(--green-dark);text-align:left;border-radius:6px 0 0 0;width:160px;">Horário</th>
+            <th style="padding:8px 12px;background:var(--green-light);color:var(--green-dark);text-align:center;border-radius:6px 0 0 0;width:100px;">Início</th>
+            <th style="padding:8px 12px;background:var(--green-light);color:var(--green-dark);text-align:center;width:100px;">Fim</th>
+            <th style="padding:8px 12px;background:var(--green-light);color:var(--green-dark);text-align:center;width:70px;">Duração</th>
             <th style="padding:8px 12px;background:var(--green-light);color:var(--green-dark);text-align:left;border-radius:0 6px 0 0;">Atividades</th>
-            <th style="padding:8px 12px;background:var(--green-light);width:36px;border-radius:0 6px 0 0;"></th>
+            <th style="padding:8px 12px;background:var(--green-light);width:32px;"></th>
           </tr>
         </thead>
         <tbody id="rotina-linhas">
         </tbody>
       </table>
     </div>
-    <div class="btn-row" style="margin-top:12px;">
+    <div id="rotina-alertas" style="margin-top:10px;"></div>
+    <div class="btn-row" style="margin-top:8px;">
       <button class="btn btn-secondary btn-sm" onclick="rotinaAddLinha()">➕ Adicionar linha</button>
       <button class="btn btn-primary" onclick="salvarRotina()">💾 Salvar rotina</button>
     </div>
@@ -5266,48 +5269,150 @@ function carregarRotina() {
   if (btnImp) btnImp.style.display = turmaId ? '' : 'none';
 }
 
+// ── helpers de tempo para rotina ──
+function _toMinRot(hhmm) {
+  if (!hhmm) return null;
+  const [h, m] = hhmm.split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) return null;
+  return h * 60 + m;
+}
+function _durRotStr(inicio, fim) {
+  const s = _toMinRot(inicio), f = _toMinRot(fim);
+  if (s === null || f === null || f <= s) return '—';
+  const d = f - s;
+  const h = Math.floor(d / 60), m = d % 60;
+  return h > 0 ? `${h}h${m > 0 ? m + 'min' : ''}` : `${m}min`;
+}
+// Compatibilidade: converte "HH:MM/HH:MM" ou "HH:MM–HH:MM" antigo para {inicio,fim}
+function _parseHorarioAntigo(horario) {
+  if (!horario) return { inicio: '', fim: '' };
+  const sep = horario.includes('/') ? '/' : horario.includes('–') ? '–' : null;
+  if (!sep) return { inicio: '', fim: '' };
+  const parts = horario.split(sep);
+  const norm  = s => { s = s.trim(); const p = s.split(':'); if (p.length < 2) return ''; return String(parseInt(p[0])).padStart(2,'0') + ':' + String(parseInt(p[1])).padStart(2,'0'); };
+  return { inicio: norm(parts[0]), fim: norm(parts[1] || '') };
+}
+
+function _coletarItensEditor() {
+  const rows = Array.from(document.getElementById('rotina-linhas')?.querySelectorAll('tr') || []);
+  return rows.map(r => ({
+    inicio:    r.querySelector('[data-field="inicio"]')?.value    || '',
+    fim:       r.querySelector('[data-field="fim"]')?.value       || '',
+    atividade: r.querySelector('[data-field="atividade"]')?.value || '',
+  }));
+}
+
 function _renderLinhasEditor(itens) {
   const tbody = document.getElementById('rotina-linhas');
   if (!tbody) return;
-  tbody.innerHTML = itens.map((item, idx) => `
-    <tr id="rot-row-${idx}" style="border-bottom:1px solid var(--gray-100);">
-      <td style="padding:4px 8px;">
-        <input type="text" value="${item.horario||''}" placeholder="ex: 8:00/8:30"
-          style="width:100%;font-size:13px;padding:5px 8px;border:1px solid var(--gray-200);border-radius:5px;"
-          oninput="this.closest('tr').dataset.horario=this.value" data-field="horario">
+  tbody.innerHTML = itens.map((item, idx) => {
+    // compatibilidade com dados antigos que usavam campo "horario" texto
+    const ini = item.inicio || (item.horario ? _parseHorarioAntigo(item.horario).inicio : '');
+    const fim = item.fim    || (item.horario ? _parseHorarioAntigo(item.horario).fim    : '');
+    const dur = _durRotStr(ini, fim);
+    return `<tr id="rot-row-${idx}" style="border-bottom:1px solid var(--gray-100);">
+      <td style="padding:4px 8px;text-align:center;">
+        <input type="time" value="${ini}" data-field="inicio"
+          style="width:92px;font-size:13px;padding:4px 6px;border:1px solid var(--gray-200);border-radius:5px;"
+          oninput="_atualizarDurRotLinha(${idx});_verificarRotina()">
       </td>
-      <td style="padding:4px 8px;">
-        <input type="text" value="${item.atividade||''}" placeholder="Descreva a atividade"
-          style="width:100%;font-size:13px;padding:5px 8px;border:1px solid var(--gray-200);border-radius:5px;"
-          oninput="this.closest('tr').dataset.atividade=this.value" data-field="atividade">
+      <td style="padding:4px 8px;text-align:center;">
+        <input type="time" value="${fim}" data-field="fim"
+          style="width:92px;font-size:13px;padding:4px 6px;border:1px solid var(--gray-200);border-radius:5px;"
+          oninput="_atualizarDurRotLinha(${idx});_verificarRotina()">
       </td>
-      <td style="padding:4px 6px;text-align:center;">
+      <td id="rot-dur-${idx}" style="padding:4px 8px;text-align:center;font-size:12px;color:var(--green-dark);font-weight:600;">${dur}</td>
+      <td style="padding:4px 8px;">
+        <input type="text" value="${(item.atividade||'').replace(/"/g,'&quot;')}" placeholder="Descreva a atividade"
+          style="width:100%;font-size:13px;padding:5px 8px;border:1px solid var(--gray-200);border-radius:5px;"
+          data-field="atividade">
+      </td>
+      <td style="padding:4px 4px;text-align:center;">
         <button onclick="rotinaRemoveLinha(${idx})" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:16px;padding:0 2px;" title="Remover">✕</button>
       </td>
-    </tr>`).join('');
-  // Inicializa datasets
-  itens.forEach((item, idx) => {
-    const row = document.getElementById(`rot-row-${idx}`);
-    if (row) { row.dataset.horario = item.horario || ''; row.dataset.atividade = item.atividade || ''; }
+    </tr>`;
+  }).join('');
+  _verificarRotina();
+}
+
+function _atualizarDurRotLinha(idx) {
+  const row = document.getElementById(`rot-row-${idx}`);
+  const dur = document.getElementById(`rot-dur-${idx}`);
+  if (!row || !dur) return;
+  const ini = row.querySelector('[data-field="inicio"]')?.value;
+  const fim = row.querySelector('[data-field="fim"]')?.value;
+  dur.textContent = _durRotStr(ini, fim);
+}
+
+function _verificarRotina() {
+  const alertEl = document.getElementById('rotina-alertas');
+  if (!alertEl) return;
+
+  const itens = _coletarItensEditor()
+    .map((item, idx) => ({ ...item, idx, iniMin: _toMinRot(item.inicio), fimMin: _toMinRot(item.fim) }))
+    .filter(i => i.iniMin !== null && i.fimMin !== null);
+
+  const msgs = [];
+
+  // Resetar destaque de todas as linhas
+  Array.from(document.querySelectorAll('#rotina-linhas tr')).forEach(r => r.style.background = '');
+
+  // 1. Horário inválido (fim <= início)
+  itens.forEach(i => {
+    if (i.fimMin <= i.iniMin) {
+      msgs.push(`⚠️ Linha ${i.idx + 1}: horário de fim deve ser após o início.`);
+      const row = document.getElementById(`rot-row-${i.idx}`);
+      if (row) row.style.background = '#fff7ed';
+    }
   });
+
+  const validos = itens.filter(i => i.fimMin > i.iniMin);
+
+  // 2. Conflitos (sobreposição)
+  for (let a = 0; a < validos.length; a++) {
+    for (let b = a + 1; b < validos.length; b++) {
+      const va = validos[a], vb = validos[b];
+      if (va.iniMin < vb.fimMin && vb.iniMin < va.fimMin) {
+        msgs.push(`🔴 Conflito: Linha ${va.idx+1} (${va.inicio}–${va.fim}) e Linha ${vb.idx+1} (${vb.inicio}–${vb.fim}) se sobrepõem.`);
+        [va.idx, vb.idx].forEach(i => { const r = document.getElementById(`rot-row-${i}`); if (r) r.style.background = '#fee2e2'; });
+      }
+    }
+  }
+
+  // 3. Lacunas entre linhas consecutivas (ordenado por início)
+  const sorted = [...validos].sort((a, b) => a.iniMin - b.iniMin);
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const cur = sorted[i], prox = sorted[i + 1];
+    if (cur.fimMin !== prox.iniMin) {
+      const diff = prox.iniMin - cur.fimMin;
+      if (diff > 0) msgs.push(`🟡 Lacuna de ${diff} min entre ${cur.fim} e ${prox.inicio}.`);
+    }
+  }
+
+  if (msgs.length === 0) {
+    alertEl.innerHTML = validos.length > 1
+      ? `<div style="color:#059669;font-size:13px;font-weight:600;">✅ Nenhum conflito ou lacuna encontrado.</div>` : '';
+  } else {
+    alertEl.innerHTML = msgs.map(m =>
+      `<div style="font-size:13px;padding:4px 10px;margin-bottom:4px;border-radius:6px;
+        background:${m.startsWith('🔴')?'#fee2e2':m.startsWith('🟡')?'#fef9c3':'#fff7ed'};
+        color:${m.startsWith('🔴')?'#991b1b':m.startsWith('🟡')?'#713f12':'#92400e'};">${m}</div>`
+    ).join('');
+  }
 }
 
 function rotinaAddLinha() {
-  const tbody = document.getElementById('rotina-linhas');
-  if (!tbody) return;
-  const rows = Array.from(tbody.querySelectorAll('tr'));
-  const itens = rows.map(r => ({ horario: r.querySelector('[data-field="horario"]').value, atividade: r.querySelector('[data-field="atividade"]').value }));
-  itens.push({ horario: '', atividade: '' });
+  const itens = _coletarItensEditor();
+  // Sugere início = fim da última linha preenchida
+  const ultima = [...itens].reverse().find(i => i.fim);
+  itens.push({ inicio: ultima?.fim || '', fim: '', atividade: '' });
   _renderLinhasEditor(itens);
 }
 
 function rotinaRemoveLinha(idx) {
-  const tbody = document.getElementById('rotina-linhas');
-  if (!tbody) return;
-  const rows = Array.from(tbody.querySelectorAll('tr'));
-  const itens = rows.map(r => ({ horario: r.querySelector('[data-field="horario"]').value, atividade: r.querySelector('[data-field="atividade"]').value }));
+  const itens = _coletarItensEditor();
   itens.splice(idx, 1);
-  if (itens.length === 0) itens.push({ horario: '', atividade: '' });
+  if (itens.length === 0) itens.push({ inicio: '', fim: '', atividade: '' });
   _renderLinhasEditor(itens);
 }
 
@@ -5315,17 +5420,19 @@ function salvarRotina() {
   const turmaId = document.getElementById('rotina-turma-sel')?.value;
   if (!turmaId) { showToast('⚠️ Selecione uma turma.'); return; }
   const ano = document.getElementById('rotina-ano')?.value || String(new Date().getFullYear());
-  const tbody = document.getElementById('rotina-linhas');
-  const rows  = Array.from(tbody.querySelectorAll('tr'));
-  const itens = rows
-    .map(r => ({
-      id: uid(),
-      horario:   r.querySelector('[data-field="horario"]').value.trim(),
-      atividade: r.querySelector('[data-field="atividade"]').value.trim(),
-    }))
-    .filter(i => i.horario || i.atividade);
+  const itens = _coletarItensEditor()
+    .map(i => ({ id: uid(), inicio: i.inicio.trim(), fim: i.fim.trim(), atividade: i.atividade.trim() }))
+    .filter(i => i.inicio || i.fim || i.atividade);
 
   if (itens.length === 0) { showToast('⚠️ Adicione pelo menos uma linha.'); return; }
+
+  // Avisa sobre problemas mas permite salvar
+  const temConflito = itens.some((a, ia) => itens.some((b, ib) => {
+    if (ia >= ib) return false;
+    const ai = _toMinRot(a.inicio), af = _toMinRot(a.fim), bi = _toMinRot(b.inicio), bf = _toMinRot(b.fim);
+    return ai !== null && af !== null && bi !== null && bf !== null && ai < bf && bi < af;
+  }));
+  if (temConflito && !confirm('Existem conflitos de horário. Deseja salvar mesmo assim?')) return;
 
   const idx = db.rotinas.findIndex(r => r.turmaId === turmaId);
   const rotina = {
@@ -5368,11 +5475,24 @@ function _renderRotinaView(turmaId, rotina) {
     return;
   }
 
-  const linhas = rotina.itens.map(i =>
-    `<tr>
-      <td style="padding:7px 14px;border-bottom:1px solid #e5e7eb;font-weight:600;white-space:nowrap;">${i.horario||'—'}</td>
+  const fmtFaixa = i => {
+    const ini = i.inicio || (i.horario ? _parseHorarioAntigo(i.horario).inicio : '');
+    const fim = i.fim    || (i.horario ? _parseHorarioAntigo(i.horario).fim    : '');
+    if (ini && fim) return `${ini} – ${fim}`;
+    if (ini) return ini;
+    return i.horario || '—';
+  };
+
+  const linhas = rotina.itens.map((i, idx) => {
+    const ini = i.inicio || (i.horario ? _parseHorarioAntigo(i.horario).inicio : '');
+    const fim = i.fim    || (i.horario ? _parseHorarioAntigo(i.horario).fim    : '');
+    const dur = _durRotStr(ini, fim);
+    return `<tr style="background:${idx%2===0?'#fff':'#f8fafc'}">
+      <td style="padding:7px 14px;border-bottom:1px solid #e5e7eb;font-weight:600;white-space:nowrap;">${fmtFaixa(i)}</td>
+      <td style="padding:7px 14px;border-bottom:1px solid #e5e7eb;font-size:12px;color:var(--green-dark);text-align:center;white-space:nowrap;">${dur}</td>
       <td style="padding:7px 14px;border-bottom:1px solid #e5e7eb;">${i.atividade||'—'}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 
   el.innerHTML = `
     <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -5384,7 +5504,8 @@ function _renderRotinaView(turmaId, rotina) {
       <table style="border-collapse:collapse;width:100%;min-width:320px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
         <thead>
           <tr style="background:var(--green-light);">
-            <th style="padding:9px 14px;text-align:left;color:var(--green-dark);font-size:13px;width:160px;">Horário</th>
+            <th style="padding:9px 14px;text-align:left;color:var(--green-dark);font-size:13px;width:150px;">Horário</th>
+            <th style="padding:9px 14px;text-align:center;color:var(--green-dark);font-size:13px;width:70px;">Duração</th>
             <th style="padding:9px 14px;text-align:left;color:var(--green-dark);font-size:13px;">Atividades</th>
           </tr>
         </thead>
@@ -5399,11 +5520,21 @@ function imprimirRotina() {
   const turma   = db.turmas.find(t => t.id === turmaId);
   if (!rotina?.itens?.length) { showToast('⚠️ Nenhuma rotina para imprimir.'); return; }
 
-  const linhas = rotina.itens.map((i, idx) =>
-    `<tr style="background:${idx%2===0?'#fff':'#f9fafb'}">
-      <td style="padding:9px 16px;border-bottom:1px solid #e5e7eb;font-weight:600;white-space:nowrap;">${i.horario||'—'}</td>
+  const fmtFaixaImp = i => {
+    const ini = i.inicio || (i.horario ? _parseHorarioAntigo(i.horario).inicio : '');
+    const fim = i.fim    || (i.horario ? _parseHorarioAntigo(i.horario).fim    : '');
+    return (ini && fim) ? `${ini} – ${fim}` : (ini || i.horario || '—');
+  };
+
+  const linhas = rotina.itens.map((i, idx) => {
+    const ini = i.inicio || (i.horario ? _parseHorarioAntigo(i.horario).inicio : '');
+    const fim = i.fim    || (i.horario ? _parseHorarioAntigo(i.horario).fim    : '');
+    return `<tr style="background:${idx%2===0?'#fff':'#f9fafb'}">
+      <td style="padding:9px 16px;border-bottom:1px solid #e5e7eb;font-weight:600;white-space:nowrap;">${fmtFaixaImp(i)}</td>
+      <td style="padding:9px 12px;border-bottom:1px solid #e5e7eb;text-align:center;color:#059669;font-size:12px;">${_durRotStr(ini,fim)}</td>
       <td style="padding:9px 16px;border-bottom:1px solid #e5e7eb;">${i.atividade||'—'}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 
   const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <title>Rotina — ${turma?.nome||''}</title>
@@ -5420,7 +5551,11 @@ function imprimirRotina() {
 </head><body>
 <h1>Rotina — ${turma?.nome||'Turma'}</h1>
 <h2>Ano Letivo ${rotina.ano||new Date().getFullYear()} &nbsp;|&nbsp; Escola Ponte do Saber</h2>
-<table><thead><tr><th style="width:170px;">Horário</th><th>Atividades</th></tr></thead>
+<table><thead><tr>
+  <th style="width:150px;">Horário</th>
+  <th style="width:70px;text-align:center;">Duração</th>
+  <th>Atividades</th>
+</tr></thead>
 <tbody>${linhas}</tbody></table>
 <script>window.onload=()=>window.print()<\/script>
 </body></html>`;
