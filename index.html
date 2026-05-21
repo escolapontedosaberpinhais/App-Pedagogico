@@ -1598,16 +1598,43 @@ function getFolder(path) {
         </select>
       </div>
     </div>
-    <div style="margin-top:4px;">
-      <label style="font-weight:600;font-size:13px;color:var(--green-dark);display:block;margin-bottom:8px;">Distribuição semanal (horas por dia):</label>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-        <div class="form-group" style="min-width:68px;"><label>Seg</label><input type="number" id="ha-seg" min="0" max="10" step="0.5" value="0" oninput="atualizarHaTotal()"></div>
-        <div class="form-group" style="min-width:68px;"><label>Ter</label><input type="number" id="ha-ter" min="0" max="10" step="0.5" value="0" oninput="atualizarHaTotal()"></div>
-        <div class="form-group" style="min-width:68px;"><label>Qua</label><input type="number" id="ha-qua" min="0" max="10" step="0.5" value="0" oninput="atualizarHaTotal()"></div>
-        <div class="form-group" style="min-width:68px;"><label>Qui</label><input type="number" id="ha-qui" min="0" max="10" step="0.5" value="0" oninput="atualizarHaTotal()"></div>
-        <div class="form-group" style="min-width:68px;"><label>Sex</label><input type="number" id="ha-sex" min="0" max="10" step="0.5" value="0" oninput="atualizarHaTotal()"></div>
-        <div style="padding-bottom:6px;font-size:13px;" id="ha-total-label">Total: 0h / Meta: 0h</div>
+    <div style="margin-top:8px;">
+      <label style="font-weight:600;font-size:13px;color:var(--green-dark);display:block;margin-bottom:10px;">Horários de saída de sala (hora-atividade):</label>
+      <div style="overflow-x:auto;">
+        <table style="border-collapse:collapse;font-size:13px;width:100%;max-width:500px;">
+          <thead>
+            <tr>
+              <th style="padding:7px 10px;background:var(--green-light);color:var(--green-dark);text-align:left;border-radius:6px 0 0 0;">Dia</th>
+              <th style="padding:7px 10px;background:var(--green-light);color:var(--green-dark);text-align:center;">Saída da sala</th>
+              <th style="padding:7px 10px;background:var(--green-light);color:var(--green-dark);text-align:center;">Retorno</th>
+              <th style="padding:7px 10px;background:var(--green-light);color:var(--green-dark);text-align:center;border-radius:0 6px 0 0;">Duração</th>
+            </tr>
+          </thead>
+          <tbody id="ha-horarios-body">
+            <tr><td style="padding:6px 10px;border-bottom:1px solid var(--gray-100);font-weight:600;">Segunda</td>
+              <td style="padding:4px 8px;border-bottom:1px solid var(--gray-100);text-align:center;"><input type="time" id="ha-seg-saida" oninput="atualizarHaTotal()" style="width:90px;font-size:13px;padding:4px;border:1px solid var(--gray-200);border-radius:5px;"></td>
+              <td style="padding:4px 8px;border-bottom:1px solid var(--gray-100);text-align:center;"><input type="time" id="ha-seg-retorno" oninput="atualizarHaTotal()" style="width:90px;font-size:13px;padding:4px;border:1px solid var(--gray-200);border-radius:5px;"></td>
+              <td style="padding:4px 8px;border-bottom:1px solid var(--gray-100);text-align:center;font-size:12px;color:var(--green-dark);" id="ha-seg-dur">—</td></tr>
+            <tr><td style="padding:6px 10px;border-bottom:1px solid var(--gray-100);font-weight:600;">Terça</td>
+              <td style="padding:4px 8px;border-bottom:1px solid var(--gray-100);text-align:center;"><input type="time" id="ha-ter-saida" oninput="atualizarHaTotal()" style="width:90px;font-size:13px;padding:4px;border:1px solid var(--gray-200);border-radius:5px;"></td>
+              <td style="padding:4px 8px;border-bottom:1px solid var(--gray-100);text-align:center;"><input type="time" id="ha-ter-retorno" oninput="atualizarHaTotal()" style="width:90px;font-size:13px;padding:4px;border:1px solid var(--gray-200);border-radius:5px;"></td>
+              <td style="padding:4px 8px;border-bottom:1px solid var(--gray-100);text-align:center;font-size:12px;color:var(--green-dark);" id="ha-ter-dur">—</td></tr>
+            <tr><td style="padding:6px 10px;border-bottom:1px solid var(--gray-100);font-weight:600;">Quarta</td>
+              <td style="padding:4px 8px;border-bottom:1px solid var(--gray-100);text-align:center;"><input type="time" id="ha-qua-saida" oninput="atualizarHaTotal()" style="width:90px;font-size:13px;padding:4px;border:1px solid var(--gray-200);border-radius:5px;"></td>
+              <td style="padding:4px 8px;border-bottom:1px solid var(--gray-100);text-align:center;"><input type="time" id="ha-qua-retorno" oninput="atualizarHaTotal()" style="width:90px;font-size:13px;padding:4px;border:1px solid var(--gray-200);border-radius:5px;"></td>
+              <td style="padding:4px 8px;border-bottom:1px solid var(--gray-100);text-align:center;font-size:12px;color:var(--green-dark);" id="ha-qua-dur">—</td></tr>
+            <tr><td style="padding:6px 10px;border-bottom:1px solid var(--gray-100);font-weight:600;">Quinta</td>
+              <td style="padding:4px 8px;border-bottom:1px solid var(--gray-100);text-align:center;"><input type="time" id="ha-qui-saida" oninput="atualizarHaTotal()" style="width:90px;font-size:13px;padding:4px;border:1px solid var(--gray-200);border-radius:5px;"></td>
+              <td style="padding:4px 8px;border-bottom:1px solid var(--gray-100);text-align:center;"><input type="time" id="ha-qui-retorno" oninput="atualizarHaTotal()" style="width:90px;font-size:13px;padding:4px;border:1px solid var(--gray-200);border-radius:5px;"></td>
+              <td style="padding:4px 8px;border-bottom:1px solid var(--gray-100);text-align:center;font-size:12px;color:var(--green-dark);" id="ha-qui-dur">—</td></tr>
+            <tr><td style="padding:6px 10px;font-weight:600;">Sexta</td>
+              <td style="padding:4px 8px;text-align:center;"><input type="time" id="ha-sex-saida" oninput="atualizarHaTotal()" style="width:90px;font-size:13px;padding:4px;border:1px solid var(--gray-200);border-radius:5px;"></td>
+              <td style="padding:4px 8px;text-align:center;"><input type="time" id="ha-sex-retorno" oninput="atualizarHaTotal()" style="width:90px;font-size:13px;padding:4px;border:1px solid var(--gray-200);border-radius:5px;"></td>
+              <td style="padding:4px 8px;text-align:center;font-size:12px;color:var(--green-dark);" id="ha-sex-dur">—</td></tr>
+          </tbody>
+        </table>
       </div>
+      <div style="margin-top:10px;font-size:13px;" id="ha-total-label">Selecione carga e preencha os horários.</div>
     </div>
     <div class="btn-row">
       <button class="btn btn-primary" onclick="salvarHaProf()">💾 Salvar configuração</button>
@@ -4465,7 +4492,9 @@ function carregarHaProf() {
   const ha = db.horaAtividade.find(h => h.professoraId === id);
   document.getElementById('ha-carga').value = ha?.cargaHorariaSemanal || '';
   ['seg','ter','qua','qui','sex'].forEach(d => {
-    document.getElementById(`ha-${d}`).value = ha?.distribuicao?.[d] ?? 0;
+    const dist = ha?.distribuicao?.[d];
+    document.getElementById(`ha-${d}-saida`).value   = dist?.saida   || '';
+    document.getElementById(`ha-${d}-retorno`).value = dist?.retorno || '';
   });
   atualizarHaTotal();
 }
@@ -4476,17 +4505,41 @@ function calcMetaHa(carga) {
   return Math.round(carga / 11 * 10) / 10;
 }
 
+function minutosDesde(hhmm) {
+  if (!hhmm) return null;
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function duracaoHoras(saida, retorno) {
+  const s = minutosDesde(saida), r = minutosDesde(retorno);
+  if (s === null || r === null || r <= s) return 0;
+  return Math.round((r - s) / 60 * 10) / 10;
+}
+
+function minParaHHMM(min) {
+  const h = Math.floor(min / 60), m = min % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+
 function atualizarHaTotal() {
   const carga = parseFloat(document.getElementById('ha-carga')?.value) || 0;
   const meta  = carga ? calcMetaHa(carga) : 0;
-  const total = ['seg','ter','qua','qui','sex'].reduce((s,d) => {
-    return s + (parseFloat(document.getElementById(`ha-${d}`)?.value) || 0);
-  }, 0);
+  const dias  = ['seg','ter','qua','qui','sex'];
+  let total   = 0;
+  dias.forEach(d => {
+    const saida   = document.getElementById(`ha-${d}-saida`)?.value;
+    const retorno = document.getElementById(`ha-${d}-retorno`)?.value;
+    const dur     = duracaoHoras(saida, retorno);
+    const durEl   = document.getElementById(`ha-${d}-dur`);
+    if (durEl) durEl.textContent = dur > 0 ? `${dur}h` : '—';
+    total = Math.round((total + dur) * 10) / 10;
+  });
   const lbl = document.getElementById('ha-total-label');
   if (!lbl) return;
   const diff = Math.round((total - meta) * 10) / 10;
   const cor = diff > 0.05 ? 'var(--red)' : diff < -0.05 ? '#e8a045' : 'var(--green)';
-  lbl.innerHTML = `Distribuído: <strong style="color:${cor}">${total}h</strong> &nbsp;/&nbsp; Meta: <strong>${meta}h</strong>${diff > 0.05 ? ' ⚠️ excede' : diff < -0.05 ? ' ⚠️ faltam ' + Math.abs(diff) + 'h' : ' ✅'}`;
+  lbl.innerHTML = `Total distribuído: <strong style="color:${cor}">${total}h</strong> &nbsp;/&nbsp; Meta: <strong>${meta}h</strong>${meta === 0 ? '' : diff > 0.05 ? ' ⚠️ excede' : diff < -0.05 ? ' ⚠️ faltam ' + Math.abs(diff) + 'h' : ' ✅'}`;
 }
 
 function salvarHaProf() {
@@ -4498,7 +4551,11 @@ function salvarHaProf() {
   const metaSemanal  = calcMetaHa(carga);
   const distribuicao = {};
   ['seg','ter','qua','qui','sex'].forEach(d => {
-    distribuicao[d] = parseFloat(document.getElementById(`ha-${d}`).value) || 0;
+    const saida   = document.getElementById(`ha-${d}-saida`).value;
+    const retorno = document.getElementById(`ha-${d}-retorno`).value;
+    if (saida && retorno && retorno > saida) {
+      distribuicao[d] = { saida, retorno };
+    }
   });
   let ha = db.horaAtividade.find(h => h.professoraId === id);
   if (ha) {
@@ -4524,40 +4581,94 @@ function renderHoraAtividade() {
 function renderHaGrade() {
   const el = document.getElementById('ha-grade');
   if (!el) return;
-  const dias = ['Seg','Ter','Qua','Qui','Sex'];
-  const keys = ['seg','ter','qua','qui','sex'];
+  const diasLabel = ['Segunda','Terça','Quarta','Quinta','Sexta'];
+  const keys      = ['seg','ter','qua','qui','sex'];
   if (db.horaAtividade.length === 0) {
-    el.innerHTML = '<p style="color:var(--gray-400);font-size:13px;padding:8px 0;">Nenhuma professora configurada ainda. Use o formulário acima para começar.</p>';
+    el.innerHTML = '<p style="color:var(--gray-400);font-size:13px;padding:8px 0;">Nenhuma professora configurada ainda.</p>';
     return;
   }
-  let html = `<table style="width:100%;border-collapse:collapse;font-size:13px;min-width:480px;">
+
+  // --- Tabela resumo por professora ---
+  let resumo = `<table style="width:100%;border-collapse:collapse;font-size:13px;min-width:520px;margin-bottom:20px;">
     <thead><tr>
-      <th style="text-align:left;padding:9px 12px;background:var(--green-light);color:var(--green-dark);">Professora</th>
-      <th style="padding:9px 8px;background:var(--green-light);color:var(--green-dark);text-align:center;">Carga<br><small style="font-weight:400;">semanal</small></th>
-      <th style="padding:9px 8px;background:var(--green-light);color:var(--green-dark);text-align:center;">Meta<br><small style="font-weight:400;">planej.</small></th>
-      ${dias.map(d=>`<th style="padding:9px 10px;background:var(--green-light);color:var(--green-dark);text-align:center;">${d}</th>`).join('')}
-      <th style="padding:9px 8px;background:var(--green-light);color:var(--green-dark);text-align:center;">Ação</th>
+      <th style="text-align:left;padding:8px 12px;background:var(--green-light);color:var(--green-dark);">Professora</th>
+      <th style="padding:8px;background:var(--green-light);color:var(--green-dark);text-align:center;">Carga</th>
+      <th style="padding:8px;background:var(--green-light);color:var(--green-dark);text-align:center;">Meta/sem</th>
+      ${diasLabel.map(d=>`<th style="padding:8px 10px;background:var(--green-light);color:var(--green-dark);text-align:center;">${d}</th>`).join('')}
+      <th style="padding:8px;background:var(--green-light);color:var(--green-dark);text-align:center;"></th>
     </tr></thead><tbody>`;
   db.horaAtividade.forEach((ha, i) => {
     const meta = ha.metaSemanal ?? calcMetaHa(ha.cargaHorariaSemanal ?? 0);
     const bg   = i % 2 === 0 ? '#fff' : '#f8fffe';
-    html += `<tr style="background:${bg};">
-      <td style="padding:10px 12px;border-bottom:1px solid var(--gray-100);font-weight:600;">${ha.professoraNome}</td>
-      <td style="padding:10px;border-bottom:1px solid var(--gray-100);text-align:center;">${ha.cargaHorariaSemanal}h</td>
-      <td style="padding:10px;border-bottom:1px solid var(--gray-100);text-align:center;"><strong style="color:var(--green-dark);">${meta}h/sem</strong></td>
-      ${keys.map(k=>{
-        const h = ha.distribuicao?.[k] || 0;
-        return h > 0
-          ? `<td style="padding:10px;border-bottom:1px solid var(--gray-100);text-align:center;background:#d1fae5;font-weight:700;color:#065f46;">${h}h</td>`
-          : `<td style="padding:10px;border-bottom:1px solid var(--gray-100);text-align:center;color:var(--gray-200);">—</td>`;
+    resumo += `<tr style="background:${bg};">
+      <td style="padding:9px 12px;border-bottom:1px solid var(--gray-100);font-weight:600;">${ha.professoraNome}</td>
+      <td style="padding:9px 8px;border-bottom:1px solid var(--gray-100);text-align:center;">${ha.cargaHorariaSemanal}h</td>
+      <td style="padding:9px 8px;border-bottom:1px solid var(--gray-100);text-align:center;"><strong style="color:var(--green-dark);">${meta}h</strong></td>
+      ${keys.map(k => {
+        const dist = ha.distribuicao?.[k];
+        return dist?.saida
+          ? `<td style="padding:9px 6px;border-bottom:1px solid var(--gray-100);text-align:center;background:#d1fae5;color:#065f46;font-size:12px;font-weight:600;">${dist.saida}<br><span style="font-weight:400;">até ${dist.retorno}</span></td>`
+          : `<td style="padding:9px 6px;border-bottom:1px solid var(--gray-100);text-align:center;color:var(--gray-200);">—</td>`;
       }).join('')}
-      <td style="padding:10px;border-bottom:1px solid var(--gray-100);text-align:center;">
-        <button class="btn btn-secondary btn-sm" style="font-size:11px;padding:3px 8px;" onclick="editarHaProf('${ha.professoraId}')">✏️ Editar</button>
+      <td style="padding:9px 8px;border-bottom:1px solid var(--gray-100);text-align:center;">
+        <button class="btn btn-secondary btn-sm" style="font-size:11px;padding:3px 8px;" onclick="editarHaProf('${ha.professoraId}')">✏️</button>
       </td>
     </tr>`;
   });
-  html += '</tbody></table>';
-  el.innerHTML = html;
+  resumo += '</tbody></table>';
+
+  // --- Grade de horários (timetable) com detecção de cruzamento ---
+  // Determina o range de horários
+  let minSlot = Infinity, maxSlot = -Infinity;
+  db.horaAtividade.forEach(ha => {
+    keys.forEach(k => {
+      const dist = ha.distribuicao?.[k];
+      if (dist?.saida)   minSlot = Math.min(minSlot, minutosDesde(dist.saida));
+      if (dist?.retorno) maxSlot = Math.max(maxSlot, minutosDesde(dist.retorno));
+    });
+  });
+  if (minSlot === Infinity) { el.innerHTML = resumo; return; }
+  // Arredonda para múltiplos de 30 min
+  minSlot = Math.floor(minSlot / 30) * 30;
+  maxSlot = Math.ceil(maxSlot  / 30) * 30;
+
+  const slots = [];
+  for (let m = minSlot; m < maxSlot; m += 30) slots.push(m);
+
+  let grade = `<div style="font-weight:700;font-size:13px;color:var(--green-dark);margin-bottom:8px;">🕐 Mapa de horários — cruzamentos em vermelho</div>`;
+  grade += `<div style="overflow-x:auto;"><table style="border-collapse:collapse;font-size:12px;min-width:420px;">
+    <thead><tr>
+      <th style="padding:7px 12px;background:var(--green-light);color:var(--green-dark);text-align:center;white-space:nowrap;">Horário</th>
+      ${diasLabel.map(d=>`<th style="padding:7px 12px;background:var(--green-light);color:var(--green-dark);text-align:center;">${d}</th>`).join('')}
+    </tr></thead><tbody>`;
+
+  slots.forEach((slot, si) => {
+    const slotLabel = `${minParaHHMM(slot)} – ${minParaHHMM(slot+30)}`;
+    const bg = si % 2 === 0 ? '#fff' : '#fafafa';
+    grade += `<tr style="background:${bg};">
+      <td style="padding:6px 12px;border:1px solid var(--gray-100);font-weight:600;white-space:nowrap;color:#555;">${slotLabel}</td>`;
+    keys.forEach(k => {
+      const fora = db.horaAtividade.filter(ha => {
+        const dist = ha.distribuicao?.[k];
+        if (!dist?.saida || !dist?.retorno) return false;
+        const s = minutosDesde(dist.saida), r = minutosDesde(dist.retorno);
+        return slot >= s && (slot + 30) <= r;
+      });
+      if (fora.length === 0) {
+        grade += `<td style="padding:6px 8px;border:1px solid var(--gray-100);text-align:center;color:#ccc;">—</td>`;
+      } else if (fora.length === 1) {
+        grade += `<td style="padding:5px 8px;border:1px solid #86efac;background:#d1fae5;text-align:center;font-size:11px;font-weight:600;color:#065f46;">${fora[0].professoraNome.split(' ')[0]}</td>`;
+      } else {
+        const nomes = fora.map(h => h.professoraNome.split(' ')[0]).join(', ');
+        grade += `<td style="padding:5px 8px;border:1px solid #fca5a5;background:#fee2e2;text-align:center;font-size:11px;font-weight:700;color:#991b1b;" title="⚠️ Cruzamento: ${nomes}">⚠️ ${nomes}</td>`;
+      }
+    });
+    grade += `</tr>`;
+  });
+  grade += '</tbody></table></div>';
+  grade += `<div style="margin-top:8px;font-size:11px;color:var(--gray-400);">🟢 Uma professora fora · 🔴 Cruzamento (duas ou mais fora ao mesmo tempo)</div>`;
+
+  el.innerHTML = resumo + grade;
 }
 
 function editarHaProf(professoraId) {
@@ -4640,7 +4751,12 @@ function imprimirHoraAtividade() {
       <td>${ha.professoraNome}</td>
       <td style="text-align:center;">${ha.cargaHorariaSemanal}h</td>
       <td style="text-align:center;font-weight:700;color:#1D9E75;">${meta}h/sem</td>
-      ${keys.map(k=>{const h=ha.distribuicao?.[k]||0;return h>0?`<td style="text-align:center;background:#d1fae5;font-weight:700;">${h}h</td>`:`<td style="text-align:center;color:#bbb;">—</td>`;}).join('')}
+      ${keys.map(k=>{
+        const dist = ha.distribuicao?.[k];
+        return dist?.saida
+          ? `<td style="text-align:center;background:#d1fae5;font-weight:700;">${dist.saida}–${dist.retorno}</td>`
+          : `<td style="text-align:center;color:#bbb;">—</td>`;
+      }).join('')}
     </tr>`;
   }).join('');
   const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Grade Hora-Atividade</title>
