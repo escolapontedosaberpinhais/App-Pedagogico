@@ -4972,7 +4972,7 @@ function imprimirHoraAtividade() {
   ${logoSrc?`<img class="logo" src="${logoSrc}"><br>`:''}
   <h1>⏰ Grade de Hora-Atividade</h1>
   <h2>Escola Ponte do Saber &nbsp;|&nbsp; Emitido em ${new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'})}</h2>
-  <table><thead><tr><th>Professora</th><th>Carga Semanal</th><th>% Planej.</th><th>Meta/Semana</th>
+  <table><thead><tr><th>Professora</th><th>Carga Semanal</th><th>Meta/Semana</th>
   ${dias.map(d=>`<th>${d}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>
   <script>window.onload=()=>window.print()<\/script></body></html>`;
   const win = window.open('','_blank','width=1000,height=680');
