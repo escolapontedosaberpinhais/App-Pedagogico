@@ -4796,13 +4796,21 @@ function renderHaGrade() {
   if (!el) return;
   const diasLabel  = ['Segunda','Terça','Quarta','Quinta','Sexta'];
   const keys       = ['seg','ter','qua','qui','sex'];
-  const isGestaoHa = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
-  if (db.horaAtividade.length === 0) {
-    el.innerHTML = '<p style="color:var(--gray-400);font-size:13px;padding:8px 0;">Nenhuma professora configurada ainda.</p>';
+  const isGestaoHa  = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
+  const isProfHa    = currentUser?.papel === 'professora';
+  const meuIdHa     = currentUser?.id || '';
+
+  // Professora vê apenas sua própria linha
+  const listaGrade  = isProfHa
+    ? db.horaAtividade.filter(h => h.professoraId === meuIdHa)
+    : db.horaAtividade;
+
+  if (listaGrade.length === 0) {
+    el.innerHTML = '<p style="color:var(--gray-400);font-size:13px;padding:8px 0;">Nenhuma configuração encontrada.</p>';
     return;
   }
 
-  // --- Tabela resumo por professora ---
+  // --- Tabela resumo ---
   let resumo = `<table style="width:100%;border-collapse:collapse;font-size:13px;min-width:520px;margin-bottom:20px;">
     <thead><tr>
       <th style="text-align:left;padding:8px 12px;background:var(--green-light);color:var(--green-dark);">Professora</th>
@@ -4811,7 +4819,7 @@ function renderHaGrade() {
       ${diasLabel.map(d=>`<th style="padding:8px 10px;background:var(--green-light);color:var(--green-dark);text-align:center;">${d}</th>`).join('')}
       ${isGestaoHa ? `<th style="padding:8px;background:var(--green-light);color:var(--green-dark);text-align:center;"></th>` : ''}
     </tr></thead><tbody>`;
-  db.horaAtividade.forEach((ha, i) => {
+  listaGrade.forEach((ha, i) => {
     const meta = ha.metaSemanal ?? calcMetaHa(ha.cargaHorariaSemanal ?? 0);
     const bg   = i % 2 === 0 ? '#fff' : '#f8fffe';
     resumo += `<tr style="background:${bg};">
@@ -4831,8 +4839,10 @@ function renderHaGrade() {
   });
   resumo += '</tbody></table>';
 
-  // --- Grade de horários (timetable) com detecção de cruzamento ---
-  // Determina o range de horários
+  // Professora: só vê a própria grade, sem mapa de cruzamentos
+  if (isProfHa) { el.innerHTML = resumo; return; }
+
+  // --- Mapa de horários com cruzamentos (somente gestão) ---
   let minSlot = Infinity, maxSlot = -Infinity;
   db.horaAtividade.forEach(ha => {
     keys.forEach(k => {
@@ -4842,7 +4852,6 @@ function renderHaGrade() {
     });
   });
   if (minSlot === Infinity) { el.innerHTML = resumo; return; }
-  // Arredonda para múltiplos de 30 min
   minSlot = Math.floor(minSlot / 30) * 30;
   maxSlot = Math.ceil(maxSlot  / 30) * 30;
 
@@ -4855,7 +4864,6 @@ function renderHaGrade() {
       <th style="padding:7px 12px;background:var(--green-light);color:var(--green-dark);text-align:center;white-space:nowrap;">Horário</th>
       ${diasLabel.map(d=>`<th style="padding:7px 12px;background:var(--green-light);color:var(--green-dark);text-align:center;">${d}</th>`).join('')}
     </tr></thead><tbody>`;
-
   slots.forEach((slot, si) => {
     const slotLabel = `${minParaHHMM(slot)} – ${minParaHHMM(slot+30)}`;
     const bg = si % 2 === 0 ? '#fff' : '#fafafa';
