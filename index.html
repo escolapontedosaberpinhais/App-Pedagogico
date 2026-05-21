@@ -1706,6 +1706,11 @@ async function loadFromFirestore() {
     if (rCfg.exists) {
       db.apiKey = rCfg.data().apiKey ?? '';
       if (rCfg.data().model) localStorage.setItem('ps_gemini_model', rCfg.data().model);
+      // Sincroniza URL do Apps Script do Firestore → todos os dispositivos usam a mesma URL
+      if (rCfg.data().appsScriptUrl) {
+        localStorage.setItem('ps_apps_script_url', rCfg.data().appsScriptUrl);
+        appsScriptUrl = rCfg.data().appsScriptUrl;
+      }
     }
     // Primeira execução: migra dados do localStorage se houver
     if (!rU.exists && LS.get('ps_usuarios', []).length > 0) {
@@ -3541,7 +3546,10 @@ async function verPlanejamento(id) {
   }
 
   if (!appsScriptUrl) {
-    showToast('⚠️ Configure o Google Drive na aba Configuração para abrir no Google Docs.');
+    const msg = currentUser?.papel === 'diretor'
+      ? '⚠️ Configure o Google Drive na aba Configuração para abrir no Google Docs.'
+      : '⚠️ Conexão com o Google Drive não configurada. Peça ao diretor para configurar na aba Configurações.';
+    showToast(msg);
     return;
   }
 
@@ -3563,7 +3571,7 @@ async function verPlanejamento(id) {
       win.location.href = url;
     } else {
       win.close();
-      showToast('⚠️ Não foi possível criar o documento. Verifique o Apps Script nas Configurações.');
+      showToast('⚠️ Não foi possível criar o documento. Verifique o Google Drive nas Configurações.');
     }
   } catch(e) {
     win.close();
@@ -5130,6 +5138,9 @@ function saveAppsScript() {
   }
   appsScriptUrl = url;
   localStorage.setItem('ps_apps_script_url', url);
+  // Salva no Firestore para sincronizar com todos os dispositivos/usuários
+  FSREF('config').set({ appsScriptUrl: url, apiKey: db.apiKey }, { merge: true })
+    .catch(e => console.warn('Firestore appsScript save error:', e));
   updateCloudStatus(true);
   showToast('✅ Google Drive conectado!');
 }
@@ -5137,6 +5148,8 @@ function saveAppsScript() {
 function disconnectAppsScript() {
   appsScriptUrl = null;
   localStorage.removeItem('ps_apps_script_url');
+  FSREF('config').set({ appsScriptUrl: null, apiKey: db.apiKey }, { merge: true })
+    .catch(e => console.warn('Firestore disconnect error:', e));
   updateCloudStatus(false);
   showToast('Desconectado.');
 }
