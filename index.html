@@ -897,6 +897,12 @@
   <button id="nav-atividades" onclick="showTab('atividades')" data-tab="atividades" style="display:none;">🎯 Atividades</button>
 </nav>
 
+<!-- Barra fixa: professoras em hora-atividade agora (gestão) -->
+<div id="ha-topbar" style="display:none;position:sticky;top:0;z-index:90;background:linear-gradient(90deg,#dcfce7 0%,#f0fdf4 100%);border-bottom:2px solid #86efac;padding:7px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px;box-shadow:0 2px 8px rgba(34,197,94,.13);">
+  <span style="font-weight:700;color:#15803d;white-space:nowrap;">🟢 Em hora-atividade agora:</span>
+  <span id="ha-topbar-lista" style="display:flex;gap:8px;flex-wrap:wrap;"></span>
+</div>
+
 <main>
 
 <!-- ===================== DASHBOARD ===================== -->
@@ -2051,6 +2057,7 @@ function setupSync() {
 }
 
 function refreshCurrentView() {
+  renderHaTopbar();
   const active = document.querySelector('.section.active');
   if (!active) return;
   const id = active.id;
@@ -5016,6 +5023,7 @@ function renderHaPonto() {
 }
 
 function atualizarRelogioPonto() {
+  renderHaTopbar();
   const meuId = currentUser?.id || '';
   const ha    = db.horaAtividade.find(h => h.professoraId === meuId);
   const timerEl = document.getElementById('ha-ponto-timer');
@@ -5050,6 +5058,7 @@ function iniciarHaPonto() {
   ha.sessaoAtiva = { inicio: new Date().toISOString() };
   save();
   renderHaPonto();
+  renderHaTopbar();
   showToast('▶️ Hora-atividade iniciada! Bom planejamento!');
 }
 
@@ -5084,6 +5093,30 @@ function encerrarHaPonto() {
   if (usadoSeg > meta * 3600) msg += ` · Quota semanal excedida (${usadoH}h / ${meta}h)`;
   showToast(msg, 6000);
   renderHaPonto();
+  renderHaTopbar();
+}
+
+function renderHaTopbar() {
+  const topbar = document.getElementById('ha-topbar');
+  const lista  = document.getElementById('ha-topbar-lista');
+  if (!topbar || !lista) return;
+  const papel = currentUser?.papel;
+  if (papel !== 'diretor' && papel !== 'pedagoga') { topbar.style.display = 'none'; return; }
+
+  const ativas = db.horaAtividade.filter(h => h.sessaoAtiva?.inicio);
+  if (ativas.length === 0) { topbar.style.display = 'none'; return; }
+
+  topbar.style.display = 'flex';
+  lista.innerHTML = ativas.map(h => {
+    const inicio = new Date(h.sessaoAtiva.inicio);
+    const diff   = Math.floor((Date.now() - inicio) / 1000);
+    const hh = Math.floor(diff / 3600), mm = Math.floor((diff % 3600) / 60);
+    const dur = hh > 0 ? `${hh}h ${mm}min` : `${mm}min`;
+    const alerta = diff >= 3600 ? ' ⚠️' : '';
+    return `<span onclick="showTab('hora-atividade')" style="cursor:pointer;background:#fff;border:1px solid #86efac;border-radius:20px;padding:3px 12px;display:inline-flex;align-items:center;gap:5px;color:#15803d;font-weight:600;white-space:nowrap;" title="Clique para ver detalhes">
+      ${h.professoraNome} <span style="font-weight:400;color:#4ade80;font-size:11px;">${dur}${alerta}</span>
+    </span>`;
+  }).join('');
 }
 
 function renderHoraAtividade() {
@@ -5091,6 +5124,7 @@ function renderHoraAtividade() {
   renderHaGrade();
   renderHaCumprimento();
   renderHaPonto();
+  renderHaTopbar();
 }
 
 function renderHaGrade() {
