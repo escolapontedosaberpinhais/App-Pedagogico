@@ -5919,8 +5919,9 @@ const ATIV_FAIXAS = {
   infantil5: { label: 'Infantil V',  idade: '5–6 anos' },
 };
 
-function _seedAtividades() {
-  const seed = [
+function _getSeedAtividades() {
+  return [
+    // ── BERÇÁRIO ────────────────────────────────────────────────────────
     { titulo:'Caixinha dos Sentidos', faixas:['bercario'], area:'sensorial', duracao:'15–20 min',
       objetivo:'Estimular a percepção tátil e a curiosidade exploratória.',
       materiais:'Caixa de papelão com recortes laterais, objetos com diferentes texturas: esponja, veludo, lixa fina, papel-alumínio, penas.',
@@ -5931,6 +5932,17 @@ function _seedAtividades() {
       materiais:'Colchonete, óleo de coco ou hidratante infantil (verificar alergias).',
       comofazer:'1. Deite o bebê sobre o colchonete de barriga para cima.\n2. Aplique o óleo delicadamente nas mãos.\n3. Massageie suavemente pés, pernas, braços e barriga em movimentos circulares.\n4. Fale com o bebê durante toda a atividade, nomeando as partes do corpo.\n5. Respeite sinais de desconforto — interrompa se o bebê demonstrar recusa.',
       obs:'Sempre verificar alergias e obter autorização familiar previamente.' },
+    { titulo:'Espelho das Expressões', faixas:['bercario'], area:'socioafetivo', duracao:'10–15 min',
+      objetivo:'Estimular o reconhecimento do próprio rosto e das expressões faciais básicas.',
+      materiais:'Espelho grande (fixado com segurança na parede) ou espelhos acrílicos inquebrável.',
+      comofazer:'1. Posicione o bebê de frente para o espelho com apoio do professor.\n2. Aponte para o reflexo: "Olha, é você!".\n3. Faça expressões exageradas (sorriso, surpresa, bocejo) e observe a reação.\n4. Nomeie as partes do rosto enquanto as toca no espelho.\n5. Permita exploração livre por alguns minutos.',
+      obs:'Use apenas espelhos seguros e inquebráveos. Excelente para desenvolver autoconsciência.' },
+    { titulo:'Brincadeira de Rolar e Arrastar', faixas:['bercario','infantil1'], area:'motor', duracao:'20 min',
+      objetivo:'Desenvolver coordenação motora grossa, engatinhar e noção espacial.',
+      materiais:'Colchonetes, rolos de espuma, tapete emborrachado, bolas de diferentes tamanhos.',
+      comofazer:'1. Posicione os colchonetes em sequência no chão.\n2. Estimule o bebê a rolar sobre o colchonete com ajuda.\n3. Para os maiores: crie um percurso de engatinhar até um brinquedo atrativo.\n4. Ofereça bolas para empurrar e perseguir.\n5. Varie as alturas com rolos de espuma para desafio crescente.',
+      obs:'Supervisão constante. Garantir que o espaço esteja livre de objetos perigosos.' },
+    // ── BERÇÁRIO / INFANTIL I ────────────────────────────────────────────
     { titulo:'Cantigas de Roda', faixas:['bercario','infantil1'], area:'socioafetivo', duracao:'15–20 min',
       objetivo:'Desenvolver vínculo afetivo, ritmo, musicalidade e linguagem oral.',
       materiais:'Opcional: chocalhos e instrumentos de percussão simples.',
@@ -5941,21 +5953,30 @@ function _seedAtividades() {
       materiais:'Bandejas com areia, gelatina, maizena com água, papel-alumínio, caixas com grãos (feijão, arroz).',
       comofazer:'1. Apresente uma textura de cada vez em bandejas separadas.\n2. Permita exploração livre com as mãos.\n3. Verbalize as sensações: "mole", "duro", "frio", "grudento", "escorregadio".\n4. Estimule a comparação entre as texturas.\n5. Finalize com a lavagem das mãos como atividade lúdica.',
       obs:'Atenção às crianças que levam tudo à boca. Use exclusivamente materiais não tóxicos.' },
+    { titulo:'Exploração de Sons e Ruídos', faixas:['bercario','infantil1','infantil2'], area:'sensorial', duracao:'20 min',
+      objetivo:'Desenvolver percepção auditiva, discriminação de sons e atenção.',
+      materiais:'Potes opacos com diferentes materiais dentro (arroz, pedrinhas, água, botões), chocalhos artesanais.',
+      comofazer:'1. Apresente os potes um a um — sacuda e deixe a criança sacudir.\n2. Pergunte: "Qual faz mais barulho? Qual é mais suave?".\n3. Reproduza sons do ambiente e peça que identifiquem ("Que barulho é esse?").\n4. Faça contrastes: som alto vs. silêncio, rápido vs. devagar.\n5. Incentive as crianças a criar os próprios instrumentos.',
+      obs:'Ótima para desenvolver atenção e pré-requisitos musicais. Pode ser usada na rotina de música.' },
+    // ── INFANTIL I ───────────────────────────────────────────────────────
     { titulo:'Circuito de Almofadas', faixas:['infantil1'], area:'motor', duracao:'25–30 min',
       objetivo:'Estimular equilíbrio, coordenação motora grossa e percepção espacial.',
       materiais:'Almofadas, colchonetes, cones, arcos no chão, tatames.',
       comofazer:'1. Monte o circuito no chão com diferentes alturas e texturas.\n2. Demonstre o percurso completo.\n3. Deixe cada criança explorar no seu ritmo.\n4. Ofereça apoio físico quando necessário.\n5. Varie o percurso semanalmente para manter o desafio.',
       obs:'Verifique a segurança do espaço. Mínimo de dois adultos supervisionando ao mesmo tempo.' },
+    // ── INFANTIL I / II ──────────────────────────────────────────────────
     { titulo:'Pintura com as Mãos', faixas:['infantil1','infantil2'], area:'arte', duracao:'25–30 min',
       objetivo:'Estimular a expressão criativa, a sensorialidade e a coordenação motora fina.',
       materiais:'Tinta guache atóxica nas cores primárias, papel sulfite grande (A3 ou papel kraft), avental e toalhas.',
       comofazer:'1. Cubra a mesa e o chão com papel.\n2. Apresente as cores uma a uma em potes rasos.\n3. Deixe a criança explorar livremente — misturar, espalhar, carimbar.\n4. Nomeie as cores e comente as formas criadas.\n5. Valorize cada produção individualmente ao expor no mural.',
       obs:'Use tintas com certificação atóxica. Atividade de alta sujeira — prepare o ambiente e o vestuário.' },
+    // ── INFANTIL II ──────────────────────────────────────────────────────
     { titulo:'Encaixe de Formas e Cores', faixas:['infantil2'], area:'cognitivo', duracao:'20–25 min',
       objetivo:'Desenvolver raciocínio lógico, classificação, noção de forma e cores.',
       materiais:'Blocos de encaixe coloridos, sorter de formas geométricas, potes de cores diferentes.',
       comofazer:'1. Apresente os blocos livremente para exploração.\n2. Mostre como encaixar no sorter.\n3. Peça que separe por cor nos potes.\n4. Peça: "Ache um igual a este" (matching).\n5. Avance para padrões simples: vermelha, azul, vermelha...',
       obs:'Adapte o nível de complexidade. Evite peças pequenas para crianças que ainda levam objetos à boca.' },
+    // ── INFANTIL II / III ────────────────────────────────────────────────
     { titulo:'Hora do Conto Ilustrado', faixas:['infantil2','infantil3'], area:'linguagem', duracao:'20–30 min',
       objetivo:'Ampliar vocabulário, atenção, imaginação e compreensão narrativa.',
       materiais:'Livros de imagens grandes e coloridos. Fantoches opcionais para personagens.',
@@ -5966,11 +5987,23 @@ function _seedAtividades() {
       materiais:'Frutas e verduras cortadas ao meio (laranja, maçã, batata, quiabo, pimentão), tinta atóxica, papel.',
       comofazer:'1. Apresente as frutas/verduras inteiras — explore nome, cor, cheiro.\n2. Mostre o corte e as formas internas.\n3. Mergulhe no prato com tinta e carimbem no papel livremente.\n4. Explore as formas que surgem: "Que forma tem o quiabo?".\n5. Identifique as frutas pelos carimbos ao final.',
       obs:'Excelente atividade interdisciplinar conectando arte, ciências e educação alimentar.' },
+    { titulo:'Brincadeira com Rimas', faixas:['infantil2','infantil3'], area:'linguagem', duracao:'20 min',
+      objetivo:'Desenvolver consciência fonológica, ritmo e prazer pela linguagem oral.',
+      materiais:'Cartões com imagens de palavras que rimam (gato/pato, bola/cola, faca/vaca).',
+      comofazer:'1. Diga uma palavra e pergunte: "O que rima com GATO?".\n2. Mostre os cartões e deixe as crianças encontrarem os pares.\n3. Criem rimas livres: "Me dê uma palavra e vamos inventar uma rima!".\n4. Cantem ou recitem as rimas criadas em voz alta.\n5. Finalize com um jogo de rima em roda — cada criança diz uma.',
+      obs:'Atividade fundamental para pré-alfabetização. Pode ser feita na rodinha ou em qualquer momento.' },
+    { titulo:'Colagem e Mosaico', faixas:['infantil2','infantil3','infantil4'], area:'arte', duracao:'35 min',
+      objetivo:'Desenvolver coordenação motora fina, criatividade e noção de composição visual.',
+      materiais:'Revistas velhas, papel colorido, papel crepom, cola, tesoura com ponta arredondada, base (cartão ou papelão).',
+      comofazer:'1. Apresente a técnica: rasgar e colar para criar imagens.\n2. Deixe cada criança escolher livremente as cores e formas.\n3. Para os maiores: proponha um tema (paisagem, animal favorito).\n4. Incentive o preenchimento de toda a base.\n5. Exponha as obras secas no mural da sala.',
+      obs:'Para bebês e crianças menores, pré-recorte os pedaços. Monitore o uso da tesoura.' },
+    // ── INFANTIL III ─────────────────────────────────────────────────────
     { titulo:'Rodinha da Conversa', faixas:['infantil3'], area:'linguagem', duracao:'15–20 min',
       objetivo:'Desenvolver oralidade, escuta ativa e participação democrática.',
       materiais:'Opcional: "microfone" simbólico (espátula, objeto redondo).',
       comofazer:'1. Sente as crianças em roda no chão.\n2. Apresente o tema do dia (sonhos, animais favoritos, o que fez no fim de semana).\n3. Passe o "microfone" — cada criança fala quando receber.\n4. Incentive com gentileza quem está tímido, sem forçar.\n5. Retome ao final: "Hoje descobrimos que..." resumindo o que foi compartilhado.',
       obs:'Fundamental para o desenvolvimento da oralidade, escuta e autoestima. Pode ser diária.' },
+    // ── INFANTIL III / IV ────────────────────────────────────────────────
     { titulo:'Mural dos Sentimentos', faixas:['infantil3','infantil4'], area:'socioafetivo', duracao:'35–40 min',
       objetivo:'Nomear e expressar emoções, desenvolver empatia e inteligência emocional.',
       materiais:'Papel kraft, revistas, tesoura, cola, canetões, fotos das crianças.',
@@ -5981,21 +6014,12 @@ function _seedAtividades() {
       materiais:'Pneus, cordas, arcos no chão, cones, banco, barra de equilíbrio.',
       comofazer:'1. Monte o circuito com 5 a 6 estações variadas.\n2. Explique e demonstre cada estação.\n3. Crianças percorrem em sequência com supervisão.\n4. Cronometre para motivação extra (opcional a partir do Infantil IV).\n5. Varie o nível de dificuldade semanalmente.',
       obs:'Supervisão próxima em todas as estações. Adapte para crianças com necessidades específicas.' },
-    { titulo:'Jogo da Memória Artesanal', faixas:['infantil4'], area:'cognitivo', duracao:'40–45 min',
-      objetivo:'Desenvolver memória visual, atenção e concentração.',
-      materiais:'Cartolina, canetão, figuras para colar ou as crianças desenham os pares.',
-      comofazer:'1. As próprias crianças criam os pares: desenham ou colam imagens iguais.\n2. Monte o jogo com os cartões produzidos.\n3. Explique as regras: virar dois, se for igual fica, se não volta.\n4. Joguem em duplas ou pequenos grupos.\n5. Incentive estratégias: "Tente lembrar onde estava aquele!"',
-      obs:'O processo de criar o jogo é tão valioso quanto jogá-lo — estimula autoria e cuidado com o material.' },
-    { titulo:'Criação de Histórias em Sequência', faixas:['infantil4'], area:'linguagem', duracao:'35–40 min',
-      objetivo:'Desenvolver narrativa oral e escrita, imaginação e ordenação temporal.',
-      materiais:'Cartões com imagens embaralhadas representando início, meio e fim de histórias.',
-      comofazer:'1. Mostre os cartões embaralhados.\n2. Peça que o grupo organize na ordem lógica.\n3. O grupo conta a história em conjunto.\n4. Registre com escrita coletiva no quadro (professor escreve o que as crianças ditam).\n5. Crianças ilustram sua versão da história.',
-      obs:'Use histórias conhecidas no início; depois crie situações completamente novas.' },
-    { titulo:'Teatro de Fantoches', faixas:['infantil4','infantil5'], area:'arte', duracao:'50–60 min',
-      objetivo:'Estimular expressão oral, criatividade, cooperação e confiança.',
-      materiais:'Fantoches ou meias com olhos colados (feitos pelas crianças), caixa de papelão como teatrinho.',
-      comofazer:'1. Crianças confeccionam os fantoches com meias e materiais simples.\n2. Definem em grupo os personagens e a história.\n3. Ensaiam brevemente os diálogos.\n4. Apresentam para outra turma ou para as famílias.\n5. Conversam sobre a experiência: como foi, o que sentiram.',
-      obs:'Excelente para desenvolver linguagem, cooperação, autoconfiança e expressão artística.' },
+    { titulo:'Classificação por Atributos', faixas:['infantil3','infantil4'], area:'cognitivo', duracao:'25 min',
+      objetivo:'Desenvolver pensamento lógico, categorização e linguagem descritiva.',
+      materiais:'Tampinhas coloridas, botões, blocos, frutas plásticas ou qualquer conjunto de objetos variados.',
+      comofazer:'1. Espalhe os objetos na mesa e peça que os observem.\n2. Primeiro critério: "Separe os que são iguais de cor".\n3. Segundo critério: "Agora por tamanho".\n4. Terceiro: "E por forma?".\n5. Desafio: "Qual objeto pertence a dois grupos ao mesmo tempo?"',
+      obs:'Aumente gradualmente a complexidade dos critérios. Excelente base para matemática.' },
+    // ── INFANTIL III / IV / V ────────────────────────────────────────────
     { titulo:'Jogo dos Opostos', faixas:['infantil3','infantil4','infantil5'], area:'cognitivo', duracao:'20–25 min',
       objetivo:'Ampliar vocabulário, pensamento lógico e noção de contrários.',
       materiais:'Cartões ilustrados com pares de opostos (grande/pequeno, cheio/vazio, rápido/lento).',
@@ -6006,6 +6030,74 @@ function _seedAtividades() {
       materiais:'Fotos trazidas de casa, papel A4, cola, canetões.',
       comofazer:'1. Solicite antecipadamente que as famílias enviem fotos.\n2. Cada criança apresenta sua família ao grupo.\n3. Crie um painel coletivo "Nossas Famílias".\n4. Explore a diversidade das configurações familiares de forma acolhedora.\n5. Produza um álbum individual que vai para casa.',
       obs:'Respeite e valorize todas as configurações familiares. Comunicar às famílias com pelo menos uma semana de antecedência.' },
+    { titulo:'Parlendas e Trava-línguas', faixas:['infantil3','infantil4','infantil5'], area:'linguagem', duracao:'20 min',
+      objetivo:'Desenvolver consciência fonológica, memória, ritmo e fluência oral.',
+      materiais:'Cartazes com as parlendas escritas e ilustradas (opcional).',
+      comofazer:'1. Apresente uma parlenda conhecida ("Uni duni tê", "Hoje é domingo...").\n2. Recite pausadamente, depois com a turma toda.\n3. Acelere progressivamente o ritmo.\n4. Introduza trava-línguas curtos para os maiores.\n5. Crianças ensinam parlendas que conhecem de casa.',
+      obs:'Excelente para pré-alfabetização. Pode ser incorporada à rotina como momento de transição.' },
+    { titulo:'Mandala de Elementos da Natureza', faixas:['infantil3','infantil4','infantil5'], area:'arte', duracao:'35 min',
+      objetivo:'Desenvolver senso estético, noção de simetria e conexão com a natureza.',
+      materiais:'Folhas, galhos, flores, pedras, sementes coletados no pátio; base de cartolina.',
+      comofazer:'1. Faça uma saída ao pátio para coletar elementos naturais.\n2. Apresente exemplos de mandalas com imagens.\n3. Cada criança cria sua mandala em círculo partindo do centro.\n4. Fotografe antes de desmontar (ou cole com cola quente — para adulto).\n5. Exponha as fotos no mural.',
+      obs:'Pode ser feita coletivamente em um único círculo grande no chão.' },
+    { titulo:'Brincadeira do Elogio', faixas:['infantil3','infantil4','infantil5'], area:'socioafetivo', duracao:'20 min',
+      objetivo:'Fortalecer autoestima, empatia, vínculos e clima positivo na turma.',
+      materiais:'Bolinhas de papel colorido ou "bilhetinhos do coração" (tiras de papel).',
+      comofazer:'1. Reúna a turma em roda.\n2. Cada criança recebe o nome de um colega (sorteio).\n3. Pensa em algo bonito para dizer sobre essa pessoa.\n4. Diz o elogio em voz alta para o grupo.\n5. Opcional: escreve ou desenha no bilhetinho para presentear o colega.',
+      obs:'Atenção para garantir que todos recebam elogios. Professor medeia e apoia crianças que têm dificuldade.' },
+    { titulo:'Projeto Natureza Viva', faixas:['infantil3','infantil4','infantil5'], area:'sensorial', duracao:'40 min',
+      objetivo:'Desenvolver curiosidade científica, observação e responsabilidade ambiental.',
+      materiais:'Sementes, terra, copos plásticos transparentes, água, lupas, caderninho de observações.',
+      comofazer:'1. Cada criança planta uma semente no copo com terra.\n2. Registra com desenho o estado inicial.\n3. Estabelece rotina de regar e observar diariamente.\n4. Usa a lupa para observar detalhes.\n5. Registra semanalmente o crescimento — cria um diário da planta.',
+      obs:'Projeto de longa duração (2–4 semanas). Conecta ciências, cuidado e responsabilidade.' },
+    { titulo:'Quebra-cabeça Gigante Coletivo', faixas:['infantil3','infantil4','infantil5'], area:'cognitivo', duracao:'30 min',
+      objetivo:'Desenvolver cooperação, raciocínio espacial e resolução de problemas em grupo.',
+      materiais:'Puzzle grande (30–48 peças para Inf.III/IV; 60+ para Inf.V) ou quebra-cabeça de EVA no chão.',
+      comofazer:'1. Espalhe as peças viradas para cima no chão ou na mesa.\n2. Defina estratégia juntos: "Vamos começar pelas bordas ou pelo centro?".\n3. Divida a busca: cada criança fica responsável por uma área.\n4. Celebre cada encaixe descoberto.\n5. Fotografe o resultado concluído.',
+      obs:'Incentive a cooperação e evite que uma única criança monopolize. Ótimo para desenvolver trabalho em equipe.' },
+    { titulo:'Jogo do Bambolê', faixas:['infantil3','infantil4','infantil5'], area:'motor', duracao:'25 min',
+      objetivo:'Desenvolver coordenação motora grossa, lateralidade e noção espacial.',
+      materiais:'Bambolês de diferentes tamanhos (1 por criança + extras).',
+      comofazer:'1. Exploração livre: "O que você consegue fazer com o bambolê?".\n2. Desafio 1: girar no quadril (para os maiores).\n3. Desafio 2: pular dentro e fora do bambolê no chão.\n4. Desafio 3: rolar o bambolê e correr atrás.\n5. Jogo coletivo: música para, quem ficar de fora perde.',
+      obs:'Bambolês no chão funcionam para todas as idades como espaço delimitado e alvo de pulo.' },
+    // ── INFANTIL IV ──────────────────────────────────────────────────────
+    { titulo:'Jogo da Memória Artesanal', faixas:['infantil4'], area:'cognitivo', duracao:'40–45 min',
+      objetivo:'Desenvolver memória visual, atenção e concentração.',
+      materiais:'Cartolina, canetão, figuras para colar ou as crianças desenham os pares.',
+      comofazer:'1. As próprias crianças criam os pares: desenham ou colam imagens iguais.\n2. Monte o jogo com os cartões produzidos.\n3. Explique as regras: virar dois, se for igual fica, se não volta.\n4. Joguem em duplas ou pequenos grupos.\n5. Incentive estratégias: "Tente lembrar onde estava aquele!"',
+      obs:'O processo de criar o jogo é tão valioso quanto jogá-lo — estimula autoria e cuidado com o material.' },
+    { titulo:'Criação de Histórias em Sequência', faixas:['infantil4'], area:'linguagem', duracao:'35–40 min',
+      objetivo:'Desenvolver narrativa oral e escrita, imaginação e ordenação temporal.',
+      materiais:'Cartões com imagens embaralhadas representando início, meio e fim de histórias.',
+      comofazer:'1. Mostre os cartões embaralhados.\n2. Peça que o grupo organize na ordem lógica.\n3. O grupo conta a história em conjunto.\n4. Registre com escrita coletiva no quadro (professor escreve o que as crianças ditam).\n5. Crianças ilustram sua versão da história.',
+      obs:'Use histórias conhecidas no início; depois crie situações completamente novas.' },
+    { titulo:'Dança das Cadeiras Musical', faixas:['infantil2','infantil3','infantil4'], area:'motor', duracao:'25 min',
+      objetivo:'Desenvolver agilidade, atenção auditiva, lateralidade e convívio social.',
+      materiais:'Cadeiras ou tapetes (um a menos que o número de crianças), aparelho de som.',
+      comofazer:'1. Explique as regras com foco na diversão, não na eliminação.\n2. Variação inclusiva: ninguém é eliminado — as cadeiras diminuem mas todos se espremem nelas.\n3. Varie os estilos musicais: forró, clássico, funk, samba.\n4. Pause a música em momentos imprevisíveis para manter a atenção.\n5. Converse ao final sobre as estratégias usadas.',
+      obs:'Na versão inclusiva, ninguém fica de fora — todos continuam até o final compartilhando o espaço.' },
+    // ── INFANTIL IV / V ──────────────────────────────────────────────────
+    { titulo:'Teatro de Fantoches', faixas:['infantil4','infantil5'], area:'arte', duracao:'50–60 min',
+      objetivo:'Estimular expressão oral, criatividade, cooperação e confiança.',
+      materiais:'Fantoches ou meias com olhos colados (feitos pelas crianças), caixa de papelão como teatrinho.',
+      comofazer:'1. Crianças confeccionam os fantoches com meias e materiais simples.\n2. Definem em grupo os personagens e a história.\n3. Ensaiam brevemente os diálogos.\n4. Apresentam para outra turma ou para as famílias.\n5. Conversam sobre a experiência: como foi, o que sentiram.',
+      obs:'Excelente para desenvolver linguagem, cooperação, autoconfiança e expressão artística.' },
+    { titulo:'Teatro de Sombras', faixas:['infantil3','infantil4','infantil5'], area:'arte', duracao:'35 min',
+      objetivo:'Explorar luz, sombra, corpo e narrativa visual de forma lúdica.',
+      materiais:'Lençol branco fixado na parede, lanterna ou projetor, silhuetas recortadas em cartolina preta.',
+      comofazer:'1. Monte o "palco": lençol branco tenso com luz atrás.\n2. Mostre como o corpo e as mãos criam sombras.\n3. Apresente as silhuetas recortadas — crianças exploram movê-las.\n4. Em duplas, criem uma cena curta com silhuetas.\n5. Apresentem para os colegas com trilha sonora.',
+      obs:'Pode ser feito com sala escurecida. Ótimo para explorar imaginação e física de forma concreta.' },
+    { titulo:'Jogo da Amarelinha', faixas:['infantil4','infantil5'], area:'motor', duracao:'25 min',
+      objetivo:'Desenvolver equilíbrio, coordenação motora e noção de números/sequência.',
+      materiais:'Giz (para área externa) ou fita adesiva colorida (para área interna), pedra ou saquinho de areia.',
+      comofazer:'1. Desenhe a amarelinha com os números 1 a 10.\n2. Explique as regras e demonstre.\n3. Cada criança joga sua pedra e percorre o caminho.\n4. Variação: use letras ou figuras no lugar dos números.\n5. Desafio para os mais avançados: percorrer de olhos fechados.',
+      obs:'Brincadeira tradicional brasileira com alto valor pedagógico para sequência numérica e equilíbrio.' },
+    { titulo:'Caixa de Leitura', faixas:['infantil4','infantil5'], area:'linguagem', duracao:'30 min',
+      objetivo:'Ampliar vocabulário, desenvolver fluência leitora emergente e amor pelos livros.',
+      materiais:'Caixa ou sacola com 5 a 6 livros variados (histórias, poesia, informativo).',
+      comofazer:'1. Apresente a "Caixa de Leitura" com entusiasmo — é um evento especial.\n2. Cada criança escolhe um livro para explorar individualmente (10 min).\n3. Uma criança voluntária apresenta seu livro para a turma.\n4. Professor lê em voz alta um dos livros escolhidos.\n5. Debatam: "Qual você escolheria levar para casa? Por quê?"',
+      obs:'Pode ser combinada com empréstimo de livros para casa. Estimula o hábito de leitura.' },
+    // ── INFANTIL V ───────────────────────────────────────────────────────
     { titulo:'Resolução de Problemas do Cotidiano', faixas:['infantil5'], area:'cognitivo', duracao:'25–30 min',
       objetivo:'Desenvolver raciocínio lógico-matemático e pensamento crítico contextualizado.',
       materiais:'Situações-problema ilustradas ou extraídas da realidade da turma.',
@@ -6016,13 +6108,37 @@ function _seedAtividades() {
       materiais:'Folhas A4, canetões, fotos da turma, grampeador.',
       comofazer:'1. Explique o que é um jornal e mostre exemplos reais.\n2. Defina seções juntos: notícia da semana, desenho livre, receita, curiosidade.\n3. Crianças ditam o texto (professor escreve) ou escrevem com apoio.\n4. Ilustram cada seção.\n5. Compile, reproduza e distribua para as famílias.',
       obs:'Pode ser dividido em dois encontros. Excelente projeto para o envolvimento e comunicação com as famílias.' },
+    { titulo:'Contagem com Objetos do Cotidiano', faixas:['infantil4','infantil5'], area:'cognitivo', duracao:'25 min',
+      objetivo:'Desenvolver o conceito de número, contagem e correspondência um a um.',
+      materiais:'Tampinhas, botões, palitos, macarrão, copinhos numerados de 1 a 10.',
+      comofazer:'1. Apresente os copinhos com os números escritos.\n2. Peça que coloquem a quantidade exata de objetos em cada copo.\n3. Variação: contar e registrar com bolinhas no papel.\n4. Desafio: "Qual copo tem mais? Qual tem menos?".\n5. Avance para somas simples: "Coloca 3 tampinhas aqui e mais 2 ali — quantas têm?"',
+      obs:'Use materiais coloridos e variados para manter o interesse. Excelente base para matemática formal.' },
+    { titulo:'Cápsula do Tempo da Turma', faixas:['infantil5'], area:'socioafetivo', duracao:'45 min',
+      objetivo:'Desenvolver identidade, pertencimento, noção de tempo e valorização de memórias.',
+      materiais:'Caixa decorada, folhas A4, canetões, fotos da turma, envelope.',
+      comofazer:'1. Explique o conceito de cápsula do tempo de forma lúdica.\n2. Cada criança desenha "quem sou eu hoje" e escreve (ou dita) um desejo.\n3. Registre a data, turma e ano na caixa.\n4. Inclua uma foto coletiva e objetos simbólicos da turma.\n5. Lacre e guarde para ser aberta no final do ano ou no ano seguinte.',
+      obs:'Emocionante quando aberta depois! Combina bem com o final de ano letivo.' },
+    // ── TODOS ────────────────────────────────────────────────────────────
     { titulo:'Yoga para Crianças', faixas:['bercario','infantil1','infantil2','infantil3','infantil4','infantil5'], area:'motor', duracao:'20–25 min',
       objetivo:'Desenvolver equilíbrio, flexibilidade, concentração, respiração e relaxamento.',
       materiais:'Colchonetes ou tatames individuais.',
       comofazer:'1. Reúna as crianças em seus colchonetes com espaço entre si.\n2. Apresente as poses como histórias: "Vire uma árvore", "Seja uma cobra dormindo".\n3. Sequência: respiração (3 min) → posturas em pé → posturas no chão → relaxamento.\n4. Use música instrumental calma como fundo.\n5. Finalize com 3 minutos de olhos fechados, respiração profunda.',
       obs:'Ótima para início do dia ou após o almoço. Adapte as poses para cada faixa etária. Não force posições.' },
+    { titulo:'Música com Instrumentos Caseiros', faixas:['bercario','infantil1','infantil2','infantil3','infantil4','infantil5'], area:'arte', duracao:'25 min',
+      objetivo:'Desenvolver musicalidade, ritmo, criatividade e expressão corporal.',
+      materiais:'Potes com grãos (chocalho), latas com tampas (tambor), garrafas plásticas (flauta), colheres de pau.',
+      comofazer:'1. Apresente os instrumentos caseiros e deixe explorar livremente.\n2. Proponha um ritmo simples e todos repetem (eco rítmico).\n3. Criem uma "orquestra da turma" com cada grupo tocando no seu momento.\n4. Toquem junto com uma música conhecida.\n5. Crianças inventam sons para representar elementos (chuva, vento, trovão).',
+      obs:'Excelente para participação de todas as idades. Valoriza a criatividade e o fazer musical.' },
+    { titulo:'Culinária Pedagógica', faixas:['infantil2','infantil3','infantil4','infantil5'], area:'sensorial', duracao:'45 min',
+      objetivo:'Desenvolver percepção sensorial, seguimento de sequência e noções de medida e higiene.',
+      materiais:'Ingredientes simples (frutas, biscoito, gelatina, suco), tigelas, colheres, aventais.',
+      comofazer:'1. Lave as mãos coletivamente com foco na higiene.\n2. Apresente os ingredientes — explore cor, cheiro, textura.\n3. Siga a receita em etapas com participação de todos.\n4. Cada criança prepara sua porção ou contribui com uma etapa.\n5. Degustem juntos e conversem sobre os sabores.',
+      obs:'Certifique-se de verificar alergias antes. Receitas simples: salada de frutas, iogurte com granola, bolo no pote.' },
   ];
-  db.atividades = seed.map(a => ({
+}
+
+function _seedAtividades() {
+  db.atividades = _getSeedAtividades().map(a => ({
     id: uid(), ...a,
     criadoEm: new Date().toISOString(),
     criadoPor: 'Sistema',
@@ -6032,13 +6148,32 @@ function _seedAtividades() {
   FSREF('atividades').set({ data: db.atividades }).catch(e => console.warn(e));
 }
 
+// Adiciona ao banco atividades do seed que ainda não existem (atualização incremental)
+function _atualizarBancoAtividades() {
+  if (!_atividadesCarregadas) return;
+  const titulosExistentes = new Set(db.atividades.map(a => a.titulo));
+  const novas = _getSeedAtividades().filter(a => !titulosExistentes.has(a.titulo));
+  if (novas.length === 0) return;
+  const novasComId = novas.map(a => ({
+    id: uid(), ...a,
+    criadoEm: new Date().toISOString(),
+    criadoPor: 'Sistema',
+  }));
+  db.atividades.push(...novasComId);
+  LS.set('ps_atividades', db.atividades);
+  FSREF('atividades').set({ data: db.atividades }).catch(e => console.warn(e));
+}
+
 function renderAtividades() {
   const isDiretor  = currentUser?.papel === 'diretor';
   const isPedagoga = currentUser?.papel === 'pedagoga';
   const podeEditar = isDiretor;
 
-  // Seed se ainda vazio
-  if (db.atividades.length === 0 && _atividadesCarregadas) _seedAtividades();
+  // Seed completo se vazio; atualização incremental se já tem dados
+  if (_atividadesCarregadas) {
+    if (db.atividades.length === 0) _seedAtividades();
+    else _atualizarBancoAtividades();
+  }
 
   // Botões de ação
   const btnNova    = document.getElementById('btn-nova-atividade');
