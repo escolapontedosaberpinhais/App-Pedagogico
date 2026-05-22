@@ -545,6 +545,20 @@
   }
   .modal-box h3 { font-size: 17px; font-weight: 700; margin-bottom: 20px; color: var(--gray-800); }
 
+  /* ATIVIDADE CARD */
+  .ativ-card { background:#fff; border-radius:12px; box-shadow:0 1px 6px rgba(0,0,0,.09); overflow:hidden; display:flex; flex-direction:column; transition:box-shadow .15s; }
+  .ativ-card:hover { box-shadow:0 4px 18px rgba(0,0,0,.14); }
+  .ativ-card-header { padding:12px 16px 10px; display:flex; align-items:flex-start; gap:10px; }
+  .ativ-area-icon { font-size:22px; flex-shrink:0; margin-top:1px; }
+  .ativ-card-titulo { font-size:15px; font-weight:700; line-height:1.3; }
+  .ativ-card-badges { display:flex; flex-wrap:wrap; gap:5px; padding:0 16px 10px; }
+  .ativ-badge { font-size:11px; font-weight:600; padding:2px 8px; border-radius:10px; }
+  .ativ-card-objetivo { font-size:13px; color:var(--gray-600); padding:0 16px 12px; line-height:1.5; flex:1; }
+  .ativ-card-footer { padding:10px 16px; border-top:1px solid var(--gray-100); display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .ativ-faixa-check { display:flex; align-items:center; gap:5px; padding:5px 10px; border:1px solid var(--gray-200); border-radius:8px; cursor:pointer; font-size:13px; transition:background .1s; }
+  .ativ-faixa-check:hover { background:var(--green-light); }
+  .ativ-faixa-check input { accent-color:var(--green); }
+
   /* ROLE BADGE */
   .badge-pedagoga { background: #ede9fe; color: #5b21b6; }
   .badge-blue { background: #dbeafe; color: #1e40af; }
@@ -861,6 +875,9 @@
     <button class="dnav-btn" id="dnav-rotina" onclick="drawerNav('rotina')" style="display:none;">
       <span class="di">&#x1F4C5;</span> Rotina
     </button>
+    <button class="dnav-btn" id="dnav-atividades" onclick="drawerNav('atividades')" style="display:none;">
+      <span class="di">&#x1F3AF;</span> Atividades
+    </button>
   </div>
   <div class="drawer-footer">
     <button class="drawer-key" onclick="fecharDrawer();abrirTrocarSenha();">&#x1F511; Trocar senha</button>
@@ -877,6 +894,7 @@
   <button id="nav-correcao" onclick="showTab('correcao')" data-tab="correcao" style="display:none;">✅ Correção</button>
   <button id="nav-hora-atividade" onclick="showTab('hora-atividade')" data-tab="hora-atividade" style="display:none;">⏰ Hora-Atividade</button>
   <button id="nav-rotina" onclick="showTab('rotina')" data-tab="rotina" style="display:none;">📅 Rotina</button>
+  <button id="nav-atividades" onclick="showTab('atividades')" data-tab="atividades" style="display:none;">🎯 Atividades</button>
 </nav>
 
 <main>
@@ -1733,6 +1751,129 @@ function getFolder(path) {
 
 </div>
 
+<!-- ===================== ATIVIDADES PEDAGÓGICAS ===================== -->
+<div id="tab-atividades" class="section">
+
+  <div class="section-header">
+    <h2>🎯 Banco de Atividades Pedagógicas</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-secondary" onclick="imprimirTodasAtividades()" id="btn-imprimir-todas-ativ" style="display:none;">🖨️ Imprimir seleção</button>
+      <button class="btn btn-primary" onclick="openAtividadeForm()" id="btn-nova-atividade" style="display:none;">➕ Nova atividade</button>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card" style="padding:14px 18px;">
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="form-group" style="margin:0;min-width:160px;">
+        <label style="font-size:12px;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px;">Faixa etária</label>
+        <select id="ativ-filtro-faixa" onchange="renderAtividades()" style="margin-top:4px;">
+          <option value="">Todas as faixas</option>
+          <option value="bercario">Berçário (0–1 ano)</option>
+          <option value="infantil1">Infantil I (1–2 anos)</option>
+          <option value="infantil2">Infantil II (2–3 anos)</option>
+          <option value="infantil3">Infantil III (3–4 anos)</option>
+          <option value="infantil4">Infantil IV (4–5 anos)</option>
+          <option value="infantil5">Infantil V (5–6 anos)</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;min-width:180px;">
+        <label style="font-size:12px;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px;">Área de desenvolvimento</label>
+        <select id="ativ-filtro-area" onchange="renderAtividades()" style="margin-top:4px;">
+          <option value="">Todas as áreas</option>
+          <option value="motor">🤸 Motor</option>
+          <option value="cognitivo">🧠 Cognitivo</option>
+          <option value="linguagem">🗣️ Linguagem</option>
+          <option value="socioafetivo">❤️ Socioafetivo</option>
+          <option value="sensorial">👁️ Sensorial</option>
+          <option value="arte">🎨 Arte e Criatividade</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;flex:1;min-width:180px;">
+        <label style="font-size:12px;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px;">Buscar</label>
+        <input type="text" id="ativ-filtro-busca" oninput="renderAtividades()" placeholder="Nome ou objetivo..." style="margin-top:4px;" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Grid de atividades -->
+  <div id="ativ-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-top:4px;"></div>
+
+</div>
+
+<!-- Modal: formulário de atividade -->
+<div id="modal-atividade-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9000;overflow-y:auto;padding:20px 12px;">
+  <div style="background:#fff;border-radius:14px;max-width:640px;margin:0 auto;box-shadow:0 20px 60px rgba(0,0,0,.25);">
+    <div id="modal-ativ-header" style="padding:20px 24px 16px;border-radius:14px 14px 0 0;display:flex;align-items:center;justify-content:space-between;">
+      <h3 id="modal-ativ-titulo" style="font-size:17px;font-weight:700;color:#fff;margin:0;">Nova Atividade</h3>
+      <button onclick="closeAtividadeForm()" style="background:rgba(255,255,255,.2);border:none;border-radius:50%;width:30px;height:30px;cursor:pointer;color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;">&times;</button>
+    </div>
+    <div style="padding:20px 24px 24px;">
+      <input type="hidden" id="ativ-form-id" />
+      <div class="form-grid">
+        <div class="form-group" style="grid-column:1/-1;">
+          <label>Título da Atividade *</label>
+          <input type="text" id="ativ-form-titulo" placeholder="Ex: Caixinha dos Sentidos" maxlength="80" />
+        </div>
+        <div class="form-group">
+          <label>Área de Desenvolvimento *</label>
+          <select id="ativ-form-area" onchange="_atualizarCorModalAtiv()">
+            <option value="">— selecione —</option>
+            <option value="motor">🤸 Motor</option>
+            <option value="cognitivo">🧠 Cognitivo</option>
+            <option value="linguagem">🗣️ Linguagem</option>
+            <option value="socioafetivo">❤️ Socioafetivo</option>
+            <option value="sensorial">👁️ Sensorial</option>
+            <option value="arte">🎨 Arte e Criatividade</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Duração</label>
+          <input type="text" id="ativ-form-duracao" placeholder="Ex: 25–30 min" maxlength="20" />
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label>Faixas Etárias * <span style="font-size:11px;color:var(--gray-400);">(selecione uma ou mais)</span></label>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">
+            <label class="ativ-faixa-check"><input type="checkbox" value="bercario" /> Berçário</label>
+            <label class="ativ-faixa-check"><input type="checkbox" value="infantil1" /> Infantil I</label>
+            <label class="ativ-faixa-check"><input type="checkbox" value="infantil2" /> Infantil II</label>
+            <label class="ativ-faixa-check"><input type="checkbox" value="infantil3" /> Infantil III</label>
+            <label class="ativ-faixa-check"><input type="checkbox" value="infantil4" /> Infantil IV</label>
+            <label class="ativ-faixa-check"><input type="checkbox" value="infantil5" /> Infantil V</label>
+          </div>
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label>Objetivo Pedagógico *</label>
+          <textarea id="ativ-form-objetivo" rows="2" placeholder="O que a criança irá desenvolver..."></textarea>
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label>Materiais Necessários</label>
+          <textarea id="ativ-form-materiais" rows="2" placeholder="Liste os materiais..."></textarea>
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label>Como Fazer</label>
+          <textarea id="ativ-form-comofazer" rows="4" placeholder="Passo a passo da atividade..."></textarea>
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label>Observações / Adaptações</label>
+          <textarea id="ativ-form-obs" rows="2" placeholder="Cuidados, variações, dicas..."></textarea>
+        </div>
+      </div>
+      <div class="btn-row" style="margin-top:16px;">
+        <button class="btn btn-secondary" onclick="closeAtividadeForm()">Cancelar</button>
+        <button class="btn btn-primary" onclick="salvarAtividade()">💾 Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: visualização de atividade -->
+<div id="modal-ativ-view-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9000;overflow-y:auto;padding:20px 12px;">
+  <div style="background:#fff;border-radius:14px;max-width:600px;margin:0 auto;box-shadow:0 20px 60px rgba(0,0,0,.25);">
+    <div id="modal-ativ-view-inner"></div>
+  </div>
+</div>
+
 </main>
 
 <script>
@@ -1760,12 +1901,13 @@ const FSREF  = (col) => fstore.collection('appdata').doc(col);
 
 async function loadFromFirestore() {
   try {
-    const [rT, rA, rP, rPar, rAv, rU, rCfg, rNot, rHa, rRot] = await Promise.all([
+    const [rT, rA, rP, rPar, rAv, rU, rCfg, rNot, rHa, rRot, rAtiv] = await Promise.all([
       FSREF('turmas').get(), FSREF('alunos').get(),
       FSREF('planejamentos').get(), FSREF('pareceres').get(),
       FSREF('avaliacoes').get(), FSREF('usuarios').get(),
       FSREF('config').get(), FSREF('notificacoes').get(),
       FSREF('horaAtividade').get(), FSREF('rotinas').get(),
+      FSREF('atividades').get(),
     ]);
     if (rT.exists)   db.turmas        = rT.data().data   ?? [];
     if (rA.exists)   db.alunos        = rA.data().data   ?? [];
@@ -1787,6 +1929,17 @@ async function loadFromFirestore() {
       }
     }
     _rotinasCarregadas = true;
+    if (rAtiv.exists) {
+      db.atividades = rAtiv.data().data ?? [];
+    } else {
+      const lsAtiv = LS.get('ps_atividades', []);
+      if (lsAtiv.length > 0) {
+        db.atividades = lsAtiv;
+        FSREF('atividades').set({ data: db.atividades })
+          .catch(e => console.warn('Atividades restore error:', e));
+      }
+    }
+    _atividadesCarregadas = true;
     if (rCfg.exists) {
       db.apiKey = rCfg.data().apiKey ?? '';
       if (rCfg.data().model) localStorage.setItem('ps_gemini_model', rCfg.data().model);
@@ -1807,7 +1960,8 @@ async function loadFromFirestore() {
       db.apiKey        = localStorage.getItem('ps_apikey') || '';
       db.horaAtividade = LS.get('ps_hora_atividade', []);
       db.rotinas       = LS.get('ps_rotinas', []);
-      _rotinasCarregadas = true;
+      db.atividades    = LS.get('ps_atividades', []);
+      _rotinasCarregadas = true; _atividadesCarregadas = true;
       saveToFirestore();
     }
   } catch (e) {
@@ -1821,7 +1975,8 @@ async function loadFromFirestore() {
     db.apiKey        = localStorage.getItem('ps_apikey') || '';
     db.horaAtividade = LS.get('ps_hora_atividade', []);
     db.rotinas       = LS.get('ps_rotinas', []);
-    _rotinasCarregadas = true;
+    db.atividades    = LS.get('ps_atividades', []);
+    _rotinasCarregadas = true; _atividadesCarregadas = true;
   }
 }
 
@@ -1835,10 +1990,8 @@ function saveToFirestore() {
   batch.set(FSREF('usuarios'),      { data: db.usuarios });
   batch.set(FSREF('notificacoes'),  { data: db.notificacoes });
   batch.set(FSREF('horaAtividade'), { data: db.horaAtividade });
-  // Só sobrescreve rotinas após confirmação de que os dados foram carregados
-  if (_rotinasCarregadas) {
-    batch.set(FSREF('rotinas'), { data: db.rotinas });
-  }
+  if (_rotinasCarregadas)    batch.set(FSREF('rotinas'),    { data: db.rotinas });
+  if (_atividadesCarregadas) batch.set(FSREF('atividades'), { data: db.atividades });
   batch.commit().catch(e => console.warn('Firestore write error:', e));
 }
 
@@ -1860,7 +2013,15 @@ function setupSync() {
     if (doc.exists && !doc.metadata.hasPendingWrites) {
       db.rotinas = doc.data().data ?? [];
       _rotinasCarregadas = true;
-      LS.set('ps_rotinas', db.rotinas); // espelho local sempre atualizado
+      LS.set('ps_rotinas', db.rotinas);
+      refreshCurrentView();
+    }
+  });
+  FSREF('atividades').onSnapshot((doc) => {
+    if (doc.exists && !doc.metadata.hasPendingWrites) {
+      db.atividades = doc.data().data ?? [];
+      _atividadesCarregadas = true;
+      LS.set('ps_atividades', db.atividades);
       refreshCurrentView();
     }
   });
@@ -1902,6 +2063,7 @@ function refreshCurrentView() {
   if (id === 'tab-cadastro')        { populateSelects(); populateFiltroTurmas(); renderTurmas(); renderAlunos(); }
   if (id === 'tab-hora-atividade')  { renderHoraAtividade(); }
   if (id === 'tab-rotina')          { renderRotina(); }
+  if (id === 'tab-atividades')      { renderAtividades(); }
 }
 
 // =====================================================================
@@ -1918,9 +2080,11 @@ let db = {
   notificacoes: [],
   horaAtividade: [],
   rotinas: [],
+  atividades: [],
 };
 // Guardas: evita sobrescrever dados no Firestore antes de carregá-los
-let _rotinasCarregadas = false;
+let _rotinasCarregadas    = false;
+let _atividadesCarregadas = false;
 
 function save() {
   // Backup local
@@ -1932,6 +2096,7 @@ function save() {
   LS.set('ps_usuarios', db.usuarios);
   LS.set('ps_hora_atividade', db.horaAtividade);
   LS.set('ps_rotinas', db.rotinas);
+  LS.set('ps_atividades', db.atividades);
   // Firestore
   saveToFirestore();
 }
@@ -2060,6 +2225,8 @@ function aplicarPapel() {
   // Rotina: visível para gestão e professoras
   const navRot = document.getElementById('nav-rotina');
   if (navRot) navRot.style.display = (isGestao || isProfessora) ? '' : 'none';
+  const navAtiv = document.getElementById('nav-atividades');
+  if (navAtiv) navAtiv.style.display = (isGestao || isProfessora) ? '' : 'none';
 
   // Sync drawer visibility
   const dDash = document.getElementById('dnav-dashboard');
@@ -2077,6 +2244,8 @@ function aplicarPapel() {
   if (dHa) dHa.style.display = (isGestao || isProfessora) ? '' : 'none';
   const dRot = document.getElementById('dnav-rotina');
   if (dRot) dRot.style.display = (isGestao || isProfessora) ? '' : 'none';
+  const dAtiv = document.getElementById('dnav-atividades');
+  if (dAtiv) dAtiv.style.display = (isGestao || isProfessora) ? '' : 'none';
   if (dPlan) dPlan.style.display = isSecretaria ? 'none' : '';
   if (dPar)  dPar.style.display  = isSecretaria ? 'none' : '';
   if (dAval) dAval.style.display = isSecretaria ? 'none' : '';
@@ -2318,6 +2487,7 @@ function showTab(tab) {
   if (tab === 'cadastro')       { populateSelects(); populateFiltroTurmas(); renderTurmas(); renderAlunos(); }
   if (tab === 'hora-atividade') { renderHoraAtividade(); }
   if (tab === 'rotina')         { renderRotina(); }
+  if (tab === 'atividades')     { renderAtividades(); }
 }
 
 // --- DRAWER functions ---
@@ -5724,6 +5894,435 @@ function imprimirRotina() {
 </body></html>`;
 
   const win = window.open('','_blank','width=920,height=780');
+  if (win) { win.document.write(html); win.document.close(); }
+}
+
+// =====================================================================
+// BANCO DE ATIVIDADES PEDAGÓGICAS
+// =====================================================================
+
+const ATIV_AREAS = {
+  motor:        { label: 'Motor',             icon: '🤸', color: '#ea580c', bg: '#fff7ed', border: '#fb923c' },
+  cognitivo:    { label: 'Cognitivo',         icon: '🧠', color: '#2563eb', bg: '#eff6ff', border: '#93c5fd' },
+  linguagem:    { label: 'Linguagem',         icon: '🗣️', color: '#059669', bg: '#f0fdf4', border: '#6ee7b7' },
+  socioafetivo: { label: 'Socioafetivo',      icon: '❤️', color: '#dc2626', bg: '#fef2f2', border: '#fca5a5' },
+  sensorial:    { label: 'Sensorial',         icon: '👁️', color: '#7c3aed', bg: '#f5f3ff', border: '#c4b5fd' },
+  arte:         { label: 'Arte e Criatividade',icon: '🎨', color: '#ca8a04', bg: '#fefce8', border: '#fde047' },
+};
+
+const ATIV_FAIXAS = {
+  bercario:  { label: 'Berçário',    idade: '0–1 ano'  },
+  infantil1: { label: 'Infantil I',  idade: '1–2 anos' },
+  infantil2: { label: 'Infantil II', idade: '2–3 anos' },
+  infantil3: { label: 'Infantil III',idade: '3–4 anos' },
+  infantil4: { label: 'Infantil IV', idade: '4–5 anos' },
+  infantil5: { label: 'Infantil V',  idade: '5–6 anos' },
+};
+
+function _seedAtividades() {
+  const seed = [
+    { titulo:'Caixinha dos Sentidos', faixas:['bercario'], area:'sensorial', duracao:'15–20 min',
+      objetivo:'Estimular a percepção tátil e a curiosidade exploratória.',
+      materiais:'Caixa de papelão com recortes laterais, objetos com diferentes texturas: esponja, veludo, lixa fina, papel-alumínio, penas.',
+      comofazer:'1. Prepare a caixa com aberturas apenas para as mãos.\n2. Coloque um objeto com textura diferente a cada rodada.\n3. Auxilie o bebê a inserir a mão e explore junto.\n4. Nomeie a textura: "liso", "áspero", "macio".\n5. Troque os objetos e observe as reações.',
+      obs:'Use apenas objetos seguros, sem arestas e grandes o suficiente para não oferecer risco de engasgo.' },
+    { titulo:'Massagem e Estímulo Tátil', faixas:['bercario'], area:'motor', duracao:'10–15 min',
+      objetivo:'Promover vínculo afetivo, relaxamento e consciência corporal.',
+      materiais:'Colchonete, óleo de coco ou hidratante infantil (verificar alergias).',
+      comofazer:'1. Deite o bebê sobre o colchonete de barriga para cima.\n2. Aplique o óleo delicadamente nas mãos.\n3. Massageie suavemente pés, pernas, braços e barriga em movimentos circulares.\n4. Fale com o bebê durante toda a atividade, nomeando as partes do corpo.\n5. Respeite sinais de desconforto — interrompa se o bebê demonstrar recusa.',
+      obs:'Sempre verificar alergias e obter autorização familiar previamente.' },
+    { titulo:'Cantigas de Roda', faixas:['bercario','infantil1'], area:'socioafetivo', duracao:'15–20 min',
+      objetivo:'Desenvolver vínculo afetivo, ritmo, musicalidade e linguagem oral.',
+      materiais:'Opcional: chocalhos e instrumentos de percussão simples.',
+      comofazer:'1. Reúna o grupo em roda (bebês menores no colo dos professores).\n2. Cante cantigas tradicionais com movimentos simples.\n3. Faça gestos que as crianças possam imitar.\n4. Repita as favoritas da turma.\n5. Encerre com uma música calma para transição de rotina.',
+      obs:'Ótima para início ou fim do dia. Pode ser realizada diariamente como parte da rotina.' },
+    { titulo:'Exploração de Texturas', faixas:['bercario','infantil1'], area:'sensorial', duracao:'20–25 min',
+      objetivo:'Ampliar a percepção sensorial e o vocabulário de sensações.',
+      materiais:'Bandejas com areia, gelatina, maizena com água, papel-alumínio, caixas com grãos (feijão, arroz).',
+      comofazer:'1. Apresente uma textura de cada vez em bandejas separadas.\n2. Permita exploração livre com as mãos.\n3. Verbalize as sensações: "mole", "duro", "frio", "grudento", "escorregadio".\n4. Estimule a comparação entre as texturas.\n5. Finalize com a lavagem das mãos como atividade lúdica.',
+      obs:'Atenção às crianças que levam tudo à boca. Use exclusivamente materiais não tóxicos.' },
+    { titulo:'Circuito de Almofadas', faixas:['infantil1'], area:'motor', duracao:'25–30 min',
+      objetivo:'Estimular equilíbrio, coordenação motora grossa e percepção espacial.',
+      materiais:'Almofadas, colchonetes, cones, arcos no chão, tatames.',
+      comofazer:'1. Monte o circuito no chão com diferentes alturas e texturas.\n2. Demonstre o percurso completo.\n3. Deixe cada criança explorar no seu ritmo.\n4. Ofereça apoio físico quando necessário.\n5. Varie o percurso semanalmente para manter o desafio.',
+      obs:'Verifique a segurança do espaço. Mínimo de dois adultos supervisionando ao mesmo tempo.' },
+    { titulo:'Pintura com as Mãos', faixas:['infantil1','infantil2'], area:'arte', duracao:'25–30 min',
+      objetivo:'Estimular a expressão criativa, a sensorialidade e a coordenação motora fina.',
+      materiais:'Tinta guache atóxica nas cores primárias, papel sulfite grande (A3 ou papel kraft), avental e toalhas.',
+      comofazer:'1. Cubra a mesa e o chão com papel.\n2. Apresente as cores uma a uma em potes rasos.\n3. Deixe a criança explorar livremente — misturar, espalhar, carimbar.\n4. Nomeie as cores e comente as formas criadas.\n5. Valorize cada produção individualmente ao expor no mural.',
+      obs:'Use tintas com certificação atóxica. Atividade de alta sujeira — prepare o ambiente e o vestuário.' },
+    { titulo:'Encaixe de Formas e Cores', faixas:['infantil2'], area:'cognitivo', duracao:'20–25 min',
+      objetivo:'Desenvolver raciocínio lógico, classificação, noção de forma e cores.',
+      materiais:'Blocos de encaixe coloridos, sorter de formas geométricas, potes de cores diferentes.',
+      comofazer:'1. Apresente os blocos livremente para exploração.\n2. Mostre como encaixar no sorter.\n3. Peça que separe por cor nos potes.\n4. Peça: "Ache um igual a este" (matching).\n5. Avance para padrões simples: vermelha, azul, vermelha...',
+      obs:'Adapte o nível de complexidade. Evite peças pequenas para crianças que ainda levam objetos à boca.' },
+    { titulo:'Hora do Conto Ilustrado', faixas:['infantil2','infantil3'], area:'linguagem', duracao:'20–30 min',
+      objetivo:'Ampliar vocabulário, atenção, imaginação e compreensão narrativa.',
+      materiais:'Livros de imagens grandes e coloridos. Fantoches opcionais para personagens.',
+      comofazer:'1. Sente as crianças em semicírculo próximo ao professor.\n2. Apresente o livro mostrando a capa: "Quem aparece aqui?".\n3. Leia pausadamente, mostrando as ilustrações.\n4. Faça perguntas de antecipação: "O que você acha que vai acontecer?".\n5. Ao final, converse sobre a história e os personagens.',
+      obs:'Repita o mesmo livro ao longo da semana — crianças aprendem com a repetição e antecipam trechos.' },
+    { titulo:'Carimbo com Frutas e Verduras', faixas:['infantil2','infantil3'], area:'arte', duracao:'25–30 min',
+      objetivo:'Explorar formas naturais, cores e padrões; integrar arte com alimentação saudável.',
+      materiais:'Frutas e verduras cortadas ao meio (laranja, maçã, batata, quiabo, pimentão), tinta atóxica, papel.',
+      comofazer:'1. Apresente as frutas/verduras inteiras — explore nome, cor, cheiro.\n2. Mostre o corte e as formas internas.\n3. Mergulhe no prato com tinta e carimbem no papel livremente.\n4. Explore as formas que surgem: "Que forma tem o quiabo?".\n5. Identifique as frutas pelos carimbos ao final.',
+      obs:'Excelente atividade interdisciplinar conectando arte, ciências e educação alimentar.' },
+    { titulo:'Rodinha da Conversa', faixas:['infantil3'], area:'linguagem', duracao:'15–20 min',
+      objetivo:'Desenvolver oralidade, escuta ativa e participação democrática.',
+      materiais:'Opcional: "microfone" simbólico (espátula, objeto redondo).',
+      comofazer:'1. Sente as crianças em roda no chão.\n2. Apresente o tema do dia (sonhos, animais favoritos, o que fez no fim de semana).\n3. Passe o "microfone" — cada criança fala quando receber.\n4. Incentive com gentileza quem está tímido, sem forçar.\n5. Retome ao final: "Hoje descobrimos que..." resumindo o que foi compartilhado.',
+      obs:'Fundamental para o desenvolvimento da oralidade, escuta e autoestima. Pode ser diária.' },
+    { titulo:'Mural dos Sentimentos', faixas:['infantil3','infantil4'], area:'socioafetivo', duracao:'35–40 min',
+      objetivo:'Nomear e expressar emoções, desenvolver empatia e inteligência emocional.',
+      materiais:'Papel kraft, revistas, tesoura, cola, canetões, fotos das crianças.',
+      comofazer:'1. Converse sobre sentimentos: alegria, tristeza, raiva, medo, surpresa.\n2. Mostre imagens de expressões faciais e nomeie cada uma.\n3. Crianças escolhem imagens de revistas que representam como se sentem.\n4. Cada criança apresenta sua escolha para o grupo.\n5. Monte e exponha o mural coletivo na sala.',
+      obs:'Crie um ambiente seguro e acolhedor. Nunca force quem não quiser falar.' },
+    { titulo:'Circuito Motor com Obstáculos', faixas:['infantil3','infantil4'], area:'motor', duracao:'30–35 min',
+      objetivo:'Aprimorar coordenação motora grossa, equilíbrio, agilidade e planejamento motor.',
+      materiais:'Pneus, cordas, arcos no chão, cones, banco, barra de equilíbrio.',
+      comofazer:'1. Monte o circuito com 5 a 6 estações variadas.\n2. Explique e demonstre cada estação.\n3. Crianças percorrem em sequência com supervisão.\n4. Cronometre para motivação extra (opcional a partir do Infantil IV).\n5. Varie o nível de dificuldade semanalmente.',
+      obs:'Supervisão próxima em todas as estações. Adapte para crianças com necessidades específicas.' },
+    { titulo:'Jogo da Memória Artesanal', faixas:['infantil4'], area:'cognitivo', duracao:'40–45 min',
+      objetivo:'Desenvolver memória visual, atenção e concentração.',
+      materiais:'Cartolina, canetão, figuras para colar ou as crianças desenham os pares.',
+      comofazer:'1. As próprias crianças criam os pares: desenham ou colam imagens iguais.\n2. Monte o jogo com os cartões produzidos.\n3. Explique as regras: virar dois, se for igual fica, se não volta.\n4. Joguem em duplas ou pequenos grupos.\n5. Incentive estratégias: "Tente lembrar onde estava aquele!"',
+      obs:'O processo de criar o jogo é tão valioso quanto jogá-lo — estimula autoria e cuidado com o material.' },
+    { titulo:'Criação de Histórias em Sequência', faixas:['infantil4'], area:'linguagem', duracao:'35–40 min',
+      objetivo:'Desenvolver narrativa oral e escrita, imaginação e ordenação temporal.',
+      materiais:'Cartões com imagens embaralhadas representando início, meio e fim de histórias.',
+      comofazer:'1. Mostre os cartões embaralhados.\n2. Peça que o grupo organize na ordem lógica.\n3. O grupo conta a história em conjunto.\n4. Registre com escrita coletiva no quadro (professor escreve o que as crianças ditam).\n5. Crianças ilustram sua versão da história.',
+      obs:'Use histórias conhecidas no início; depois crie situações completamente novas.' },
+    { titulo:'Teatro de Fantoches', faixas:['infantil4','infantil5'], area:'arte', duracao:'50–60 min',
+      objetivo:'Estimular expressão oral, criatividade, cooperação e confiança.',
+      materiais:'Fantoches ou meias com olhos colados (feitos pelas crianças), caixa de papelão como teatrinho.',
+      comofazer:'1. Crianças confeccionam os fantoches com meias e materiais simples.\n2. Definem em grupo os personagens e a história.\n3. Ensaiam brevemente os diálogos.\n4. Apresentam para outra turma ou para as famílias.\n5. Conversam sobre a experiência: como foi, o que sentiram.',
+      obs:'Excelente para desenvolver linguagem, cooperação, autoconfiança e expressão artística.' },
+    { titulo:'Jogo dos Opostos', faixas:['infantil3','infantil4','infantil5'], area:'cognitivo', duracao:'20–25 min',
+      objetivo:'Ampliar vocabulário, pensamento lógico e noção de contrários.',
+      materiais:'Cartões ilustrados com pares de opostos (grande/pequeno, cheio/vazio, rápido/lento).',
+      comofazer:'1. Apresente os cartões um par de cada vez.\n2. Pergunte: "E o contrário de grande é...?".\n3. Avance para mímica: "Me mostra como é rápido, agora como é lento".\n4. Crianças criam suas próprias frases com opostos.\n5. Finalize com caça ao oposto no ambiente da sala.',
+      obs:'Pode ser adaptado como brincadeira corporal — ideal para manter o engajamento.' },
+    { titulo:'Projeto Minha Família', faixas:['infantil3','infantil4','infantil5'], area:'socioafetivo', duracao:'40–45 min',
+      objetivo:'Valorizar a identidade e a diversidade familiar, promover sentimento de pertencimento.',
+      materiais:'Fotos trazidas de casa, papel A4, cola, canetões.',
+      comofazer:'1. Solicite antecipadamente que as famílias enviem fotos.\n2. Cada criança apresenta sua família ao grupo.\n3. Crie um painel coletivo "Nossas Famílias".\n4. Explore a diversidade das configurações familiares de forma acolhedora.\n5. Produza um álbum individual que vai para casa.',
+      obs:'Respeite e valorize todas as configurações familiares. Comunicar às famílias com pelo menos uma semana de antecedência.' },
+    { titulo:'Resolução de Problemas do Cotidiano', faixas:['infantil5'], area:'cognitivo', duracao:'25–30 min',
+      objetivo:'Desenvolver raciocínio lógico-matemático e pensamento crítico contextualizado.',
+      materiais:'Situações-problema ilustradas ou extraídas da realidade da turma.',
+      comofazer:'1. Apresente um problema do dia a dia: "Temos 10 biscoitos para 5 crianças — como dividir igualmente?".\n2. Deixe as crianças proporem soluções livremente.\n3. Incentive diferentes estratégias — não existe só uma forma certa.\n4. Registre as soluções encontradas no quadro.\n5. Valide o processo de pensar, não só o resultado final.',
+      obs:'Os problemas devem ser contextualizados na realidade concreta e cotidiana das crianças.' },
+    { titulo:'Jornalzinho da Turma', faixas:['infantil5'], area:'linguagem', duracao:'50 min',
+      objetivo:'Desenvolver escrita emergente, autoria, identidade e vínculo com a família.',
+      materiais:'Folhas A4, canetões, fotos da turma, grampeador.',
+      comofazer:'1. Explique o que é um jornal e mostre exemplos reais.\n2. Defina seções juntos: notícia da semana, desenho livre, receita, curiosidade.\n3. Crianças ditam o texto (professor escreve) ou escrevem com apoio.\n4. Ilustram cada seção.\n5. Compile, reproduza e distribua para as famílias.',
+      obs:'Pode ser dividido em dois encontros. Excelente projeto para o envolvimento e comunicação com as famílias.' },
+    { titulo:'Yoga para Crianças', faixas:['bercario','infantil1','infantil2','infantil3','infantil4','infantil5'], area:'motor', duracao:'20–25 min',
+      objetivo:'Desenvolver equilíbrio, flexibilidade, concentração, respiração e relaxamento.',
+      materiais:'Colchonetes ou tatames individuais.',
+      comofazer:'1. Reúna as crianças em seus colchonetes com espaço entre si.\n2. Apresente as poses como histórias: "Vire uma árvore", "Seja uma cobra dormindo".\n3. Sequência: respiração (3 min) → posturas em pé → posturas no chão → relaxamento.\n4. Use música instrumental calma como fundo.\n5. Finalize com 3 minutos de olhos fechados, respiração profunda.',
+      obs:'Ótima para início do dia ou após o almoço. Adapte as poses para cada faixa etária. Não force posições.' },
+  ];
+  db.atividades = seed.map(a => ({
+    id: uid(), ...a,
+    criadoEm: new Date().toISOString(),
+    criadoPor: 'Sistema',
+  }));
+  _atividadesCarregadas = true;
+  LS.set('ps_atividades', db.atividades);
+  FSREF('atividades').set({ data: db.atividades }).catch(e => console.warn(e));
+}
+
+function renderAtividades() {
+  const isDiretor  = currentUser?.papel === 'diretor';
+  const isPedagoga = currentUser?.papel === 'pedagoga';
+  const podeEditar = isDiretor;
+
+  // Seed se ainda vazio
+  if (db.atividades.length === 0 && _atividadesCarregadas) _seedAtividades();
+
+  // Botões de ação
+  const btnNova    = document.getElementById('btn-nova-atividade');
+  const btnImpAll  = document.getElementById('btn-imprimir-todas-ativ');
+  if (btnNova)   btnNova.style.display   = isDiretor ? '' : 'none';
+  if (btnImpAll) btnImpAll.style.display = db.atividades.length ? '' : 'none';
+
+  const filtroFaixa = document.getElementById('ativ-filtro-faixa')?.value || '';
+  const filtroArea  = document.getElementById('ativ-filtro-area')?.value  || '';
+  const filtroBusca = (document.getElementById('ativ-filtro-busca')?.value || '').toLowerCase();
+
+  let lista = db.atividades.filter(a => {
+    if (filtroFaixa && !(a.faixas || []).includes(filtroFaixa)) return false;
+    if (filtroArea  && a.area !== filtroArea) return false;
+    if (filtroBusca && !a.titulo.toLowerCase().includes(filtroBusca) && !(a.objetivo||'').toLowerCase().includes(filtroBusca)) return false;
+    return true;
+  });
+  lista.sort((a,b) => {
+    const aOrd = Math.min(...(a.faixas||[]).map(f=>Object.keys(ATIV_FAIXAS).indexOf(f)));
+    const bOrd = Math.min(...(b.faixas||[]).map(f=>Object.keys(ATIV_FAIXAS).indexOf(f)));
+    return aOrd !== bOrd ? aOrd - bOrd : a.titulo.localeCompare(b.titulo, 'pt-BR');
+  });
+
+  const grid = document.getElementById('ativ-grid');
+  if (!grid) return;
+
+  if (!lista.length) {
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1;"><div class="icon">🎯</div>
+      <p>Nenhuma atividade encontrada com os filtros selecionados.</p>
+      ${isDiretor ? '<p style="font-size:13px;color:var(--gray-400);">Clique em "Nova atividade" para adicionar.</p>' : ''}
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = lista.map(a => {
+    const area   = ATIV_AREAS[a.area] || ATIV_AREAS.cognitivo;
+    const faixasHtml = (a.faixas||[]).map(f =>
+      `<span class="ativ-badge" style="background:${area.bg};color:${area.color};border:1px solid ${area.border};">${ATIV_FAIXAS[f]?.label||f}</span>`
+    ).join('');
+    return `<div class="ativ-card">
+      <div class="ativ-card-header" style="background:${area.bg};border-bottom:3px solid ${area.border};">
+        <span class="ativ-area-icon">${area.icon}</span>
+        <div>
+          <div class="ativ-card-titulo" style="color:${area.color};">${a.titulo}</div>
+          <div style="font-size:11px;font-weight:600;color:${area.color};opacity:.8;margin-top:2px;text-transform:uppercase;letter-spacing:.4px;">${area.label}${a.duracao ? ' &nbsp;·&nbsp; ⏱ '+a.duracao : ''}</div>
+        </div>
+      </div>
+      <div class="ativ-card-badges">${faixasHtml}</div>
+      <div class="ativ-card-objetivo">${(a.objetivo||'').substring(0,100)}${(a.objetivo||'').length>100?'…':''}</div>
+      <div class="ativ-card-footer">
+        <button class="btn btn-secondary btn-sm" onclick="verAtividade('${a.id}')">👁 Ver</button>
+        <button class="btn btn-secondary btn-sm" onclick="imprimirAtividade('${a.id}')">🖨️</button>
+        ${podeEditar ? `<button class="btn btn-secondary btn-sm" onclick="openAtividadeForm('${a.id}')">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteAtividade('${a.id}')">🗑️</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openAtividadeForm(id) {
+  const a = id ? db.atividades.find(x => x.id === id) : null;
+  const area = a ? (ATIV_AREAS[a.area] || ATIV_AREAS.cognitivo) : ATIV_AREAS.cognitivo;
+  document.getElementById('ativ-form-id').value          = a?.id || '';
+  document.getElementById('ativ-form-titulo').value      = a?.titulo || '';
+  document.getElementById('ativ-form-area').value        = a?.area || '';
+  document.getElementById('ativ-form-duracao').value     = a?.duracao || '';
+  document.getElementById('ativ-form-objetivo').value    = a?.objetivo || '';
+  document.getElementById('ativ-form-materiais').value   = a?.materiais || '';
+  document.getElementById('ativ-form-comofazer').value   = a?.comofazer || '';
+  document.getElementById('ativ-form-obs').value         = a?.obs || '';
+  // faixas checkboxes
+  document.querySelectorAll('#modal-atividade-overlay input[type=checkbox]').forEach(cb => {
+    cb.checked = (a?.faixas || []).includes(cb.value);
+  });
+  document.getElementById('modal-ativ-titulo').textContent = a ? `✏️ Editar: ${a.titulo}` : '➕ Nova Atividade';
+  _atualizarCorModalAtiv();
+  document.getElementById('modal-atividade-overlay').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+
+function _atualizarCorModalAtiv() {
+  const area = ATIV_AREAS[document.getElementById('ativ-form-area')?.value] || { color:'#059669', bg:'#059669' };
+  const hdr  = document.getElementById('modal-ativ-header');
+  if (hdr) hdr.style.background = `linear-gradient(135deg, ${area.color}dd, ${area.color}99)`;
+}
+
+function closeAtividadeForm() {
+  document.getElementById('modal-atividade-overlay').style.display  = 'none';
+  document.getElementById('modal-ativ-view-overlay').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function salvarAtividade() {
+  const titulo = document.getElementById('ativ-form-titulo').value.trim();
+  const area   = document.getElementById('ativ-form-area').value;
+  if (!titulo) { showToast('⚠️ Informe o título da atividade.'); return; }
+  if (!area)   { showToast('⚠️ Selecione a área de desenvolvimento.'); return; }
+  const faixas = Array.from(document.querySelectorAll('#modal-atividade-overlay input[type=checkbox]:checked')).map(cb => cb.value);
+  if (!faixas.length) { showToast('⚠️ Selecione ao menos uma faixa etária.'); return; }
+  const id = document.getElementById('ativ-form-id').value;
+  const ativ = {
+    id:        id || uid(),
+    titulo,
+    area,
+    faixas,
+    duracao:   document.getElementById('ativ-form-duracao').value.trim(),
+    objetivo:  document.getElementById('ativ-form-objetivo').value.trim(),
+    materiais: document.getElementById('ativ-form-materiais').value.trim(),
+    comofazer: document.getElementById('ativ-form-comofazer').value.trim(),
+    obs:       document.getElementById('ativ-form-obs').value.trim(),
+    criadoEm:  id ? (db.atividades.find(x=>x.id===id)?.criadoEm || new Date().toISOString()) : new Date().toISOString(),
+    criadoPor: id ? (db.atividades.find(x=>x.id===id)?.criadoPor || currentUser?.nome||'') : currentUser?.nome||'',
+  };
+  const idx = db.atividades.findIndex(x => x.id === id);
+  if (idx >= 0) db.atividades[idx] = ativ; else db.atividades.push(ativ);
+  save();
+  LS.set('ps_atividades', db.atividades);
+  FSREF('atividades').set({ data: db.atividades }).catch(e => console.warn(e));
+  closeAtividadeForm();
+  renderAtividades();
+  showToast('✅ Atividade salva!');
+}
+
+function deleteAtividade(id) {
+  const a = db.atividades.find(x => x.id === id);
+  if (!confirm(`Excluir a atividade "${a?.titulo}"?`)) return;
+  db.atividades = db.atividades.filter(x => x.id !== id);
+  save();
+  LS.set('ps_atividades', db.atividades);
+  FSREF('atividades').set({ data: db.atividades }).catch(e => console.warn(e));
+  renderAtividades();
+  showToast('🗑️ Atividade excluída.');
+}
+
+function verAtividade(id) {
+  const a    = db.atividades.find(x => x.id === id);
+  if (!a) return;
+  const area = ATIV_AREAS[a.area] || ATIV_AREAS.cognitivo;
+  const faixasStr = (a.faixas||[]).map(f => ATIV_FAIXAS[f]?.label||f).join(' · ');
+  const campo = (label, val) => val
+    ? `<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#6b7280;margin-bottom:4px;">${label}</div>
+       <div style="font-size:14px;color:#1a1a1a;line-height:1.6;white-space:pre-line;">${val}</div></div>` : '';
+  document.getElementById('modal-ativ-view-inner').innerHTML = `
+    <div style="background:linear-gradient(135deg,${area.color}dd,${area.color}99);padding:20px 24px 16px;border-radius:14px 14px 0 0;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div style="font-size:11px;color:rgba(255,255,255,.8);text-transform:uppercase;letter-spacing:1px;font-weight:600;">${area.icon} ${area.label}${a.duracao ? ' &nbsp;·&nbsp; ⏱ '+a.duracao : ''}</div>
+          <div style="font-size:22px;font-weight:800;color:#fff;margin-top:4px;line-height:1.2;">${a.titulo}</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.85);margin-top:6px;">${faixasStr}</div>
+        </div>
+        <button onclick="closeAtividadeForm()" style="background:rgba(255,255,255,.2);border:none;border-radius:50%;width:30px;height:30px;cursor:pointer;color:#fff;font-size:18px;flex-shrink:0;margin-left:12px;">&times;</button>
+      </div>
+    </div>
+    <div style="padding:20px 24px 24px;">
+      ${campo('Objetivo Pedagógico', a.objetivo)}
+      ${campo('Faixa Etária', faixasStr + (a.faixas?.length ? ' &nbsp;|&nbsp; ' + a.faixas.map(f=>ATIV_FAIXAS[f]?.idade).filter(Boolean).join(', ') : ''))}
+      ${campo('Materiais', a.materiais)}
+      ${campo('Como Fazer', a.comofazer)}
+      ${campo('Observações / Adaptações', a.obs)}
+      <div class="btn-row" style="margin-top:8px;">
+        <button class="btn btn-secondary" onclick="closeAtividadeForm()">Fechar</button>
+        <button class="btn btn-secondary" onclick="imprimirAtividade('${a.id}');closeAtividadeForm()">🖨️ Imprimir card</button>
+        ${currentUser?.papel==='diretor'?`<button class="btn btn-primary" onclick="closeAtividadeForm();openAtividadeForm('${a.id}')">✏️ Editar</button>`:''}
+      </div>
+    </div>`;
+  document.getElementById('modal-ativ-view-overlay').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+
+function _buildAtivCardHtml(a, logoSrc) {
+  const area = ATIV_AREAS[a.area] || ATIV_AREAS.cognitivo;
+  const faixasStr = (a.faixas||[]).map(f=>`<span style="background:rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.4);border-radius:12px;padding:2px 10px;font-size:11px;font-weight:600;">${ATIV_FAIXAS[f]?.label||f}</span>`).join(' ');
+  const campo = (icon, label, val) => val
+    ? `<div style="margin-bottom:14px;break-inside:avoid;">
+         <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:${area.color};margin-bottom:4px;">${icon} ${label}</div>
+         <div style="font-size:13px;color:#1a1a1a;line-height:1.6;white-space:pre-line;">${val}</div>
+       </div>` : '';
+  const logoHtml = logoSrc
+    ? `<img src="${logoSrc}" style="max-height:52px;max-width:80px;object-fit:contain;background:#fff;border-radius:8px;padding:4px;box-shadow:0 1px 4px rgba(0,0,0,.15);" alt="Logo">`
+    : `<div style="width:52px;height:52px;background:rgba(255,255,255,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;">🏫</div>`;
+  return `
+    <div style="border:1.5px solid ${area.border};border-radius:14px;overflow:hidden;margin-bottom:28px;break-inside:avoid;box-shadow:0 2px 10px rgba(0,0,0,.1);">
+      <div style="background:linear-gradient(135deg,${area.color}e0,${area.color}a0);padding:18px 22px 14px;display:flex;align-items:center;gap:16px;">
+        ${logoHtml}
+        <div style="flex:1;">
+          <div style="font-size:10px;color:rgba(255,255,255,.75);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;margin-bottom:3px;">Escola Ponte do Saber</div>
+          <div style="font-size:20px;font-weight:800;color:#fff;line-height:1.15;">${a.titulo}</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.9);margin-top:5px;font-weight:600;">${area.icon} ${area.label}${a.duracao?' &nbsp;·&nbsp; ⏱ '+a.duracao:''}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;">${faixasStr}</div>
+        </div>
+      </div>
+      <div style="background:${area.bg};height:4px;"></div>
+      <div style="padding:18px 22px 20px;background:#fff;">
+        ${campo('🎯','Objetivo', a.objetivo)}
+        ${campo('📦','Materiais', a.materiais)}
+        ${campo('📋','Como Fazer', a.comofazer)}
+        ${campo('💡','Observações', a.obs)}
+      </div>
+    </div>`;
+}
+
+function imprimirAtividade(id) {
+  const a = db.atividades.find(x => x.id === id);
+  if (!a) return;
+  const logoEl  = document.querySelector('header img');
+  const logoSrc = logoEl ? logoEl.src : '';
+  const area    = ATIV_AREAS[a.area] || ATIV_AREAS.cognitivo;
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<title>${a.titulo}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#f1f5f9;}
+  .toolbar{position:fixed;top:0;left:0;right:0;background:#111827;padding:9px 20px;display:flex;gap:8px;align-items:center;z-index:999;}
+  .btn-p{background:${area.color};color:#fff;border:none;padding:7px 18px;border-radius:7px;cursor:pointer;font-size:14px;font-weight:600;}
+  .btn-c{background:transparent;color:#d1d5db;border:1px solid #374151;padding:7px 14px;border-radius:7px;cursor:pointer;font-size:14px;}
+  .page{width:210mm;margin:52px auto 32px;padding:28px 32px;}
+  @media print{body{background:#fff;}.toolbar{display:none!important;}.page{margin:0;width:100%;padding:20px 28px;}@page{size:A4 portrait;margin:0;}}
+</style>
+</head><body>
+<div class="toolbar">
+  <button class="btn-p" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+  <button class="btn-c" onclick="window.close()">✕ Fechar</button>
+</div>
+<div class="page">${_buildAtivCardHtml(a, logoSrc)}</div>
+</body></html>`;
+  const win = window.open('','_blank','width=900,height=750');
+  if (win) { win.document.write(html); win.document.close(); }
+}
+
+function imprimirTodasAtividades() {
+  const filtroFaixa = document.getElementById('ativ-filtro-faixa')?.value || '';
+  const filtroArea  = document.getElementById('ativ-filtro-area')?.value  || '';
+  const filtroBusca = (document.getElementById('ativ-filtro-busca')?.value || '').toLowerCase();
+  let lista = db.atividades.filter(a => {
+    if (filtroFaixa && !(a.faixas||[]).includes(filtroFaixa)) return false;
+    if (filtroArea  && a.area !== filtroArea) return false;
+    if (filtroBusca && !a.titulo.toLowerCase().includes(filtroBusca) && !(a.objetivo||'').toLowerCase().includes(filtroBusca)) return false;
+    return true;
+  }).sort((a,b) => {
+    const aO = Math.min(...(a.faixas||[]).map(f=>Object.keys(ATIV_FAIXAS).indexOf(f)));
+    const bO = Math.min(...(b.faixas||[]).map(f=>Object.keys(ATIV_FAIXAS).indexOf(f)));
+    return aO !== bO ? aO - bO : a.titulo.localeCompare(b.titulo,'pt-BR');
+  });
+  if (!lista.length) { showToast('⚠️ Nenhuma atividade para imprimir.'); return; }
+  const logoEl  = document.querySelector('header img');
+  const logoSrc = logoEl ? logoEl.src : '';
+  const cards   = lista.map(a => _buildAtivCardHtml(a, logoSrc)).join('');
+  const tituloFiltro = [
+    filtroFaixa ? ATIV_FAIXAS[filtroFaixa]?.label : '',
+    filtroArea  ? ATIV_AREAS[filtroArea]?.label    : '',
+  ].filter(Boolean).join(' · ') || 'Todas as atividades';
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<title>Banco de Atividades — ${tituloFiltro}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#f1f5f9;}
+  .toolbar{position:fixed;top:0;left:0;right:0;background:#111827;padding:9px 20px;display:flex;gap:8px;align-items:center;z-index:999;}
+  .btn-p{background:#059669;color:#fff;border:none;padding:7px 18px;border-radius:7px;cursor:pointer;font-size:14px;font-weight:600;}
+  .btn-c{background:transparent;color:#d1d5db;border:1px solid #374151;padding:7px 14px;border-radius:7px;cursor:pointer;font-size:14px;}
+  .page{width:210mm;margin:52px auto 32px;padding:28px 32px;}
+  .capa{background:linear-gradient(135deg,#064e3b,#059669);color:#fff;border-radius:14px;padding:32px 36px;margin-bottom:32px;display:flex;align-items:center;gap:20px;}
+  .capa-logo img{max-height:70px;max-width:100px;object-fit:contain;background:#fff;border-radius:10px;padding:6px;}
+  @media print{body{background:#fff;}.toolbar{display:none!important;}.page{margin:0;width:100%;padding:20px 28px;}@page{size:A4 portrait;margin:10mm 8mm;}}
+</style>
+</head><body>
+<div class="toolbar">
+  <button class="btn-p" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+  <button class="btn-c" onclick="window.close()">✕ Fechar</button>
+  <span style="color:#9ca3af;font-size:12px;margin-left:8px;">${lista.length} atividade(s)</span>
+</div>
+<div class="page">
+  <div class="capa">
+    <div class="capa-logo">${logoSrc?`<img src="${logoSrc}" alt="Logo">`:'<div style="font-size:40px;">🎯</div>'}</div>
+    <div>
+      <div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px;">Escola Ponte do Saber — Pinhais / PR</div>
+      <div style="font-size:26px;font-weight:800;line-height:1.1;">Banco de Atividades<br>Pedagógicas</div>
+      <div style="font-size:14px;opacity:.85;margin-top:6px;">${tituloFiltro} &nbsp;·&nbsp; ${lista.length} atividade(s)</div>
+      <div style="font-size:12px;opacity:.6;margin-top:4px;">Gerado em ${new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'})}</div>
+    </div>
+  </div>
+  ${cards}
+</div>
+</body></html>`;
+  const win = window.open('','_blank','width=920,height=800');
   if (win) { win.document.write(html); win.document.close(); }
 }
 
