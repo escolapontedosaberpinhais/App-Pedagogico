@@ -2226,7 +2226,7 @@ function aplicarPapel() {
   const navRot = document.getElementById('nav-rotina');
   if (navRot) navRot.style.display = (isGestao || isProfessora) ? '' : 'none';
   const navAtiv = document.getElementById('nav-atividades');
-  if (navAtiv) navAtiv.style.display = (isGestao || isProfessora) ? '' : 'none';
+  if (navAtiv) navAtiv.style.display = isDiretor ? '' : 'none';
 
   // Sync drawer visibility
   const dDash = document.getElementById('dnav-dashboard');
@@ -2245,7 +2245,7 @@ function aplicarPapel() {
   const dRot = document.getElementById('dnav-rotina');
   if (dRot) dRot.style.display = (isGestao || isProfessora) ? '' : 'none';
   const dAtiv = document.getElementById('dnav-atividades');
-  if (dAtiv) dAtiv.style.display = (isGestao || isProfessora) ? '' : 'none';
+  if (dAtiv) dAtiv.style.display = isDiretor ? '' : 'none';
   if (dPlan) dPlan.style.display = isSecretaria ? 'none' : '';
   if (dPar)  dPar.style.display  = isSecretaria ? 'none' : '';
   if (dAval) dAval.style.display = isSecretaria ? 'none' : '';
