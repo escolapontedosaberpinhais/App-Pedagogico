@@ -559,6 +559,14 @@
   .ativ-faixa-check:hover { background:var(--green-light); }
   .ativ-faixa-check input { accent-color:var(--green); }
 
+  /* PLANEJAMENTO SEMANAL — ABAS */
+  .pls-tab-btn { padding:8px 16px; border:1.5px solid var(--gray-200); border-bottom:none; border-radius:8px 8px 0 0; background:#f1f5f9; color:var(--gray-500); font-size:13px; font-weight:600; cursor:pointer; transition:.15s; }
+  .pls-tab-btn.active { background:#fff; color:var(--green-dark); border-color:var(--gray-200); border-bottom:2px solid #fff; position:relative; z-index:1; }
+  .pls-tab-btn:hover:not(.active) { background:#e2e8f0; color:var(--gray-700); }
+  .pls-tab-btn.sem-aula { color:var(--gray-400); font-style:italic; }
+  .pls-semana-card { border:1.5px solid var(--green-mid); border-radius:10px; overflow:hidden; }
+  .pls-semana-header { background:linear-gradient(90deg,#dcfce7,#f0fdf4); padding:10px 16px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; border-bottom:1.5px solid var(--green-mid); }
+
   /* ROLE BADGE */
   .badge-pedagoga { background: #ede9fe; color: #5b21b6; }
   .badge-blue { background: #dbeafe; color: #1e40af; }
@@ -1340,77 +1348,237 @@ function getFolder(path) {
   </div>
 
   <div class="card">
-    <div class="card-title">📝 Novo Planejamento</div>
-    <div class="form-grid">
-      <div class="form-group">
-        <label>Turma *</label>
-        <select id="pl-turma"></select>
-      </div>
-      <div class="form-group">
-        <label>Data *</label>
-        <input type="date" id="pl-data" />
-      </div>
-      <div class="form-group">
-        <label>Bimestre *</label>
-        <select id="pl-bimestre">
-          <option>1º Bimestre</option>
-          <option>2º Bimestre</option>
-          <option>3º Bimestre</option>
-          <option>4º Bimestre</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Professora(o) *</label>
-        <div id="pl-prof-wrap"></div>
-      </div>
-      <div class="form-group full">
-        <label>Direitos de Aprendizagem *</label>
-        <div class="check-group" id="pl-direitos-wrap">
-          <label class="check-item"><input type="checkbox" name="pl-direitos" value="Brincar" onchange="toggleCheckStyle(this)"> Brincar</label>
-          <label class="check-item"><input type="checkbox" name="pl-direitos" value="Conviver" onchange="toggleCheckStyle(this)"> Conviver</label>
-          <label class="check-item"><input type="checkbox" name="pl-direitos" value="Participar" onchange="toggleCheckStyle(this)"> Participar</label>
-          <label class="check-item"><input type="checkbox" name="pl-direitos" value="Explorar" onchange="toggleCheckStyle(this)"> Explorar</label>
-          <label class="check-item"><input type="checkbox" name="pl-direitos" value="Expressar" onchange="toggleCheckStyle(this)"> Expressar</label>
-          <label class="check-item"><input type="checkbox" name="pl-direitos" value="Conhecer-se" onchange="toggleCheckStyle(this)"> Conhecer-se</label>
-        </div>
-      </div>
-      <div class="form-group full">
-        <label>Campo(s) de Experiência *</label>
-        <div class="check-group" id="pl-campos-wrap">
-          <label class="check-item"><input type="checkbox" name="pl-campos" value="O Eu, o Outro e o Nós" onchange="toggleCheckStyle(this)"> O Eu, o Outro e o Nós</label>
-          <label class="check-item"><input type="checkbox" name="pl-campos" value="Corpo, Gestos e Movimentos" onchange="toggleCheckStyle(this)"> Corpo, Gestos e Movimentos</label>
-          <label class="check-item"><input type="checkbox" name="pl-campos" value="Traços, Sons, Cores e Formas" onchange="toggleCheckStyle(this)"> Traços, Sons, Cores e Formas</label>
-          <label class="check-item"><input type="checkbox" name="pl-campos" value="Escuta, Fala, Pensamento e Imaginação" onchange="toggleCheckStyle(this)"> Escuta, Fala, Pensamento e Imaginação</label>
-          <label class="check-item"><input type="checkbox" name="pl-campos" value="Espaços, Tempos, Quantidades, Relações e Transformações" onchange="toggleCheckStyle(this)"> Espaços, Tempos, Quantidades, Relações e Transformações</label>
-        </div>
-      </div>
-      <div class="form-group full">
-        <label>Objetivos / Habilidades BNCC *</label>
-        <textarea id="pl-bncc" placeholder="Ex: (EI02EO01) Demonstrar atitudes de cuidado e solidariedade na interação com crianças e adultos.&#10;(EI02CG02) Deslocar seu corpo no espaço, orientando-se por noções como em frente, atrás, no alto…"></textarea>
-      </div>
-      <div class="form-group full">
-        <label>Conteúdos *</label>
-        <input type="text" id="pl-conteudos" placeholder="Ex: Matemática (Números de 1 a 5) | Português (letra inicial do nome)" />
-      </div>
-      <div class="form-group full">
-        <label>Desenvolvimento da Atividade *</label>
-        <textarea id="pl-desenvolvimento" placeholder="Descreva como a atividade será desenvolvida…" style="min-height:100px;"></textarea>
-        <div style="margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:var(--green-light);border:1.5px solid var(--green-mid);border-radius:6px;font-size:13px;color:var(--green-dark);font-weight:600;">
-            📷 Adicionar imagem
-            <input type="file" id="pl-imagem-input" accept="image/*" style="display:none;" onchange="carregarImagemDesenvolvimento(this)">
-          </label>
-          <span style="font-size:11px;color:var(--gray-400);">PNG, JPG ou WEBP — será comprimida automaticamente</span>
-        </div>
-        <div id="pl-imagem-preview" style="display:none;margin-top:8px;position:relative;display:inline-block;">
-          <img id="pl-imagem-thumb" src="" style="max-width:220px;max-height:140px;border-radius:6px;border:1.5px solid var(--gray-200);display:block;">
-          <button onclick="removerImagemDesenvolvimento()" title="Remover imagem" style="position:absolute;top:-8px;right:-8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;">✕</button>
-        </div>
+    <!-- Toggle modo diário / semanal -->
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+      <div class="card-title" style="margin:0;">📝 Novo Planejamento</div>
+      <div style="display:flex;background:#f1f5f9;border-radius:8px;padding:3px;gap:2px;">
+        <button id="btn-modo-diario" onclick="toggleModoPlSemanal('diario')"
+          style="padding:6px 16px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:var(--green);color:#fff;transition:.15s;">
+          📅 Dia único
+        </button>
+        <button id="btn-modo-semanal" onclick="toggleModoPlSemanal('semanal')"
+          style="padding:6px 16px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:transparent;color:var(--gray-500);transition:.15s;">
+          📋 Semana completa
+        </button>
       </div>
     </div>
-    <div class="btn-row">
-      <button class="btn btn-primary" onclick="salvarPlanejamento()">💾 Salvar planejamento</button>
-      <button class="btn btn-secondary" onclick="limparFormPlanejamento()">🗑️ Limpar</button>
+
+    <!-- FORM DIÁRIO (padrão) -->
+    <div id="form-pl-diario">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Turma *</label>
+          <select id="pl-turma"></select>
+        </div>
+        <div class="form-group">
+          <label>Data *</label>
+          <input type="date" id="pl-data" />
+        </div>
+        <div class="form-group">
+          <label>Bimestre *</label>
+          <select id="pl-bimestre">
+            <option>1º Bimestre</option>
+            <option>2º Bimestre</option>
+            <option>3º Bimestre</option>
+            <option>4º Bimestre</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Professora(o) *</label>
+          <div id="pl-prof-wrap"></div>
+        </div>
+        <div class="form-group full">
+          <label>Direitos de Aprendizagem *</label>
+          <div class="check-group" id="pl-direitos-wrap">
+            <label class="check-item"><input type="checkbox" name="pl-direitos" value="Brincar" onchange="toggleCheckStyle(this)"> Brincar</label>
+            <label class="check-item"><input type="checkbox" name="pl-direitos" value="Conviver" onchange="toggleCheckStyle(this)"> Conviver</label>
+            <label class="check-item"><input type="checkbox" name="pl-direitos" value="Participar" onchange="toggleCheckStyle(this)"> Participar</label>
+            <label class="check-item"><input type="checkbox" name="pl-direitos" value="Explorar" onchange="toggleCheckStyle(this)"> Explorar</label>
+            <label class="check-item"><input type="checkbox" name="pl-direitos" value="Expressar" onchange="toggleCheckStyle(this)"> Expressar</label>
+            <label class="check-item"><input type="checkbox" name="pl-direitos" value="Conhecer-se" onchange="toggleCheckStyle(this)"> Conhecer-se</label>
+          </div>
+        </div>
+        <div class="form-group full">
+          <label>Campo(s) de Experiência *</label>
+          <div class="check-group" id="pl-campos-wrap">
+            <label class="check-item"><input type="checkbox" name="pl-campos" value="O Eu, o Outro e o Nós" onchange="toggleCheckStyle(this)"> O Eu, o Outro e o Nós</label>
+            <label class="check-item"><input type="checkbox" name="pl-campos" value="Corpo, Gestos e Movimentos" onchange="toggleCheckStyle(this)"> Corpo, Gestos e Movimentos</label>
+            <label class="check-item"><input type="checkbox" name="pl-campos" value="Traços, Sons, Cores e Formas" onchange="toggleCheckStyle(this)"> Traços, Sons, Cores e Formas</label>
+            <label class="check-item"><input type="checkbox" name="pl-campos" value="Escuta, Fala, Pensamento e Imaginação" onchange="toggleCheckStyle(this)"> Escuta, Fala, Pensamento e Imaginação</label>
+            <label class="check-item"><input type="checkbox" name="pl-campos" value="Espaços, Tempos, Quantidades, Relações e Transformações" onchange="toggleCheckStyle(this)"> Espaços, Tempos, Quantidades, Relações e Transformações</label>
+          </div>
+        </div>
+        <div class="form-group full">
+          <label>Objetivos / Habilidades BNCC *</label>
+          <textarea id="pl-bncc" placeholder="Ex: (EI02EO01) Demonstrar atitudes de cuidado e solidariedade na interação com crianças e adultos.&#10;(EI02CG02) Deslocar seu corpo no espaço, orientando-se por noções como em frente, atrás, no alto…"></textarea>
+        </div>
+        <div class="form-group full">
+          <label>Conteúdos *</label>
+          <input type="text" id="pl-conteudos" placeholder="Ex: Matemática (Números de 1 a 5) | Português (letra inicial do nome)" />
+        </div>
+        <div class="form-group full">
+          <label>Desenvolvimento da Atividade *</label>
+          <textarea id="pl-desenvolvimento" placeholder="Descreva como a atividade será desenvolvida…" style="min-height:100px;"></textarea>
+          <div style="margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:var(--green-light);border:1.5px solid var(--green-mid);border-radius:6px;font-size:13px;color:var(--green-dark);font-weight:600;">
+              📷 Adicionar imagem
+              <input type="file" id="pl-imagem-input" accept="image/*" style="display:none;" onchange="carregarImagemDesenvolvimento(this)">
+            </label>
+            <span style="font-size:11px;color:var(--gray-400);">PNG, JPG ou WEBP — será comprimida automaticamente</span>
+          </div>
+          <div id="pl-imagem-preview" style="display:none;margin-top:8px;position:relative;display:inline-block;">
+            <img id="pl-imagem-thumb" src="" style="max-width:220px;max-height:140px;border-radius:6px;border:1.5px solid var(--gray-200);display:block;">
+            <button onclick="removerImagemDesenvolvimento()" title="Remover imagem" style="position:absolute;top:-8px;right:-8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;">✕</button>
+          </div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="salvarPlanejamento()">💾 Salvar planejamento</button>
+        <button class="btn btn-secondary" onclick="limparFormPlanejamento()">🗑️ Limpar</button>
+      </div>
+    </div>
+
+    <!-- FORM SEMANAL -->
+    <div id="form-pl-semanal" style="display:none;">
+      <!-- Cabeçalho comum da semana -->
+      <div class="form-grid" style="margin-bottom:16px;">
+        <div class="form-group">
+          <label>Turma *</label>
+          <select id="pls-turma"></select>
+        </div>
+        <div class="form-group">
+          <label>Semana que começa em *</label>
+          <input type="date" id="pls-semana-inicio" onchange="plsPreencherDatas()" />
+          <div style="font-size:11px;color:var(--gray-400);margin-top:3px;">Selecione qualquer dia — o sistema usa a semana inteira (Seg–Sex)</div>
+        </div>
+        <div class="form-group">
+          <label>Bimestre *</label>
+          <select id="pls-bimestre">
+            <option>1º Bimestre</option>
+            <option>2º Bimestre</option>
+            <option>3º Bimestre</option>
+            <option>4º Bimestre</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Professora(o) *</label>
+          <div id="pls-prof-wrap"></div>
+        </div>
+        <div class="form-group full">
+          <label>Direitos de Aprendizagem <span style="font-size:11px;color:var(--gray-400);">(valem para a semana toda)</span></label>
+          <div class="check-group" id="pls-direitos-wrap">
+            <label class="check-item"><input type="checkbox" name="pls-direitos" value="Brincar" onchange="toggleCheckStyle(this)"> Brincar</label>
+            <label class="check-item"><input type="checkbox" name="pls-direitos" value="Conviver" onchange="toggleCheckStyle(this)"> Conviver</label>
+            <label class="check-item"><input type="checkbox" name="pls-direitos" value="Participar" onchange="toggleCheckStyle(this)"> Participar</label>
+            <label class="check-item"><input type="checkbox" name="pls-direitos" value="Explorar" onchange="toggleCheckStyle(this)"> Explorar</label>
+            <label class="check-item"><input type="checkbox" name="pls-direitos" value="Expressar" onchange="toggleCheckStyle(this)"> Expressar</label>
+            <label class="check-item"><input type="checkbox" name="pls-direitos" value="Conhecer-se" onchange="toggleCheckStyle(this)"> Conhecer-se</label>
+          </div>
+        </div>
+        <div class="form-group full">
+          <label>Campo(s) de Experiência <span style="font-size:11px;color:var(--gray-400);">(valem para a semana toda)</span></label>
+          <div class="check-group" id="pls-campos-wrap">
+            <label class="check-item"><input type="checkbox" name="pls-campos" value="O Eu, o Outro e o Nós" onchange="toggleCheckStyle(this)"> O Eu, o Outro e o Nós</label>
+            <label class="check-item"><input type="checkbox" name="pls-campos" value="Corpo, Gestos e Movimentos" onchange="toggleCheckStyle(this)"> Corpo, Gestos e Movimentos</label>
+            <label class="check-item"><input type="checkbox" name="pls-campos" value="Traços, Sons, Cores e Formas" onchange="toggleCheckStyle(this)"> Traços, Sons, Cores e Formas</label>
+            <label class="check-item"><input type="checkbox" name="pls-campos" value="Escuta, Fala, Pensamento e Imaginação" onchange="toggleCheckStyle(this)"> Escuta, Fala, Pensamento e Imaginação</label>
+            <label class="check-item"><input type="checkbox" name="pls-campos" value="Espaços, Tempos, Quantidades, Relações e Transformações" onchange="toggleCheckStyle(this)"> Espaços, Tempos, Quantidades, Relações e Transformações</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Abas dos dias -->
+      <div style="display:flex;gap:4px;margin-bottom:0;flex-wrap:wrap;" id="pls-tabs">
+        <button class="pls-tab-btn active" onclick="plsAbaAtiva(0)" id="pls-tab-0">Segunda</button>
+        <button class="pls-tab-btn" onclick="plsAbaAtiva(1)" id="pls-tab-1">Terça</button>
+        <button class="pls-tab-btn" onclick="plsAbaAtiva(2)" id="pls-tab-2">Quarta</button>
+        <button class="pls-tab-btn" onclick="plsAbaAtiva(3)" id="pls-tab-3">Quinta</button>
+        <button class="pls-tab-btn" onclick="plsAbaAtiva(4)" id="pls-tab-4">Sexta</button>
+      </div>
+
+      <!-- Painéis dos dias -->
+      <div style="border:1.5px solid var(--gray-200);border-radius:0 8px 8px 8px;padding:16px 18px;background:#fafafa;">
+        <div id="pls-dia-0" class="pls-dia-panel">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;cursor:pointer;">
+              <input type="checkbox" id="pls-ativo-0" checked onchange="plsToggleDia(0)"> Houve aula nesta segunda
+            </label>
+            <span id="pls-data-label-0" style="font-size:12px;color:var(--gray-400);"></span>
+          </div>
+          <div id="pls-campos-dia-0">
+            <div class="form-grid">
+              <div class="form-group full"><label>Conteúdos *</label><input type="text" id="pls-conteudos-0" placeholder="Ex: Matemática — sequência numérica"/></div>
+              <div class="form-group full"><label>Objetivos / Habilidades BNCC</label><textarea id="pls-bncc-0" placeholder="(EI02EO01) …" style="min-height:70px;"></textarea></div>
+              <div class="form-group full"><label>Desenvolvimento da Atividade *</label><textarea id="pls-desenvolvimento-0" placeholder="Como a atividade será desenvolvida…" style="min-height:90px;"></textarea></div>
+            </div>
+          </div>
+        </div>
+        <div id="pls-dia-1" class="pls-dia-panel" style="display:none;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;cursor:pointer;">
+              <input type="checkbox" id="pls-ativo-1" checked onchange="plsToggleDia(1)"> Houve aula nesta terça
+            </label>
+            <span id="pls-data-label-1" style="font-size:12px;color:var(--gray-400);"></span>
+          </div>
+          <div id="pls-campos-dia-1">
+            <div class="form-grid">
+              <div class="form-group full"><label>Conteúdos *</label><input type="text" id="pls-conteudos-1" placeholder="Ex: Linguagem — nome dos colegas"/></div>
+              <div class="form-group full"><label>Objetivos / Habilidades BNCC</label><textarea id="pls-bncc-1" placeholder="(EI02EO01) …" style="min-height:70px;"></textarea></div>
+              <div class="form-group full"><label>Desenvolvimento da Atividade *</label><textarea id="pls-desenvolvimento-1" placeholder="Como a atividade será desenvolvida…" style="min-height:90px;"></textarea></div>
+            </div>
+          </div>
+        </div>
+        <div id="pls-dia-2" class="pls-dia-panel" style="display:none;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;cursor:pointer;">
+              <input type="checkbox" id="pls-ativo-2" checked onchange="plsToggleDia(2)"> Houve aula nesta quarta
+            </label>
+            <span id="pls-data-label-2" style="font-size:12px;color:var(--gray-400);"></span>
+          </div>
+          <div id="pls-campos-dia-2">
+            <div class="form-grid">
+              <div class="form-group full"><label>Conteúdos *</label><input type="text" id="pls-conteudos-2" placeholder="Ex: Arte — colagem livre"/></div>
+              <div class="form-group full"><label>Objetivos / Habilidades BNCC</label><textarea id="pls-bncc-2" placeholder="(EI02EO01) …" style="min-height:70px;"></textarea></div>
+              <div class="form-group full"><label>Desenvolvimento da Atividade *</label><textarea id="pls-desenvolvimento-2" placeholder="Como a atividade será desenvolvida…" style="min-height:90px;"></textarea></div>
+            </div>
+          </div>
+        </div>
+        <div id="pls-dia-3" class="pls-dia-panel" style="display:none;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;cursor:pointer;">
+              <input type="checkbox" id="pls-ativo-3" checked onchange="plsToggleDia(3)"> Houve aula nesta quinta
+            </label>
+            <span id="pls-data-label-3" style="font-size:12px;color:var(--gray-400);"></span>
+          </div>
+          <div id="pls-campos-dia-3">
+            <div class="form-grid">
+              <div class="form-group full"><label>Conteúdos *</label><input type="text" id="pls-conteudos-3" placeholder="Ex: Ciências — animais da fazenda"/></div>
+              <div class="form-group full"><label>Objetivos / Habilidades BNCC</label><textarea id="pls-bncc-3" placeholder="(EI02EO01) …" style="min-height:70px;"></textarea></div>
+              <div class="form-group full"><label>Desenvolvimento da Atividade *</label><textarea id="pls-desenvolvimento-3" placeholder="Como a atividade será desenvolvida…" style="min-height:90px;"></textarea></div>
+            </div>
+          </div>
+        </div>
+        <div id="pls-dia-4" class="pls-dia-panel" style="display:none;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;cursor:pointer;">
+              <input type="checkbox" id="pls-ativo-4" checked onchange="plsToggleDia(4)"> Houve aula nesta sexta
+            </label>
+            <span id="pls-data-label-4" style="font-size:12px;color:var(--gray-400);"></span>
+          </div>
+          <div id="pls-campos-dia-4">
+            <div class="form-grid">
+              <div class="form-group full"><label>Conteúdos *</label><input type="text" id="pls-conteudos-4" placeholder="Ex: Movimento — brincadeiras no pátio"/></div>
+              <div class="form-group full"><label>Objetivos / Habilidades BNCC</label><textarea id="pls-bncc-4" placeholder="(EI02EO01) …" style="min-height:70px;"></textarea></div>
+              <div class="form-group full"><label>Desenvolvimento da Atividade *</label><textarea id="pls-desenvolvimento-4" placeholder="Como a atividade será desenvolvida…" style="min-height:90px;"></textarea></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-row" style="margin-top:16px;">
+        <button class="btn btn-primary" onclick="salvarPlanejamentoSemanal()">💾 Salvar semana completa</button>
+        <button class="btn btn-secondary" onclick="limparFormSemanal()">🗑️ Limpar</button>
+      </div>
     </div>
   </div>
 
@@ -2577,7 +2745,7 @@ function mostrarPushNotif(titulo, corpo) {
 function populateSelects() {
   const turmas = turmasVisiveis();
 
-  ['aluno-turma', 'pl-turma', 'par-turma', 'av-turma', 'filtro-pl-turma'].forEach(id => {
+  ['aluno-turma', 'pl-turma', 'pls-turma', 'par-turma', 'av-turma', 'filtro-pl-turma'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     const prev = el.value;
@@ -2596,7 +2764,7 @@ function populateSelects() {
   if (currentUser?.papel === 'professora') {
     const ids = getUsrTurmaIds(currentUser);
     if (ids.length > 0) {
-      ['pl-turma', 'par-turma', 'av-turma'].forEach(id => {
+      ['pl-turma', 'pls-turma', 'par-turma', 'av-turma'].forEach(id => {
         const el = document.getElementById(id);
         if (el && !el.value) el.value = ids[0];
       });
@@ -2609,17 +2777,33 @@ function populateSelects() {
 
 function renderProfField() {
   const wrap = document.getElementById('pl-prof-wrap');
-  if (!wrap) return;
-  if (currentUser?.papel === 'professora') {
-    wrap.innerHTML = `<input type="text" id="pl-prof" value="${currentUser.nome}" readonly
-      style="background:var(--gray-100);color:var(--gray-600);cursor:not-allowed;">`;
-  } else {
-    const profs = db.usuarios.filter(u => u.papel === 'professora');
-    const opts  = profs.map(u => `<option value="${u.nome}">${u.nome}</option>`).join('');
-    wrap.innerHTML = `<select id="pl-prof">
-      <option value="">— Selecionar professora —</option>
-      ${opts}
-    </select>`;
+  if (wrap) {
+    if (currentUser?.papel === 'professora') {
+      wrap.innerHTML = `<input type="text" id="pl-prof" value="${currentUser.nome}" readonly
+        style="background:var(--gray-100);color:var(--gray-600);cursor:not-allowed;">`;
+    } else {
+      const profs = db.usuarios.filter(u => u.papel === 'professora');
+      const opts  = profs.map(u => `<option value="${u.nome}">${u.nome}</option>`).join('');
+      wrap.innerHTML = `<select id="pl-prof">
+        <option value="">— Selecionar professora —</option>
+        ${opts}
+      </select>`;
+    }
+  }
+  // Campo professor no form semanal
+  const wrapS = document.getElementById('pls-prof-wrap');
+  if (wrapS) {
+    if (currentUser?.papel === 'professora') {
+      wrapS.innerHTML = `<input type="text" id="pls-prof" value="${currentUser.nome}" readonly
+        style="background:var(--gray-100);color:var(--gray-600);cursor:not-allowed;">`;
+    } else {
+      const profs = db.usuarios.filter(u => u.papel === 'professora');
+      const opts  = profs.map(u => `<option value="${u.nome}">${u.nome}</option>`).join('');
+      wrapS.innerHTML = `<select id="pls-prof">
+        <option value="">— Selecionar professora —</option>
+        ${opts}
+      </select>`;
+    }
   }
 }
 
@@ -2995,6 +3179,243 @@ function limparFormPlanejamento() {
   });
   removerImagemDesenvolvimento();
   renderProfField();
+}
+
+// =====================================================================
+// PLANEJAMENTO SEMANAL
+// =====================================================================
+const PLS_DIAS = ['Segunda','Terça','Quarta','Quinta','Sexta'];
+
+function toggleModoPlSemanal(modo) {
+  const isS = modo === 'semanal';
+  document.getElementById('form-pl-diario').style.display  = isS ? 'none' : '';
+  document.getElementById('form-pl-semanal').style.display = isS ? '' : 'none';
+  document.getElementById('btn-modo-diario').style.cssText  = isS
+    ? 'padding:6px 16px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:transparent;color:var(--gray-500);'
+    : 'padding:6px 16px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:var(--green);color:#fff;';
+  document.getElementById('btn-modo-semanal').style.cssText = isS
+    ? 'padding:6px 16px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:var(--green);color:#fff;'
+    : 'padding:6px 16px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:transparent;color:var(--gray-500);';
+}
+
+// Dada qualquer data, retorna a segunda-feira da semana
+function _plsGetSegunda(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + 'T12:00:00');
+  const dow = d.getDay(); // 0=dom
+  const diff = dow === 0 ? -6 : 1 - dow;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+
+function plsPreencherDatas() {
+  const seg = _plsGetSegunda(document.getElementById('pls-semana-inicio').value);
+  if (!seg) return;
+  const diasNomes = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
+  for (let i = 0; i < 5; i++) {
+    const d = new Date(seg);
+    d.setDate(seg.getDate() + i);
+    const label = document.getElementById(`pls-data-label-${i}`);
+    if (label) label.textContent = d.toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'2-digit', year:'numeric' });
+  }
+}
+
+function plsAbaAtiva(idx) {
+  for (let i = 0; i < 5; i++) {
+    document.getElementById(`pls-dia-${i}`).style.display = i === idx ? '' : 'none';
+    const btn = document.getElementById(`pls-tab-${i}`);
+    btn.classList.toggle('active', i === idx);
+  }
+}
+
+function plsToggleDia(idx) {
+  const ativo = document.getElementById(`pls-ativo-${idx}`).checked;
+  document.getElementById(`pls-campos-dia-${idx}`).style.opacity = ativo ? '1' : '0.4';
+  document.getElementById(`pls-campos-dia-${idx}`).style.pointerEvents = ativo ? '' : 'none';
+  const btn = document.getElementById(`pls-tab-${idx}`);
+  btn.classList.toggle('sem-aula', !ativo);
+}
+
+function salvarPlanejamentoSemanal() {
+  const turmaId  = document.getElementById('pls-turma').value;
+  const bimestre = document.getElementById('pls-bimestre').value;
+  const prof     = document.getElementById('pls-prof')?.value?.trim() || '';
+  const semanaIni = document.getElementById('pls-semana-inicio').value;
+  if (!turmaId || !prof || !semanaIni) {
+    alert('Preencha Turma, Professora e a data de início da semana.');
+    return;
+  }
+  const seg = _plsGetSegunda(semanaIni);
+  if (!seg) { alert('Data de início inválida.'); return; }
+
+  const direitos = [...document.querySelectorAll('input[name="pls-direitos"]:checked')].map(c => c.value);
+  const campos   = [...document.querySelectorAll('input[name="pls-campos"]:checked')].map(c => c.value);
+  const semanaId = uid();
+  const criados  = [];
+  let algumDia   = false;
+
+  for (let i = 0; i < 5; i++) {
+    const ativo       = document.getElementById(`pls-ativo-${i}`).checked;
+    const conteudos   = document.getElementById(`pls-conteudos-${i}`)?.value.trim() || '';
+    const desenvolvimento = document.getElementById(`pls-desenvolvimento-${i}`)?.value.trim() || '';
+    if (!ativo || (!conteudos && !desenvolvimento)) continue;
+    if (!conteudos || !desenvolvimento) {
+      alert(`${PLS_DIAS[i]}: preencha Conteúdos e Desenvolvimento (ou desmarque "Houve aula").`);
+      return;
+    }
+    const d = new Date(seg); d.setDate(seg.getDate() + i);
+    const dataStr = d.toISOString().slice(0, 10);
+    criados.push({
+      id: uid(), turmaId, bimestre, prof, direitos, campos,
+      data: dataStr,
+      bncc: document.getElementById(`pls-bncc-${i}`)?.value.trim() || '',
+      conteudos, desenvolvimento,
+      semanaId,
+      diaSemana: PLS_DIAS[i],
+      tipo: 'semanal',
+      criadoEm: new Date().toISOString(),
+      criadoPor: currentUser?.login || currentUser?.nome || '',
+      historico: [{ acao:'criado', por: currentUser?.nome || 'Professora', em: new Date().toISOString() }],
+    });
+    algumDia = true;
+  }
+
+  if (!algumDia) { alert('Marque pelo menos um dia com aula e preencha os campos.'); return; }
+
+  db.planejamentos.unshift(...criados);
+  save();
+  limparFormSemanal();
+  renderPlanejamentos();
+  showToast(`✅ Semana salva! ${criados.length} dia${criados.length > 1 ? 's' : ''} de planejamento.`);
+
+  // Notificação para a pedagoga
+  const turmaNome = db.turmas.find(t => t.id === turmaId)?.nome || 'Turma';
+  criarNotificacao('📋 Planejamento semanal para corrigir',
+    `${prof} · ${turmaNome} · semana de ${seg.toLocaleDateString('pt-BR')}`,
+    'planejamento', criados[0].id);
+}
+
+function limparFormSemanal() {
+  document.getElementById('pls-semana-inicio').value = '';
+  ['pls-bimestre'].forEach(id => { const el = document.getElementById(id); if (el) el.value = el.options[0]?.value || ''; });
+  document.querySelectorAll('input[name="pls-direitos"], input[name="pls-campos"]').forEach(c => {
+    c.checked = false; c.closest('.check-item')?.classList.remove('checked');
+  });
+  for (let i = 0; i < 5; i++) {
+    const conc = document.getElementById(`pls-conteudos-${i}`);
+    const bncc = document.getElementById(`pls-bncc-${i}`);
+    const desenv = document.getElementById(`pls-desenvolvimento-${i}`);
+    if (conc) conc.value = '';
+    if (bncc) bncc.value = '';
+    if (desenv) desenv.value = '';
+    const cb = document.getElementById(`pls-ativo-${i}`);
+    if (cb) { cb.checked = true; plsToggleDia(i); }
+    const lbl = document.getElementById(`pls-data-label-${i}`);
+    if (lbl) lbl.textContent = '';
+  }
+  plsAbaAtiva(0);
+  renderProfField();
+}
+
+function imprimirPlanejamentoSemanal(semanaId) {
+  const dias = db.planejamentos
+    .filter(p => p.semanaId === semanaId)
+    .sort((a, b) => (a.data || '') < (b.data || '') ? -1 : 1);
+  if (!dias.length) return;
+
+  const p0      = dias[0];
+  const turma   = db.turmas.find(t => t.id === p0.turmaId);
+  const turmaNome = turma?.nome || '—';
+  const bimestre  = p0.bimestre || '—';
+  const profNome  = p0.prof || '—';
+  const direitos  = (p0.direitos || []).join(' · ') || '—';
+  const campos    = (p0.campos || []).join('; ') || '—';
+  const logoEl    = document.querySelector('header img');
+  const logoSrc   = logoEl?.src || '';
+  const logoHtml  = logoSrc ? `<img src="${logoSrc}" style="height:56px;width:auto;">` : '';
+
+  // Range de datas
+  const d0 = new Date(dias[0].data + 'T12:00:00');
+  const dN = new Date(dias[dias.length-1].data + 'T12:00:00');
+  const semanaLabel = `${d0.toLocaleDateString('pt-BR')} a ${dN.toLocaleDateString('pt-BR')}`;
+
+  const diasHtml = dias.map(p => {
+    const dt  = new Date(p.data + 'T12:00:00');
+    const diaLabel = dt.toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'2-digit' });
+    const bnccHtml = p.bncc ? `<div class="campo"><strong>BNCC:</strong> ${p.bncc.replace(/\n/g,'<br>')}</div>` : '';
+    return `
+      <div class="dia-box">
+        <div class="dia-header">${diaLabel.toUpperCase()}</div>
+        <div class="campo"><strong>Conteúdos:</strong><br>${(p.conteudos||'—').replace(/\n/g,'<br>')}</div>
+        ${bnccHtml}
+        <div class="campo desenv"><strong>Desenvolvimento:</strong><br>${(p.desenvolvimento||'—').replace(/\n/g,'<br>')}</div>
+      </div>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<title>Planejamento Semanal — ${turmaNome}</title>
+<style>
+@page { size:A4 portrait; margin:10mm 8mm; }
+*{ box-sizing:border-box; margin:0; padding:0; }
+body{ font-family:Arial,Helvetica,sans-serif; font-size:10.5px; color:#000; background:#f5f5f5; padding:12px; }
+.no-print{ display:flex; gap:10px; margin-bottom:14px; }
+.btn-p{ padding:8px 20px; background:#1D9E75; color:#fff; border:none; border-radius:5px; font-size:13px; font-weight:bold; cursor:pointer; }
+.btn-f{ padding:8px 20px; background:#fff; color:#555; border:1.5px solid #bbb; border-radius:5px; font-size:13px; cursor:pointer; }
+.page{ background:#fff; padding:14px 16px 18px; box-shadow:0 2px 12px rgba(0,0,0,.18); }
+.cabecalho{ display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid #1D9E75; padding-bottom:8px; margin-bottom:10px; }
+.escola-info{ text-align:center; flex:1; }
+.escola-info h1{ font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; }
+.escola-info p{ font-size:10px; color:#555; margin-top:2px; }
+.meta-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:0; border:1.5px solid #000; margin-bottom:10px; }
+.meta-cell{ border:1px solid #000; padding:4px 7px; }
+.meta-cell strong{ display:block; font-size:8.5px; color:#444; text-transform:uppercase; margin-bottom:1px; }
+.meta-cell span{ font-size:10px; }
+.meta-full{ grid-column:1/-1; }
+.dias-grid{ display:grid; grid-template-columns:repeat(${Math.min(dias.length, 5)},1fr); gap:6px; }
+.dia-box{ border:1.5px solid #bbb; border-radius:5px; overflow:hidden; display:flex; flex-direction:column; }
+.dia-header{ background:#1D9E75; color:#fff; font-size:9.5px; font-weight:800; text-align:center; padding:5px 4px; letter-spacing:.3px; }
+.campo{ padding:5px 6px; border-bottom:1px solid #e5e7eb; font-size:9.5px; line-height:1.5; }
+.campo.desenv{ border-bottom:none; flex:1; }
+.assinatura{ display:flex; justify-content:space-between; margin-top:14px; gap:20px; }
+.assinatura-linha{ flex:1; border-top:1px solid #000; padding-top:4px; text-align:center; font-size:9px; }
+.footer{ margin-top:8px; font-size:8px; color:#999; text-align:right; }
+@media print{ body{background:#fff;padding:0;} .no-print{display:none!important;} }
+</style></head><body>
+<div class="no-print">
+  <button class="btn-p" onclick="window.print()">🖨️ Imprimir</button>
+  <button class="btn-f" onclick="window.close()">✕ Fechar</button>
+</div>
+<div class="page">
+  <div class="cabecalho">
+    ${logoHtml}
+    <div class="escola-info">
+      <h1>Escola Ponte do Saber</h1>
+      <p>Planejamento Semanal de Aula</p>
+    </div>
+    <div style="width:56px;"></div>
+  </div>
+  <div class="meta-grid">
+    <div class="meta-cell"><strong>Professora(o)</strong><span>${profNome}</span></div>
+    <div class="meta-cell"><strong>Turma</strong><span>${turmaNome}</span></div>
+    <div class="meta-cell"><strong>Bimestre</strong><span>${bimestre}</span></div>
+    <div class="meta-cell"><strong>Semana</strong><span>${semanaLabel}</span></div>
+    <div class="meta-cell meta-full"><strong>Direitos de Aprendizagem</strong><span>${direitos}</span></div>
+    <div class="meta-cell meta-full"><strong>Campos de Experiência</strong><span>${campos}</span></div>
+  </div>
+  <div class="dias-grid">${diasHtml}</div>
+  <div class="assinatura">
+    <div class="assinatura-linha">Professora(o)</div>
+    <div class="assinatura-linha">Pedagoga</div>
+    <div class="assinatura-linha">Direção</div>
+  </div>
+  <div class="footer">Gerado em ${new Date().toLocaleString('pt-BR')} · Sistema Pedagógico Escola Ponte do Saber</div>
+</div>
+</body></html>`;
+
+  const win = window.open('', '_blank', 'width=900,height=720');
+  if (!win) { showToast('⚠️ Popup bloqueado! Permita popups para imprimir.'); return; }
+  win.document.write(html);
+  win.document.close();
 }
 
 // Carrega e comprime imagem para base64 (max 900px, qualidade 0.75)
@@ -3789,8 +4210,12 @@ function renderPlanejamentos() {
   const el = document.getElementById('planejamentos-list');
   const alertEl = document.getElementById('alerta-planejamentos-devolvidos');
   const filtro = document.getElementById('filtro-pl-turma')?.value;
+  const canCorrect = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
+  const isProf     = currentUser?.papel === 'professora';
+  const canDeletePl = currentUser?.papel === 'diretor';
+
   let list = db.planejamentos;
-  if (currentUser?.papel === 'professora') {
+  if (isProf) {
     list = list.filter(p => getUsrTurmaIds(currentUser).includes(p.turmaId));
   } else if (filtro) {
     list = list.filter(p => p.turmaId === filtro);
@@ -3799,17 +4224,15 @@ function renderPlanejamentos() {
   // Banner de alerta para professora quando há itens devolvidos
   if (alertEl) {
     const devolvidos = list.filter(p => p.revisao === 'devolvido');
-    if (currentUser?.papel === 'professora' && devolvidos.length > 0) {
+    if (isProf && devolvidos.length > 0) {
       alertEl.innerHTML = `<div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:10px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px;">
         <span style="font-size:24px;">⚠️</span>
         <div>
           <strong style="color:#92400e;font-size:14px;">Você tem ${devolvidos.length} planejamento${devolvidos.length > 1 ? 's devolvidos' : ' devolvido'} para corrigir!</strong><br>
-          <span style="font-size:13px;color:#78350f;">A pedagoga solicitou correção. Faça os ajustes no Google Docs e clique em <strong>"📤 Enviei a correção"</strong>.</span>
+          <span style="font-size:13px;color:#78350f;">A pedagoga solicitou correção. Faça os ajustes e clique em <strong>"📤 Enviei a correção"</strong>.</span>
         </div>
       </div>`;
-    } else {
-      alertEl.innerHTML = '';
-    }
+    } else { alertEl.innerHTML = ''; }
   }
 
   if (list.length === 0) {
@@ -3817,23 +4240,78 @@ function renderPlanejamentos() {
     return;
   }
 
-  el.innerHTML = list.map(p => {
+  // Separar semanais (agrupados por semanaId) e diários
+  const semanaIds = [...new Set(list.filter(p => p.semanaId).map(p => p.semanaId))];
+  const idsNoSemanal = new Set(list.filter(p => p.semanaId).map(p => p.id));
+  const diarios = list.filter(p => !p.semanaId);
+
+  // Renderiza card de planejamento semanal
+  function cardSemanal(semanaId) {
+    const dias = list.filter(p => p.semanaId === semanaId)
+      .sort((a, b) => (a.data || '') < (b.data || '') ? -1 : 1);
+    if (!dias.length) return '';
+    const p0 = dias[0];
+    const turma = db.turmas.find(t => t.id === p0.turmaId);
+    const d0 = new Date(dias[0].data + 'T12:00:00');
+    const dN = new Date(dias[dias.length - 1].data + 'T12:00:00');
+    const semLbl = `${d0.toLocaleDateString('pt-BR')} – ${dN.toLocaleDateString('pt-BR')}`;
+    const devolvido = dias.some(p => p.revisao === 'devolvido');
+    const revisado  = dias.some(p => p.revisao === 'revisado');
+    const aprovado  = dias.every(p => p.corrigido);
+    const revisaoBadge = devolvido
+      ? `<span class="badge" style="background:#fef3c7;color:#92400e;font-size:11px;border:1px solid #fbbf24;">⚠️ Devolvido p/ correção</span>`
+      : revisado ? `<span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:11px;">🔄 Aguardando aprovação</span>`
+      : aprovado ? `<span class="badge" style="background:#d1fae5;color:#065f46;font-size:11px;">✅ Aprovado</span>` : '';
+    const borda = devolvido ? 'border:2px solid #f59e0b;background:#fffbeb;' : 'border:1.5px solid var(--green-mid);';
+
+    const diasHtml = dias.map(p => {
+      const dtDia = new Date(p.data + 'T12:00:00');
+      const diaLabel = dtDia.toLocaleDateString('pt-BR', { weekday:'short', day:'2-digit', month:'2-digit' });
+      return `<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:6px 10px;font-size:12px;">
+        <div style="font-weight:700;color:var(--green-dark);margin-bottom:3px;">${diaLabel.toUpperCase()}</div>
+        <div style="color:#374151;">${(p.conteudos||'—').slice(0,60)}${(p.conteudos||'').length>60?'…':''}</div>
+        <div style="color:#6b7280;font-size:11px;margin-top:2px;">${(p.desenvolvimento||'').slice(0,80)}${(p.desenvolvimento||'').length>80?'…':''}</div>
+      </div>`;
+    }).join('');
+
+    return `<div class="item-card" style="${borda}border-radius:10px;">
+      <div class="info" style="width:100%;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+          <span style="font-size:15px;">📋</span>
+          <strong style="font-size:14px;">Planejamento Semanal</strong>
+          <span class="badge badge-green">${turma?.nome || '—'}</span>
+          <span class="badge badge-gray">${p0.bimestre || ''}</span>
+          <span style="font-size:12px;color:var(--gray-500);">📅 ${semLbl}</span>
+          <span style="font-size:12px;color:var(--gray-500);">👩‍🏫 ${p0.prof}</span>
+          ${revisaoBadge}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;margin-bottom:10px;">
+          ${diasHtml}
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="btn btn-secondary btn-sm" onclick="imprimirPlanejamentoSemanal('${semanaId}')">🖨️ Imprimir semana</button>
+          ${isProf && devolvido ? `<button class="btn btn-success btn-sm" onclick="profEnviarCorrecaoSemanal('${semanaId}')">📤 Enviei a correção</button>` : ''}
+          ${canCorrect ? `<button class="btn btn-sm btn-amber" onclick="devolverSemanal('${semanaId}')">↩️ Devolver</button>` : ''}
+          ${canCorrect ? `<button class="btn btn-sm btn-success" onclick="${revisado ? `aprovarSemanal('${semanaId}')` : `aprovarSemanal('${semanaId}')`}">✅ Aprovar semana</button>` : ''}
+          ${canDeletePl ? `<button class="btn btn-danger btn-sm" onclick="deleteSemanal('${semanaId}')">🗑️</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // Renderiza card de planejamento diário (existente)
+  function cardDiario(p) {
     const turma = db.turmas.find(t => t.id === p.turmaId);
     const dataFmt = p.data ? new Date(p.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
     const savedAt = fmtDateTime(p.criadoEm);
-    const canCorrect = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
-    const isProf = currentUser?.papel === 'professora';
-    const canDeletePl = currentUser?.papel === 'diretor';
     const conteudosTxt = p.conteudos || p.tema || '—';
     const direitosTxt  = Array.isArray(p.direitos) && p.direitos.length ? p.direitos.join(' · ') : (p.area || '');
     const devolvido = p.revisao === 'devolvido';
     const revisado  = p.revisao === 'revisado';
     const revisaoBadge = devolvido
       ? `<span class="badge" style="background:#fef3c7;color:#92400e;font-size:11px;border:1px solid #fbbf24;">⚠️ Devolvido p/ correção</span>`
-      : revisado
-      ? `<span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:11px;">🔄 Aguardando aprovação</span>`
-      : p.corrigido
-      ? `<span class="badge" style="background:#d1fae5;color:#065f46;font-size:11px;">✅ Aprovado</span>` : '';
+      : revisado ? `<span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:11px;">🔄 Aguardando aprovação</span>`
+      : p.corrigido ? `<span class="badge" style="background:#d1fae5;color:#065f46;font-size:11px;">✅ Aprovado</span>` : '';
     const cardStyle = devolvido ? 'border:2px solid #f59e0b;background:#fffbeb;' : '';
     const imgBadge = p.imagemDesenvolvimento ? `<span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:11px;">🖼️ Com imagem</span>` : '';
     return `<div class="item-card" style="${cardStyle}">
@@ -3851,16 +4329,43 @@ function renderPlanejamentos() {
         ${htmlHistorico(p)}
       </div>
       <div class="actions">
-        ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')" title="Abrir no Google Docs">📄 Docs</button>` : ''}
-        ${isProf && devolvido ? `<button class="btn btn-success btn-sm" onclick="profEnviarCorrecao('pl','${p.id}')" title="Avisar a pedagoga que você corrigiu">📤 Enviei a correção</button>` : ''}
+        ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : ''}
+        ${isProf && devolvido ? `<button class="btn btn-success btn-sm" onclick="profEnviarCorrecao('pl','${p.id}')">📤 Enviei a correção</button>` : ''}
         ${canCorrect ? `<button class="btn btn-sm btn-amber" onclick="devolverParaCorrecao('pl','${p.id}')">↩️ Devolver</button>` : ''}
         ${canCorrect ? `<button class="btn btn-sm btn-success" onclick="${revisado ? `aprovarRevisao('pl','${p.id}')` : `toggleCorrigido('${p.id}')`}">✅ Aprovar</button>` : ''}
-        <button class="btn btn-secondary btn-sm" onclick="verPlanejamento('${p.id}')" title="Abrir no Google Docs">👁️</button>
-        <button class="btn btn-secondary btn-sm" onclick="imprimirPlanejamento('${p.id}')" title="Imprimir">🖨️</button>
-        ${canDeletePl ? `<button class="btn btn-danger btn-sm" onclick="deletePlanejamento('${p.id}')" title="Excluir">🗑️</button>` : ''}
+        <button class="btn btn-secondary btn-sm" onclick="verPlanejamento('${p.id}')">👁️</button>
+        <button class="btn btn-secondary btn-sm" onclick="imprimirPlanejamento('${p.id}')">🖨️</button>
+        ${canDeletePl ? `<button class="btn btn-danger btn-sm" onclick="deletePlanejamento('${p.id}')">🗑️</button>` : ''}
       </div>
     </div>`;
-  }).join('');
+  }
+
+  // Monta a lista: semanais primeiro (mais recente), depois diários
+  const semanaisHtml = semanaIds.map(cardSemanal).join('');
+  const diariosHtml  = diarios.map(cardDiario).join('');
+  el.innerHTML = semanaisHtml + diariosHtml || '<div class="empty"><div class="icon">📋</div><p>Nenhum planejamento salvo.</p></div>';
+}
+
+// Ações em lote para planejamentos semanais
+function devolverSemanal(semanaId) {
+  const dias = db.planejamentos.filter(p => p.semanaId === semanaId);
+  dias.forEach(p => { p.revisao = 'devolvido'; p.corrigido = false; pushHistorico(p, 'devolvido'); });
+  save(); renderPlanejamentos(); showToast('↩️ Semana devolvida para correção.');
+}
+function aprovarSemanal(semanaId) {
+  const dias = db.planejamentos.filter(p => p.semanaId === semanaId);
+  dias.forEach(p => { p.corrigido = true; p.revisao = 'aprovado'; pushHistorico(p, 'aprovado'); });
+  save(); renderPlanejamentos(); showToast('✅ Semana aprovada!');
+}
+function profEnviarCorrecaoSemanal(semanaId) {
+  const dias = db.planejamentos.filter(p => p.semanaId === semanaId);
+  dias.forEach(p => { p.revisao = 'revisado'; p.revisadoEm = new Date().toISOString(); pushHistorico(p, 'revisado'); });
+  save(); renderPlanejamentos(); showToast('📤 Correção enviada para a pedagoga!');
+}
+function deleteSemanal(semanaId) {
+  if (!confirm('Excluir todos os dias desta semana?')) return;
+  db.planejamentos = db.planejamentos.filter(p => p.semanaId !== semanaId);
+  save(); renderPlanejamentos(); showToast('🗑️ Planejamento semanal excluído.');
 }
 
 async function verPlanejamento(id) {
