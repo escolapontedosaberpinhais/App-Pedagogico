@@ -1419,6 +1419,17 @@ function getFolder(path) {
         <div class="form-group full">
           <label>Desenvolvimento da Atividade *</label>
           <textarea id="pl-desenvolvimento" placeholder="Descreva como a atividade será desenvolvida…" style="min-height:100px;"></textarea>
+          <div style="margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:var(--green-light);border:1.5px solid var(--green-mid);border-radius:6px;font-size:13px;color:var(--green-dark);font-weight:600;">
+              📷 Adicionar imagem
+              <input type="file" id="pl-imagem-input" accept="image/*" style="display:none;" onchange="carregarImagemDesenvolvimento(this)">
+            </label>
+            <span style="font-size:11px;color:var(--gray-400);">PNG, JPG ou WEBP — comprimida automaticamente</span>
+          </div>
+          <div id="pl-imagem-preview" style="display:none;margin-top:8px;position:relative;display:inline-block;">
+            <img id="pl-imagem-thumb" src="" style="max-width:220px;max-height:140px;border-radius:6px;border:1.5px solid var(--gray-200);display:block;">
+            <button onclick="removerImagemDesenvolvimento()" title="Remover imagem" style="position:absolute;top:-8px;right:-8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;">✕</button>
+          </div>
         </div>
       </div>
       <div class="btn-row">
@@ -1498,7 +1509,7 @@ function getFolder(path) {
             <div class="form-grid">
               <div class="form-group full"><label>Conteúdos *</label><input type="text" id="pls-conteudos-0" placeholder="Ex: Matemática — sequência numérica"/></div>
               <div class="form-group full"><label>Objetivos / Habilidades BNCC</label><textarea id="pls-bncc-0" placeholder="(EI02EO01) …" style="min-height:70px;"></textarea></div>
-              <div class="form-group full"><label>Desenvolvimento da Atividade *</label><textarea id="pls-desenvolvimento-0" placeholder="Como a atividade será desenvolvida…" style="min-height:90px;"></textarea></div>
+              <div class="form-group full"><label>Desenvolvimento da Atividade *</label><textarea id="pls-desenvolvimento-0" placeholder="Como a atividade será desenvolvida…" style="min-height:90px;"></textarea><div style="margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:var(--green-light);border:1.5px solid var(--green-mid);border-radius:6px;font-size:12px;color:var(--green-dark);font-weight:600;">📷 Imagem<input type="file" accept="image/*" style="display:none;" onchange="carregarImagemDia(this,0)"></label></div><div id="pls-imagem-preview-0" style="display:none;margin-top:6px;position:relative;display:inline-block;"><img id="pls-imagem-thumb-0" src="" style="max-width:180px;max-height:120px;border-radius:6px;border:1.5px solid var(--gray-200);display:block;"><button onclick="removerImagemDia(0)" style="position:absolute;top:-8px;right:-8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;">✕</button></div></div>
             </div>
           </div>
         </div>
@@ -1513,7 +1524,7 @@ function getFolder(path) {
             <div class="form-grid">
               <div class="form-group full"><label>Conteúdos *</label><input type="text" id="pls-conteudos-1" placeholder="Ex: Linguagem — nome dos colegas"/></div>
               <div class="form-group full"><label>Objetivos / Habilidades BNCC</label><textarea id="pls-bncc-1" placeholder="(EI02EO01) …" style="min-height:70px;"></textarea></div>
-              <div class="form-group full"><label>Desenvolvimento da Atividade *</label><textarea id="pls-desenvolvimento-1" placeholder="Como a atividade será desenvolvida…" style="min-height:90px;"></textarea></div>
+              <div class="form-group full"><label>Desenvolvimento da Atividade *</label><textarea id="pls-desenvolvimento-1" placeholder="Como a atividade será desenvolvida…" style="min-height:90px;"></textarea><div style="margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:var(--green-light);border:1.5px solid var(--green-mid);border-radius:6px;font-size:12px;color:var(--green-dark);font-weight:600;">📷 Imagem<input type="file" accept="image/*" style="display:none;" onchange="carregarImagemDia(this,1)"></label></div><div id="pls-imagem-preview-1" style="display:none;margin-top:6px;position:relative;display:inline-block;"><img id="pls-imagem-thumb-1" src="" style="max-width:180px;max-height:120px;border-radius:6px;border:1.5px solid var(--gray-200);display:block;"><button onclick="removerImagemDia(1)" style="position:absolute;top:-8px;right:-8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;">✕</button></div></div>
             </div>
           </div>
         </div>
@@ -1528,7 +1539,7 @@ function getFolder(path) {
             <div class="form-grid">
               <div class="form-group full"><label>Conteúdos *</label><input type="text" id="pls-conteudos-2" placeholder="Ex: Arte — colagem livre"/></div>
               <div class="form-group full"><label>Objetivos / Habilidades BNCC</label><textarea id="pls-bncc-2" placeholder="(EI02EO01) …" style="min-height:70px;"></textarea></div>
-              <div class="form-group full"><label>Desenvolvimento da Atividade *</label><textarea id="pls-desenvolvimento-2" placeholder="Como a atividade será desenvolvida…" style="min-height:90px;"></textarea></div>
+              <div class="form-group full"><label>Desenvolvimento da Atividade *</label><textarea id="pls-desenvolvimento-2" placeholder="Como a atividade será desenvolvida…" style="min-height:90px;"></textarea><div style="margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:var(--green-light);border:1.5px solid var(--green-mid);border-radius:6px;font-size:12px;color:var(--green-dark);font-weight:600;">📷 Imagem<input type="file" accept="image/*" style="display:none;" onchange="carregarImagemDia(this,2)"></label></div><div id="pls-imagem-preview-2" style="display:none;margin-top:6px;position:relative;display:inline-block;"><img id="pls-imagem-thumb-2" src="" style="max-width:180px;max-height:120px;border-radius:6px;border:1.5px solid var(--gray-200);display:block;"><button onclick="removerImagemDia(2)" style="position:absolute;top:-8px;right:-8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;">✕</button></div></div>
             </div>
           </div>
         </div>
@@ -1543,7 +1554,7 @@ function getFolder(path) {
             <div class="form-grid">
               <div class="form-group full"><label>Conteúdos *</label><input type="text" id="pls-conteudos-3" placeholder="Ex: Ciências — animais da fazenda"/></div>
               <div class="form-group full"><label>Objetivos / Habilidades BNCC</label><textarea id="pls-bncc-3" placeholder="(EI02EO01) …" style="min-height:70px;"></textarea></div>
-              <div class="form-group full"><label>Desenvolvimento da Atividade *</label><textarea id="pls-desenvolvimento-3" placeholder="Como a atividade será desenvolvida…" style="min-height:90px;"></textarea></div>
+              <div class="form-group full"><label>Desenvolvimento da Atividade *</label><textarea id="pls-desenvolvimento-3" placeholder="Como a atividade será desenvolvida…" style="min-height:90px;"></textarea><div style="margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:var(--green-light);border:1.5px solid var(--green-mid);border-radius:6px;font-size:12px;color:var(--green-dark);font-weight:600;">📷 Imagem<input type="file" accept="image/*" style="display:none;" onchange="carregarImagemDia(this,3)"></label></div><div id="pls-imagem-preview-3" style="display:none;margin-top:6px;position:relative;display:inline-block;"><img id="pls-imagem-thumb-3" src="" style="max-width:180px;max-height:120px;border-radius:6px;border:1.5px solid var(--gray-200);display:block;"><button onclick="removerImagemDia(3)" style="position:absolute;top:-8px;right:-8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;">✕</button></div></div>
             </div>
           </div>
         </div>
@@ -1558,7 +1569,7 @@ function getFolder(path) {
             <div class="form-grid">
               <div class="form-group full"><label>Conteúdos *</label><input type="text" id="pls-conteudos-4" placeholder="Ex: Movimento — brincadeiras no pátio"/></div>
               <div class="form-group full"><label>Objetivos / Habilidades BNCC</label><textarea id="pls-bncc-4" placeholder="(EI02EO01) …" style="min-height:70px;"></textarea></div>
-              <div class="form-group full"><label>Desenvolvimento da Atividade *</label><textarea id="pls-desenvolvimento-4" placeholder="Como a atividade será desenvolvida…" style="min-height:90px;"></textarea></div>
+              <div class="form-group full"><label>Desenvolvimento da Atividade *</label><textarea id="pls-desenvolvimento-4" placeholder="Como a atividade será desenvolvida…" style="min-height:90px;"></textarea><div style="margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:var(--green-light);border:1.5px solid var(--green-mid);border-radius:6px;font-size:12px;color:var(--green-dark);font-weight:600;">📷 Imagem<input type="file" accept="image/*" style="display:none;" onchange="carregarImagemDia(this,4)"></label></div><div id="pls-imagem-preview-4" style="display:none;margin-top:6px;position:relative;display:inline-block;"><img id="pls-imagem-thumb-4" src="" style="max-width:180px;max-height:120px;border-radius:6px;border:1.5px solid var(--gray-200);display:block;"><button onclick="removerImagemDia(4)" style="position:absolute;top:-8px;right:-8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;">✕</button></div></div>
             </div>
           </div>
         </div>
@@ -3259,6 +3270,7 @@ function salvarPlanejamentoSemanal() {
       data: dataStr,
       bncc: document.getElementById(`pls-bncc-${i}`)?.value.trim() || '',
       conteudos, desenvolvimento,
+      imagemDesenvolvimento: window._plsDiasImagens?.[i] || null,
       semanaId,
       diaSemana: PLS_DIAS[i],
       tipo: 'semanal',
@@ -3290,17 +3302,19 @@ function limparFormSemanal() {
   document.querySelectorAll('input[name="pls-direitos"], input[name="pls-campos"]').forEach(c => {
     c.checked = false; c.closest('.check-item')?.classList.remove('checked');
   });
+  window._plsDiasImagens = {};
   for (let i = 0; i < 5; i++) {
-    const conc = document.getElementById(`pls-conteudos-${i}`);
-    const bncc = document.getElementById(`pls-bncc-${i}`);
+    const conc  = document.getElementById(`pls-conteudos-${i}`);
+    const bncc  = document.getElementById(`pls-bncc-${i}`);
     const desenv = document.getElementById(`pls-desenvolvimento-${i}`);
-    if (conc) conc.value = '';
-    if (bncc) bncc.value = '';
+    if (conc)  conc.value  = '';
+    if (bncc)  bncc.value  = '';
     if (desenv) desenv.value = '';
     const cb = document.getElementById(`pls-ativo-${i}`);
     if (cb) { cb.checked = true; plsToggleDia(i); }
     const lbl = document.getElementById(`pls-data-label-${i}`);
     if (lbl) lbl.textContent = '';
+    removerImagemDia(i);
   }
   plsAbaAtiva(0);
   renderProfField();
@@ -3442,6 +3456,44 @@ function removerImagemDesenvolvimento() {
   if (thumb) thumb.src = '';
   if (preview) preview.style.display = 'none';
   if (input) input.value = '';
+}
+
+// Imagens por dia no form semanal
+if (!window._plsDiasImagens) window._plsDiasImagens = {};
+
+function carregarImagemDia(input, idx) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      const maxW = 900;
+      const scale = img.width > maxW ? maxW / img.width : 1;
+      const canvas = document.createElement('canvas');
+      canvas.width  = Math.round(img.width  * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      const b64 = canvas.toDataURL('image/jpeg', 0.75);
+      window._plsDiasImagens[idx] = b64;
+      const thumb   = document.getElementById(`pls-imagem-thumb-${idx}`);
+      const preview = document.getElementById(`pls-imagem-preview-${idx}`);
+      if (thumb)   { thumb.src = b64; }
+      if (preview) { preview.style.display = 'inline-block'; }
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function removerImagemDia(idx) {
+  delete window._plsDiasImagens[idx];
+  const thumb   = document.getElementById(`pls-imagem-thumb-${idx}`);
+  const preview = document.getElementById(`pls-imagem-preview-${idx}`);
+  const inputs  = document.querySelectorAll(`#pls-dia-${idx} input[type=file]`);
+  if (thumb)   thumb.src = '';
+  if (preview) preview.style.display = 'none';
+  inputs.forEach(i => i.value = '');
 }
 
 function toggleCheckStyle(cb) {
