@@ -1795,6 +1795,14 @@ function getFolder(path) {
           <option value="arte">🎨 Arte e Criatividade</option>
         </select>
       </div>
+      <div class="form-group" style="margin:0;min-width:150px;">
+        <label style="font-size:12px;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px;">Temática</label>
+        <select id="ativ-filtro-crista" onchange="renderAtividades()" style="margin-top:4px;">
+          <option value="">Todas</option>
+          <option value="crista">✝️ Cristãs</option>
+          <option value="geral">📚 Gerais</option>
+        </select>
+      </div>
       <div class="form-group" style="margin:0;flex:1;min-width:180px;">
         <label style="font-size:12px;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px;">Buscar</label>
         <input type="text" id="ativ-filtro-busca" oninput="renderAtividades()" placeholder="Nome ou objetivo..." style="margin-top:4px;" />
@@ -2233,7 +2241,7 @@ function aplicarPapel() {
   const navRot = document.getElementById('nav-rotina');
   if (navRot) navRot.style.display = (isGestao || isProfessora) ? '' : 'none';
   const navAtiv = document.getElementById('nav-atividades');
-  if (navAtiv) navAtiv.style.display = isDiretor ? '' : 'none';
+  if (navAtiv) navAtiv.style.display = (isDiretor || isPedagoga || isProfessora) ? '' : 'none';
 
   // Sync drawer visibility
   const dDash = document.getElementById('dnav-dashboard');
@@ -2252,7 +2260,7 @@ function aplicarPapel() {
   const dRot = document.getElementById('dnav-rotina');
   if (dRot) dRot.style.display = (isGestao || isProfessora) ? '' : 'none';
   const dAtiv = document.getElementById('dnav-atividades');
-  if (dAtiv) dAtiv.style.display = isDiretor ? '' : 'none';
+  if (dAtiv) dAtiv.style.display = (isDiretor || isPedagoga || isProfessora) ? '' : 'none';
   if (dPlan) dPlan.style.display = isSecretaria ? 'none' : '';
   if (dPar)  dPar.style.display  = isSecretaria ? 'none' : '';
   if (dAval) dAval.style.display = isSecretaria ? 'none' : '';
@@ -5954,7 +5962,7 @@ const ATIV_FAIXAS = {
 };
 
 function _getSeedAtividades() {
-  return [
+  const _seed = [
     // ── BERÇÁRIO ────────────────────────────────────────────────────────
     { titulo:'Caixinha dos Sentidos', faixas:['bercario'], area:'sensorial', duracao:'15–20 min',
       objetivo:'Estimular a percepção tátil e a curiosidade exploratória.',
@@ -6582,6 +6590,8 @@ function _getSeedAtividades() {
       comofazer:'1. Cada criança escolhe uma história bíblica favorita do período.\n2. Prepara 3 pontos: quem é o personagem, o que aconteceu, o que aprendeu.\n3. Apresenta para a turma (2–3 minutos).\n4. Turma pode fazer perguntas.\n5. Celebrate cada apresentação com aplauso.',
       obs:'Desenvolve oralidade, confiança e consolida o aprendizado bíblico de forma autoral.' },
   ];
+  // Marcar automaticamente atividades cristãs a partir do índice 40
+  return _seed.map((a, i) => i >= 40 ? { ...a, crista: true } : a);
 }
 
 function _seedAtividades() {
@@ -6598,9 +6608,25 @@ function _seedAtividades() {
 // Adiciona ao banco atividades do seed que ainda não existem (atualização incremental)
 function _atualizarBancoAtividades() {
   if (!_atividadesCarregadas) return;
+  const seed = _getSeedAtividades();
+  const seedMap = new Map(seed.map(a => [a.titulo, a]));
   const titulosExistentes = new Set(db.atividades.map(a => a.titulo));
-  const novas = _getSeedAtividades().filter(a => !titulosExistentes.has(a.titulo));
-  if (novas.length === 0) return;
+
+  // Patch campo crista em atividades existentes que vieram da seed
+  let patchado = false;
+  db.atividades.forEach(a => {
+    const s = seedMap.get(a.titulo);
+    if (s && a.crista !== s.crista) {
+      if (s.crista) a.crista = true;
+      else delete a.crista;
+      patchado = true;
+    }
+  });
+
+  // Adicionar atividades da seed que ainda não existem
+  const novas = seed.filter(a => !titulosExistentes.has(a.titulo));
+  if (novas.length === 0 && !patchado) return;
+
   const novasComId = novas.map(a => ({
     id: uid(), ...a,
     criadoEm: new Date().toISOString(),
@@ -6628,13 +6654,16 @@ function renderAtividades() {
   if (btnNova)   btnNova.style.display   = isDiretor ? '' : 'none';
   if (btnImpAll) btnImpAll.style.display = db.atividades.length ? '' : 'none';
 
-  const filtroFaixa = document.getElementById('ativ-filtro-faixa')?.value || '';
-  const filtroArea  = document.getElementById('ativ-filtro-area')?.value  || '';
-  const filtroBusca = (document.getElementById('ativ-filtro-busca')?.value || '').toLowerCase();
+  const filtroFaixa  = document.getElementById('ativ-filtro-faixa')?.value  || '';
+  const filtroArea   = document.getElementById('ativ-filtro-area')?.value   || '';
+  const filtroCrista = document.getElementById('ativ-filtro-crista')?.value || '';
+  const filtroBusca  = (document.getElementById('ativ-filtro-busca')?.value || '').toLowerCase();
 
   let lista = db.atividades.filter(a => {
     if (filtroFaixa && !(a.faixas || []).includes(filtroFaixa)) return false;
     if (filtroArea  && a.area !== filtroArea) return false;
+    if (filtroCrista === 'crista' && !a.crista) return false;
+    if (filtroCrista === 'geral'  &&  a.crista) return false;
     if (filtroBusca && !a.titulo.toLowerCase().includes(filtroBusca) && !(a.objetivo||'').toLowerCase().includes(filtroBusca)) return false;
     return true;
   });
