@@ -1419,17 +1419,6 @@ function getFolder(path) {
         <div class="form-group full">
           <label>Desenvolvimento da Atividade *</label>
           <textarea id="pl-desenvolvimento" placeholder="Descreva como a atividade será desenvolvida…" style="min-height:100px;"></textarea>
-          <div style="margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:var(--green-light);border:1.5px solid var(--green-mid);border-radius:6px;font-size:13px;color:var(--green-dark);font-weight:600;">
-              📷 Adicionar imagem
-              <input type="file" id="pl-imagem-input" accept="image/*" style="display:none;" onchange="carregarImagemDesenvolvimento(this)">
-            </label>
-            <span style="font-size:11px;color:var(--gray-400);">PNG, JPG ou WEBP — será comprimida automaticamente</span>
-          </div>
-          <div id="pl-imagem-preview" style="display:none;margin-top:8px;position:relative;display:inline-block;">
-            <img id="pl-imagem-thumb" src="" style="max-width:220px;max-height:140px;border-radius:6px;border:1.5px solid var(--gray-200);display:block;">
-            <button onclick="removerImagemDesenvolvimento()" title="Remover imagem" style="position:absolute;top:-8px;right:-8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;">✕</button>
-          </div>
         </div>
       </div>
       <div class="btn-row">
