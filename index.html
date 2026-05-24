@@ -934,6 +934,9 @@
   <div class="drawer-footer">
     <button class="drawer-key" onclick="fecharDrawer();abrirTrocarSenha();">&#x1F511; Trocar senha</button>
     <button class="drawer-logout" onclick="fazerLogout()">&#x1F6AA; Sair</button>
+    <div style="text-align:center;font-size:11px;color:var(--gray-400);padding-top:4px;letter-spacing:.3px;">
+      Escola Ponte do Saber &nbsp;·&nbsp; <span id="app-version-label"></span>
+    </div>
   </div>
 </div>
 <nav id="nav">
@@ -2130,6 +2133,10 @@ function getFolder(path) {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
+const APP_VERSION = 'v2.5.0';
+// Exibe a versão no drawer
+(function(){ const el = document.getElementById('app-version-label'); if (el) el.textContent = APP_VERSION; })();
+
 const LS = {
   get: (k, def = []) => { try { return JSON.parse(localStorage.getItem(k)) ?? def; } catch { return def; } },
   set: (k, v) => localStorage.setItem(k, JSON.stringify(v)),
