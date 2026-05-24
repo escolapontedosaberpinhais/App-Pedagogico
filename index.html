@@ -598,75 +598,119 @@
   /* RESPONSIVE — MOBILE */
   @media (max-width: 640px) {
 
-    /* Header compacto */
-    header { padding: 0 14px; height: 52px; gap: 10px; }
-    header img { height: 34px; }
-    header h1 { font-size: 14px; }
-    #header-user { gap: 8px; }
-    #header-user span { display: none; } /* esconde nome no header em mobile */
+    /* ── Header ───────────────────────────────────────── */
+    header { padding: 0 12px; height: 52px; gap: 8px; }
+    header img { height: 32px; }
+    header h1 { font-size: 13px; }
+    #header-user { gap: 6px; }
+    #header-user span { display: none; }
     #btn-logout { padding: 6px 10px; font-size: 12px; }
 
-    /* Nav oculta em mobile - navegação via drawer */
+    /* ── Nav → drawer ────────────────────────────────── */
     nav { display: none !important; }
     .btn-hamburger { display: flex !important; }
 
-    /* Main sem espaço de nav embaixo */
-    main { padding: 12px 10px 24px; }
+    /* ── Topbar hora-atividade ────────────────────────── */
+    #ha-topbar { padding: 6px 12px; font-size: 12px; gap: 8px; }
+    #ha-topbar-lista { gap: 6px; }
 
-    /* Cards */
+    /* ── Main ────────────────────────────────────────── */
+    main { padding: 10px 10px 80px; }
+
+    /* ── Cards ───────────────────────────────────────── */
     .card { padding: 14px 12px; }
     .card-title { font-size: 15px; }
 
-    /* Form: 1 coluna */
+    /* ── Form ────────────────────────────────────────── */
     .form-grid { grid-template-columns: 1fr; }
     .form-group.full { grid-column: span 1; }
-    input, select, textarea { font-size: 16px; } /* evita zoom automático no iOS */
+    input, select, textarea { font-size: 16px; }
 
-    /* Item-card: empilha info + ações */
+    /* ── Item-card ───────────────────────────────────── */
     .item-card { flex-direction: column; align-items: flex-start; gap: 10px; }
-    .item-card .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      width: 100%;
-    }
+    .item-card .actions { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
     .item-card .actions button { flex: 1; min-width: 44px; justify-content: center; }
 
-    /* Btn-row */
+    /* ── Btn-row ─────────────────────────────────────── */
     .btn-row { flex-direction: column; }
     .btn-row .btn { width: 100%; justify-content: center; }
 
-    /* Section header */
+    /* ── Section header ─────────────────────────────── */
     .section-header { flex-direction: column; align-items: flex-start; gap: 8px; }
     .section-header h2 { font-size: 17px; }
 
-    /* Dashboard cards: 2 colunas */
+    /* ── Dashboard ───────────────────────────────────── */
     .dash-cards { grid-template-columns: repeat(2, 1fr) !important; }
     .dash-grid-2 { grid-template-columns: 1fr !important; }
     .dash-card { padding: 14px 10px; }
     .dash-num { font-size: 26px !important; }
 
-    /* Modal full-screen (bottom sheet) */
+    /* ── Modal padrão (bottom sheet) ─────────────────── */
     .modal-overlay { align-items: flex-end; padding: 0; }
     .modal-box {
-      width: 100% !important;
-      max-width: 100% !important;
+      width: 100% !important; max-width: 100% !important;
       border-radius: 16px 16px 0 0 !important;
       padding: 24px 18px !important;
-      max-height: 92vh;
-      overflow-y: auto;
+      max-height: 92vh; overflow-y: auto;
     }
 
-    /* Login */
-    .login-box { padding: 28px 20px; margin: 16px; }
-    .login-logo img { height: 70px; }
+    /* ── Modais fixos (atividades, diagnóstico) ──────── */
+    #modal-atividade-overlay,
+    #modal-ativ-view-overlay,
+    #modal-diag-overlay { padding: 8px 8px 0; }
+    #modal-atividade-overlay > div,
+    #modal-ativ-view-overlay > div,
+    #modal-diag-overlay > div {
+      max-width: 100% !important;
+      border-radius: 14px !important;
+    }
 
-    /* Check-group: wrap menor */
+    /* ── Login ───────────────────────────────────────── */
+    .login-box { padding: 28px 18px; margin: 12px; }
+    .login-logo img { height: 64px; }
+
+    /* ── Check-group ─────────────────────────────────── */
     .check-item { font-size: 12px; padding: 4px 10px; }
 
-    /* Tabela de produção */
+    /* ── Produção ────────────────────────────────────── */
     .prod-table { font-size: 11px; }
     .prod-table th, .prod-table td { padding: 5px 4px; }
+
+    /* ── Banco de Atividades ─────────────────────────── */
+    #ativ-grid { grid-template-columns: 1fr !important; }
+    /* Filtros empilhados */
+    #tab-atividades .card > div { flex-direction: column; }
+    #tab-atividades .form-group { min-width: 100% !important; }
+    /* Botões do header de atividades em coluna */
+    #tab-atividades .section-header > div { flex-direction: column; width: 100%; }
+    #btn-nova-atividade,
+    #btn-imprimir-todas-ativ { width: 100%; justify-content: center; }
+
+    /* ── Planejamento: toggle dia/semanal ────────────── */
+    #tab-planejamento .card > div:first-child { flex-direction: column; align-items: flex-start; gap: 10px; }
+    #tab-planejamento .card > div:first-child > div { width: 100%; }
+    #btn-modo-diario, #btn-modo-semanal { flex: 1; text-align: center; }
+
+    /* ── Abas dias (Seg–Sex) ─────────────────────────── */
+    #pls-tabs { gap: 3px; }
+    .pls-tab-btn { padding: 7px 10px; font-size: 12px; flex: 1; text-align: center; }
+
+    /* ── Card semanal na listagem ────────────────────── */
+    .pls-semana-card, .item-card[style*="green-mid"] { padding: 0; }
+
+    /* ── Hora-atividade: tabela grade ────────────────── */
+    #ha-grade { overflow-x: auto; }
+    #ha-grade table { min-width: 480px; font-size: 11px; }
+
+    /* ── Diagnóstico: scroll horizontal na tabela ────── */
+    #diag-tabela { overflow-x: auto; }
+    #diag-tabela > div { min-width: 480px; font-size: 12px; }
+
+    /* ── Rotina: select tipo ─────────────────────────── */
+    #rotina-tipo-sel { max-width: 100% !important; width: 100%; }
+
+    /* ── Botões de ação gerais ───────────────────────── */
+    .btn-sm { font-size: 11px; padding: 5px 8px; }
   }
 
   /* CHECK-GROUP (Direitos / Campos) */
