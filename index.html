@@ -2453,71 +2453,79 @@ function aplicarPapel() {
   document.getElementById('header-user').style.display = 'flex';
 
   const isDiretor    = currentUser.papel === 'diretor';
-  const isGestao     = isDiretor || currentUser.papel === 'pedagoga';
+  const isPedagoga   = currentUser.papel === 'pedagoga';
+  const isGestao     = isDiretor || isPedagoga;
   const isSecretaria = currentUser.papel === 'secretaria';
   const isProfessora = currentUser.papel === 'professora';
 
-  // Ícone de configuração no header: só diretor
+  // ── Ícone de configuração no header: só diretor ──────────────
   const cfgIcon = document.getElementById('btn-config-icon');
   if (cfgIcon) cfgIcon.style.display = isDiretor ? 'flex' : 'none';
-  // Card de usuários: só diretor
+  // Card de usuários dentro de config: só diretor
   const cardUsr = document.getElementById('card-usuarios');
   if (cardUsr) cardUsr.style.display = isDiretor ? '' : 'none';
 
-  // Dashboard: todos (gestão + professora)
-  document.getElementById('nav-dashboard').style.display = (isGestao || isProfessora) ? '' : 'none';
-  // Mostrar seção correta do dashboard
+  // ── MATRIZ DE VISIBILIDADE POR PAPEL ─────────────────────────
+  // Diretor    : tudo
+  // Pedagoga   : Dashboard, Planejamentos, Pareceres, Avaliações,
+  //              Correção, Hora-Atividade, Rotina, Atividades
+  // Professora : Dashboard, Planejamentos, Pareceres, Avaliações,
+  //              Hora-Atividade, Rotina, Atividades
+  // Secretaria : Cadastro, Impressão
+
+  function nav(id, visivel) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = visivel ? '' : 'none';
+  }
+
+  // Dashboard
+  nav('nav-dashboard',      isDiretor || isPedagoga || isProfessora);
+  nav('dnav-dashboard',     isDiretor || isPedagoga || isProfessora);
+
+  // Cadastro (turmas e alunos)
+  nav('nav-cadastro',       isDiretor || isSecretaria);
+  nav('dnav-cadastro',      isDiretor || isSecretaria);
+
+  // Impressão
+  nav('nav-impressao',      isDiretor || isSecretaria);
+  nav('dnav-impressao',     isDiretor || isSecretaria);
+
+  // Planejamentos
+  nav('nav-planejamento',   isDiretor || isPedagoga || isProfessora);
+  nav('dnav-planejamento',  isDiretor || isPedagoga || isProfessora);
+
+  // Pareceres IA
+  nav('nav-pareceres',      isDiretor || isPedagoga || isProfessora);
+  nav('dnav-pareceres',     isDiretor || isPedagoga || isProfessora);
+
+  // Avaliações
+  nav('nav-avaliacoes',     isDiretor || isPedagoga || isProfessora);
+  nav('dnav-avaliacoes',    isDiretor || isPedagoga || isProfessora);
+
+  // Correção
+  nav('nav-correcao',       isDiretor || isPedagoga);
+  nav('dnav-correcao',      isDiretor || isPedagoga);
+
+  // Hora-Atividade
+  nav('nav-hora-atividade', isDiretor || isPedagoga || isProfessora);
+  nav('dnav-hora-atividade',isDiretor || isPedagoga || isProfessora);
+
+  // Rotina
+  nav('nav-rotina',         isDiretor || isPedagoga || isProfessora);
+  nav('dnav-rotina',        isDiretor || isPedagoga || isProfessora);
+
+  // Atividades
+  nav('nav-atividades',     isDiretor || isPedagoga || isProfessora);
+  nav('dnav-atividades',    isDiretor || isPedagoga || isProfessora);
+
+  // Diagnóstico de sincronização: apenas diretor
+  nav('btn-diagnostico-sync', isDiretor);
+
+  // Dashboard: seção correta por papel
   const dGestao = document.getElementById('dash-gestao');
   const dProf   = document.getElementById('dash-professora');
   if (dGestao) dGestao.style.display = isGestao ? '' : 'none';
   if (dProf)   dProf.style.display   = isProfessora ? '' : 'none';
-  // Cadastro: oculto para professora
-  document.getElementById('nav-cadastro').style.display = isProfessora ? 'none' : '';
-  // Impressão: só secretaria (e gestão pode ver também)
-  const navImp = document.getElementById('nav-impressao');
-  if (navImp) navImp.style.display = (isSecretaria || isGestao) ? '' : 'none';
-  // Planejamentos, Pareceres, Avaliações: ocultos para secretaria
-  const navPlan = document.getElementById('nav-planejamento');
-  const navPar  = document.getElementById('nav-pareceres');
-  const navAval = document.getElementById('nav-avaliacoes');
-  if (navPlan) navPlan.style.display = isSecretaria ? 'none' : '';
-  if (navPar)  navPar.style.display  = isSecretaria ? 'none' : '';
-  if (navAval) navAval.style.display = isSecretaria ? 'none' : '';
-  // Correção: diretor e pedagoga
-  document.getElementById('nav-correcao').style.display = isGestao ? '' : 'none';
-  // Hora-Atividade: gestão + professoras (professoras veem só as próprias)
-  const navHa = document.getElementById('nav-hora-atividade');
-  if (navHa) navHa.style.display = (isGestao || isProfessora) ? '' : 'none';
-  // Rotina: visível para gestão e professoras
-  const navRot = document.getElementById('nav-rotina');
-  if (navRot) navRot.style.display = (isGestao || isProfessora) ? '' : 'none';
-  const navAtiv = document.getElementById('nav-atividades');
-  if (navAtiv) navAtiv.style.display = (isDiretor || isPedagoga || isProfessora) ? '' : 'none';
-  // Diagnóstico de sincronização: apenas diretor
-  const btnDiag = document.getElementById('btn-diagnostico-sync');
-  if (btnDiag) btnDiag.style.display = isDiretor ? '' : 'none';
-
-  // Sync drawer visibility
-  const dDash = document.getElementById('dnav-dashboard');
-  const dCorr = document.getElementById('dnav-correcao');
-  const dCad  = document.getElementById('dnav-cadastro');
-  const dImp  = document.getElementById('dnav-impressao');
-  const dPlan = document.getElementById('dnav-planejamento');
-  const dPar  = document.getElementById('dnav-pareceres');
-  const dAval = document.getElementById('dnav-avaliacoes');
-  if (dCad)  dCad.style.display  = isProfessora ? 'none' : '';
-  if (dImp)  dImp.style.display  = (isSecretaria || isGestao) ? '' : 'none';
-  if (dDash) dDash.style.display = (isGestao || isProfessora) ? '' : 'none';
-  if (dCorr) dCorr.style.display = isGestao ? '' : 'none';
-  const dHa = document.getElementById('dnav-hora-atividade');
-  if (dHa) dHa.style.display = (isGestao || isProfessora) ? '' : 'none';
-  const dRot = document.getElementById('dnav-rotina');
-  if (dRot) dRot.style.display = (isGestao || isProfessora) ? '' : 'none';
-  const dAtiv = document.getElementById('dnav-atividades');
-  if (dAtiv) dAtiv.style.display = (isDiretor || isPedagoga || isProfessora) ? '' : 'none';
-  if (dPlan) dPlan.style.display = isSecretaria ? 'none' : '';
-  if (dPar)  dPar.style.display  = isSecretaria ? 'none' : '';
-  if (dAval) dAval.style.display = isSecretaria ? 'none' : '';
 
   // Populate drawer user info
   const drawerUserInfo = document.getElementById('drawer-user-info');
