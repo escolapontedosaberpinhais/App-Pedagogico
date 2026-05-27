@@ -5182,21 +5182,49 @@ async function verParecer(id) {
   abrirModalVisualizar(`✨ Parecer — ${p.alunoNome}`, cabecalho + (p.texto || ''));
 }
 
-// Le o conteudo ATUAL de um Google Doc via Apps Script (correcoes sao feitas la)
+// Le o conteudo ATUAL de um Google Doc — tenta 3 metodos em cascata
 async function lerDocConteudo(docUrl) {
-  if (!docUrl || !appsScriptUrl) return null;
+  if (!docUrl) return null;
   const url = String(docUrl);
+  // Extrai ID de qualquer formato de URL do Google (Docs nativo, Drive file, ?id=)
   const m1 = url.match(/\/document\/d\/([^/?#]+)/);
-  const m2 = url.match(/[?&]id=([^&#]+)/);
-  const docId = m1 ? m1[1] : (m2 ? m2[1] : null);
+  const m2 = url.match(/\/file\/d\/([^/?#]+)/);
+  const m3 = url.match(/[?&]id=([^&#]+)/);
+  const docId = m1 ? m1[1] : (m2 ? m2[1] : (m3 ? m3[1] : null));
   if (!docId) return null;
+
+  // Método 1: Apps Script (lê Google Doc nativo via DocumentApp)
+  if (appsScriptUrl) {
+    try {
+      const getUrl = appsScriptUrl + '?action=read&docId=' + encodeURIComponent(docId);
+      const res = await fetch(getUrl);
+      const txt = await res.text();
+      const json = JSON.parse(txt);
+      if (json.ok && json.content && json.content.trim()) return json.content;
+    } catch (e) { /* tenta próximo método */ }
+  }
+
+  // Método 2: Export direto do Google Docs como .txt (funciona para Docs nativos públicos)
   try {
-    // GET com params — não dispara preflight CORS (simple request)
-    const getUrl = appsScriptUrl + '?action=read&docId=' + encodeURIComponent(docId);
-    const res = await fetch(getUrl);
-    const json = JSON.parse(await res.text());
-    return json.ok ? (json.content || '') : null;
-  } catch (e) { return null; }
+    const exportUrl = `https://docs.google.com/document/d/${docId}/export?format=txt`;
+    const res = await fetch(exportUrl);
+    if (res.ok) {
+      const text = await res.text();
+      if (text && text.trim()) return text;
+    }
+  } catch (e) { /* tenta próximo método */ }
+
+  // Método 3: Download direto do Drive (funciona para .txt compartilhados publicamente)
+  try {
+    const driveUrl = `https://drive.google.com/uc?export=download&id=${docId}`;
+    const res = await fetch(driveUrl);
+    if (res.ok) {
+      const text = await res.text();
+      if (text && text.trim()) return text;
+    }
+  } catch (e) { /* todos os métodos falharam */ }
+
+  return null;
 }
 
 // Remove o cabecalho de metadados que buildParecerTxt prefixou, deixando so o corpo
