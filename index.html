@@ -2110,6 +2110,17 @@ function getFolder(path) {
   </div>
 </div>
 
+<!-- Modal: Visualizar Parecer / Planejamento (sem popup) -->
+<div id="modal-visualizar-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9400;overflow-y:auto;padding:20px 12px;">
+  <div style="background:#fff;border-radius:16px;max-width:700px;margin:0 auto;box-shadow:0 24px 64px rgba(0,0,0,.28);">
+    <div style="background:linear-gradient(135deg,#1a5c38 0%,#2d8653 100%);padding:18px 22px 14px;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between;">
+      <div id="modal-visualizar-titulo" style="font-size:17px;font-weight:700;color:#fff;">📄 Visualizar</div>
+      <button onclick="fecharModalVisualizar()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:14px;">✕ Fechar</button>
+    </div>
+    <div id="modal-visualizar-corpo" style="padding:24px;font-size:14px;line-height:1.7;color:#1f2937;white-space:pre-wrap;max-height:70vh;overflow-y:auto;"></div>
+  </div>
+</div>
+
 <!-- Modal: Diagnóstico de Sincronização -->
 <div id="modal-diag-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9500;overflow-y:auto;padding:20px 12px;">
   <div style="background:#fff;border-radius:16px;max-width:680px;margin:0 auto;box-shadow:0 24px 64px rgba(0,0,0,.28);">
@@ -4484,9 +4495,20 @@ async function verPlanejamento(id) {
   // Se já tem link do Docs, abre diretamente (qualquer perfil)
   if (p.docUrl) { window.open(p.docUrl, '_blank'); return; }
 
-  // Professor não faz upload — só pedagoga/diretor cria o Doc no Drive
+  // Professor não faz upload — exibe conteúdo no modal in-app
   if (currentUser?.papel === 'professora') {
-    showToast('📄 O documento ainda não foi enviado ao Google Drive. A pedagoga precisa abrir este planejamento primeiro.');
+    const turma = db.turmas.find(t => t.id === p.turmaId);
+    const linhas = [
+      `Turma: ${turma ? turma.nome : '—'}`,
+      `Data: ${p.data || '—'}`,
+      `Bimestre: ${p.bimestre || '—'}`,
+      p.direitos?.length ? `\nDireitos de Aprendizagem:\n${p.direitos.join(', ')}` : '',
+      p.campos?.length  ? `\nCampos de Experiência:\n${p.campos.join(', ')}` : '',
+      p.conteudos       ? `\nConteúdos:\n${p.conteudos}` : '',
+      p.bncc            ? `\nObjetivos / BNCC:\n${p.bncc}` : '',
+      p.desenvolvimento ? `\nDesenvolvimento:\n${p.desenvolvimento}` : '',
+    ].filter(Boolean).join('\n');
+    abrirModalVisualizar(`📋 Planejamento — ${turma ? turma.nome : ''}`, linhas);
     return;
   }
 
@@ -4766,6 +4788,15 @@ function selectTone(btn) {
   document.querySelectorAll('.tone-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
   selectedTone = btn.dataset.tone;
+}
+
+function abrirModalVisualizar(titulo, conteudo) {
+  document.getElementById('modal-visualizar-titulo').textContent = titulo;
+  document.getElementById('modal-visualizar-corpo').textContent = conteudo;
+  document.getElementById('modal-visualizar-overlay').style.display = 'block';
+}
+function fecharModalVisualizar() {
+  document.getElementById('modal-visualizar-overlay').style.display = 'none';
 }
 
 function escreverManualParecer() {
@@ -5115,9 +5146,12 @@ async function verParecer(id) {
   const p = db.pareceres.find(x => x.id === id);
   if (!p) return;
 
-  // Pedagoga/diretor: abre no Google Docs se disponível
   const podeAbriDocs = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
+
+  // Pedagoga/diretor: abre no Google Docs se disponível (nova aba, não popup)
   if (podeAbriDocs && p.docUrl) { window.open(p.docUrl, '_blank'); return; }
+
+  // Pedagoga/diretor sem docUrl: envia ao Drive e abre (nova aba)
   if (podeAbriDocs && appsScriptUrl) {
     const win = window.open('about:blank', '_blank');
     showToast('📤 Enviando ao Google Drive…');
@@ -5136,10 +5170,16 @@ async function verParecer(id) {
       } else {
         win.close();
       }
-    } catch(e) { win.close(); /* cai para a janela de impressão */ }
+    } catch(e) { win.close(); }
   }
 
-  abrirJanelaParecer(p);
+  // Professora OU sem Drive: se tem docUrl abre direto (nova aba, não popup)
+  if (p.docUrl) { window.open(p.docUrl, '_blank'); return; }
+
+  // Fallback: exibe conteúdo no modal in-app (sem popup)
+  const turma = db.turmas.find(t => t.id === p.turmaId);
+  const cabecalho = `Aluno(a): ${p.alunoNome}\nTurma: ${turma ? turma.nome : '—'}\nPeríodo: ${p.periodo}\n\n`;
+  abrirModalVisualizar(`✨ Parecer — ${p.alunoNome}`, cabecalho + (p.texto || ''));
 }
 
 // Le o conteudo ATUAL de um Google Doc via Apps Script (correcoes sao feitas la)
