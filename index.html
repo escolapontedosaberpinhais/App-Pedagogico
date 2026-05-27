@@ -5183,10 +5183,23 @@ async function imprimirParecer(id) {
     if (win) win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Carregando…</title></head><body style="font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;color:#555;"><div style="text-align:center;"><div style="font-size:32px;">⏳</div><p style="margin-top:12px;">Buscando versão atual do Google Docs…</p></div></body></html>');
     showToast('📄 Buscando versão corrigida do Google Docs…');
     const bruto = await lerDocConteudo(p.docUrl);
-    const corpo = (bruto && bruto.trim()) ? limparHeaderDoc(bruto) : p.texto;
-    const html = montarHtmlParecer(p, corpo);
-    if (win) { win.document.open(); win.document.write(html); win.document.close(); }
-    else { abrirJanelaParecer(p, corpo); }
+    if (bruto && bruto.trim()) {
+      // Aplica conteúdo do Google Docs e sincroniza de volta ao banco local
+      const corpo = limparHeaderDoc(bruto);
+      if (corpo && corpo !== p.texto) {
+        p.texto = corpo;
+        save();
+      }
+      const html = montarHtmlParecer(p, corpo);
+      if (win) { win.document.open(); win.document.write(html); win.document.close(); }
+      else { abrirJanelaParecer(p, corpo); }
+    } else {
+      // Fallback: usa texto local, mas avisa
+      showToast('⚠️ Não foi possível ler o Google Docs. Mostrando versão salva.');
+      const html = montarHtmlParecer(p, p.texto);
+      if (win) { win.document.open(); win.document.write(html); win.document.close(); }
+      else { abrirJanelaParecer(p); }
+    }
     return;
   }
   abrirJanelaParecer(p);
