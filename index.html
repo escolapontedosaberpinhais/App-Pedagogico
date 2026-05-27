@@ -2487,8 +2487,8 @@ function aplicarPapel() {
   nav('dnav-cadastro',      isDiretor || isSecretaria);
 
   // Impressão
-  nav('nav-impressao',      isDiretor || isSecretaria);
-  nav('dnav-impressao',     isDiretor || isSecretaria);
+  nav('nav-impressao',      isDiretor || isSecretaria || isPedagoga);
+  nav('dnav-impressao',     isDiretor || isSecretaria || isPedagoga);
 
   // Planejamentos
   nav('nav-planejamento',   isDiretor || isPedagoga || isProfessora);
@@ -3864,7 +3864,7 @@ function renderCorrecoes() {
     return;
   }
 
-  const isDiretorCorr = currentUser?.papel === 'diretor';
+  const isDiretorCorr = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
   let html = '';
 
   // ── SEÇÃO 1: Planejamentos aguardando 1ª revisão
@@ -4320,7 +4320,7 @@ function renderPlanejamentos() {
   const filtro = document.getElementById('filtro-pl-turma')?.value;
   const canCorrect = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
   const isProf     = currentUser?.papel === 'professora';
-  const canDeletePl = currentUser?.papel === 'diretor';
+  const canDeletePl = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
 
   let list = db.planejamentos;
   if (isProf) {
@@ -5052,7 +5052,7 @@ function renderPareceres() {
     const preview = p.texto.slice(0, 140) + (p.texto.length > 140 ? '…' : '');
     const canCorrect = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
     const isProf = currentUser?.papel === 'professora';
-    const canDeletePar = currentUser?.papel === 'diretor';
+    const canDeletePar = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
     const devolvido = p.revisao === 'devolvido';
     const revisado  = p.revisao === 'revisado';
 
