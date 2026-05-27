@@ -4409,6 +4409,7 @@ function renderPlanejamentos() {
           ${diasHtml}
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="btn btn-secondary btn-sm" onclick="verSemanal('${semanaId}')">👁️ Ver</button>
           <button class="btn btn-secondary btn-sm" onclick="imprimirPlanejamentoSemanal('${semanaId}')">🖨️ Imprimir semana</button>
           ${isProf && devolvido ? `<button class="btn btn-success btn-sm" onclick="profEnviarCorrecaoSemanal('${semanaId}')">📤 Enviei a correção</button>` : ''}
           ${canCorrect ? `<button class="btn btn-sm btn-amber" onclick="devolverSemanal('${semanaId}')">↩️ Devolver</button>` : ''}
@@ -4486,6 +4487,35 @@ function deleteSemanal(semanaId) {
   if (!confirm('Excluir todos os dias desta semana?')) return;
   db.planejamentos = db.planejamentos.filter(p => p.semanaId !== semanaId);
   save(); renderPlanejamentos(); showToast('🗑️ Planejamento semanal excluído.');
+}
+
+function verSemanal(semanaId) {
+  const dias = db.planejamentos.filter(p => p.semanaId === semanaId)
+    .sort((a, b) => (a.data || '') < (b.data || '') ? -1 : 1);
+  if (!dias.length) return;
+  const p0 = dias[0];
+  const turma = db.turmas.find(t => t.id === p0.turmaId);
+
+  // Se algum dia tem docUrl, abre o primeiro que tiver (nova aba)
+  const comDoc = dias.find(p => p.docUrl);
+  if (comDoc && (currentUser?.papel !== 'professora' || true)) {
+    window.open(comDoc.docUrl, '_blank');
+    return;
+  }
+
+  // Caso contrário, exibe modal in-app com o conteúdo de cada dia
+  const NOMES = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
+  const linhas = [`Turma: ${turma?.nome || '—'}  |  Bimestre: ${p0.bimestre || '—'}\n`];
+  dias.forEach(p => {
+    const dt = p.data ? new Date(p.data + 'T12:00:00') : null;
+    const label = dt ? dt.toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'2-digit' }) : p.data || '—';
+    linhas.push(`── ${label.toUpperCase()} ──`);
+    if (p.conteudos)     linhas.push(`Conteúdos: ${p.conteudos}`);
+    if (p.bncc)          linhas.push(`BNCC: ${p.bncc}`);
+    if (p.desenvolvimento) linhas.push(`Desenvolvimento:\n${p.desenvolvimento}`);
+    linhas.push('');
+  });
+  abrirModalVisualizar(`📋 Planejamento Semanal — ${turma?.nome || ''}`, linhas.join('\n'));
 }
 
 async function verPlanejamento(id) {
