@@ -1724,11 +1724,12 @@ function getFolder(path) {
 
     <div class="btn-row">
       <button class="btn btn-amber" id="btn-gerar" onclick="gerarParecer()">✨ Gerar com IA Groq</button>
+      <button class="btn btn-secondary" onclick="escreverManualParecer()">✍️ Escrever manualmente</button>
     </div>
   </div>
 
   <div class="card" id="card-resultado" style="display:none;">
-    <div class="card-title">📄 Parecer Gerado</div>
+    <div class="card-title" id="card-resultado-titulo">📄 Parecer Gerado</div>
     <div id="alert-parecer"></div>
     <div class="ai-box" id="parecer-output" contenteditable="true" spellcheck="true"></div>
     <div class="btn-row" style="margin-top:14px;">
@@ -4307,7 +4308,7 @@ function toggleCorrigido(id) {
 function deletePlanejamento(id) {
   const pl = db.planejamentos.find(p => p.id === id);
   if (!pl) return;
-  if (currentUser?.papel !== 'diretor') { showToast('⚠️ Apenas o diretor pode excluir planejamentos.'); return; }
+  if (currentUser?.papel !== 'diretor' && currentUser?.papel !== 'pedagoga') { showToast('⚠️ Sem permissão para excluir planejamentos.'); return; }
   if (!confirm('Excluir planejamento?')) return;
   db.planejamentos = db.planejamentos.filter(p => p.id !== id);
   save();
@@ -4767,6 +4768,19 @@ function selectTone(btn) {
   selectedTone = btn.dataset.tone;
 }
 
+function escreverManualParecer() {
+  const alunoId = document.getElementById('par-aluno').value;
+  if (!alunoId) { alert('Selecione um aluno antes de continuar.'); return; }
+  const output = document.getElementById('parecer-output');
+  output.innerText = '';
+  document.getElementById('alert-parecer').innerHTML =
+    '<div class="alert alert-info">✏️ Digite o parecer abaixo e clique em <strong>Salvar parecer</strong> quando terminar.</div>';
+  document.getElementById('card-resultado-titulo').textContent = '📝 Escrever Parecer';
+  document.getElementById('card-resultado').style.display = 'block';
+  document.getElementById('card-resultado').scrollIntoView({ behavior: 'smooth' });
+  setTimeout(() => output.focus(), 300);
+}
+
 async function gerarParecer() {
   if (!db.apiKey) {
     alert('Configure sua chave API Groq na aba Configuração.');
@@ -4842,6 +4856,7 @@ Escreva o parecer completo, começando diretamente com o texto (sem título, sem
 
     document.getElementById('parecer-output').innerText = text;
     document.getElementById('card-resultado').style.display = 'block';
+    document.getElementById('card-resultado-titulo').textContent = '📄 Parecer Gerado';
     document.getElementById('alert-parecer').innerHTML =
       '<div class="alert alert-info">✅ Parecer gerado! Revise e edite o texto acima antes de salvar.</div>';
     document.getElementById('card-resultado').scrollIntoView({ behavior: 'smooth' });
@@ -4916,7 +4931,7 @@ function copiarParecer() {
 function deleteParecer(id) {
   const par = db.pareceres.find(p => p.id === id);
   if (!par) return;
-  if (currentUser?.papel !== 'diretor') { showToast('⚠️ Apenas o diretor pode excluir pareceres.'); return; }
+  if (currentUser?.papel !== 'diretor' && currentUser?.papel !== 'pedagoga') { showToast('⚠️ Sem permissão para excluir pareceres.'); return; }
   if (!confirm('Excluir parecer?')) return;
   db.pareceres = db.pareceres.filter(p => p.id !== id);
   save();
