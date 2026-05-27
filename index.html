@@ -5227,7 +5227,8 @@ async function lerDocConteudo(docUrl) {
   return null;
 }
 
-// Remove o cabecalho de metadados que buildParecerTxt prefixou, deixando so o corpo
+// Remove o cabecalho de metadados que buildParecerTxt prefixou, deixando so o corpo.
+// Também remove comentários do Google Docs (marcadores [a], [b]… no corpo e linhas de comentário no final).
 function limparHeaderDoc(txt) {
   const lines = String(txt).replace(/\r/g, '').split('\n');
   let i = 0;
@@ -5240,7 +5241,13 @@ function limparHeaderDoc(txt) {
       || /^(Aluno\(a\)|Turma|Per[íi]odo|Data|Tom|Professora?\(?o?\)?|Professor\(a\))\s*:/i.test(t);
   };
   while (i < lines.length && skip(lines[i])) i++;
-  return lines.slice(i).join('\n').trim();
+  return lines.slice(i)
+    // Remove linhas que são comentários do Google Docs: "[a]texto do comentário"
+    .filter(l => !/^\[[a-z]+\]/i.test(l.trim()))
+    // Remove marcadores de comentário embutidos no texto: "palavra[a][b]" → "palavra"
+    .map(l => l.replace(/\[[a-z]+\]/gi, ''))
+    .join('\n')
+    .trim();
 }
 
 async function imprimirParecer(id) {
