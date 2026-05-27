@@ -3399,13 +3399,51 @@ function limparFormSemanal() {
   renderProfField();
 }
 
-function imprimirPlanejamentoSemanal(semanaId) {
+async function imprimirPlanejamentoSemanal(semanaId) {
   const dias = db.planejamentos
     .filter(p => p.semanaId === semanaId)
     .sort((a, b) => (a.data || '') < (b.data || '') ? -1 : 1);
   if (!dias.length) return;
 
-  const p0      = dias[0];
+  // Abre popup ANTES do await (evita bloqueio de popup)
+  const temDocs = dias.some(p => p.docUrl);
+  const win = window.open('', '_blank', 'width=900,height=720');
+  if (!win) { showToast('⚠️ Popup bloqueado! Permita popups para imprimir.'); return; }
+  if (temDocs) {
+    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Carregando…</title></head>' +
+      '<body style="font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;color:#555;">' +
+      '<div style="text-align:center"><div style="font-size:36px">⏳</div>' +
+      '<p style="margin-top:12px;font-size:15px">Buscando versão atualizada do Google Docs…</p></div></body></html>');
+    showToast('📄 Buscando versão corrigida do Google Docs…');
+  }
+
+  // Busca conteúdo atualizado do Google Docs para cada dia (em paralelo)
+  const diasDados = await Promise.all(dias.map(async p => {
+    if (p.docUrl) {
+      try {
+        const bruto = await lerDocConteudo(p.docUrl);
+        if (bruto && bruto.trim()) {
+          const parsed = parsePlanejamentoTxt(bruto);
+          const updated = {
+            conteudos:     parsed.conteudos     || p.conteudos,
+            bncc:          parsed.bncc          || p.bncc,
+            desenvolvimento: parsed.desenvolvimento || p.desenvolvimento,
+          };
+          // Sincroniza de volta ao banco local
+          if (updated.conteudos !== p.conteudos || updated.desenvolvimento !== p.desenvolvimento) {
+            p.conteudos = updated.conteudos;
+            p.bncc = updated.bncc;
+            p.desenvolvimento = updated.desenvolvimento;
+          }
+          return { ...p, ...updated };
+        }
+      } catch(e) { /* usa dados locais */ }
+    }
+    return p;
+  }));
+  save();
+
+  const p0      = diasDados[0];
   const turma   = db.turmas.find(t => t.id === p0.turmaId);
   const turmaNome = turma?.nome || '—';
   const bimestre  = p0.bimestre || '—';
@@ -3417,11 +3455,11 @@ function imprimirPlanejamentoSemanal(semanaId) {
   const logoHtml  = logoSrc ? `<img src="${logoSrc}" style="height:56px;width:auto;">` : '';
 
   // Range de datas
-  const d0 = new Date(dias[0].data + 'T12:00:00');
-  const dN = new Date(dias[dias.length-1].data + 'T12:00:00');
+  const d0 = new Date(diasDados[0].data + 'T12:00:00');
+  const dN = new Date(diasDados[diasDados.length-1].data + 'T12:00:00');
   const semanaLabel = `${d0.toLocaleDateString('pt-BR')} a ${dN.toLocaleDateString('pt-BR')}`;
 
-  const diasHtml = dias.map(p => {
+  const diasHtml = diasDados.map(p => {
     const dt  = new Date(p.data + 'T12:00:00');
     const diaLabel = dt.toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'2-digit' });
     const bnccHtml = p.bncc ? `<div class="campo"><strong>BNCC:</strong> ${p.bncc.replace(/\n/g,'<br>')}</div>` : '';
@@ -3494,8 +3532,7 @@ body{ font-family:Arial,Helvetica,sans-serif; font-size:10.5px; color:#000; back
 </div>
 </body></html>`;
 
-  const win = window.open('', '_blank', 'width=900,height=720');
-  if (!win) { showToast('⚠️ Popup bloqueado! Permita popups para imprimir.'); return; }
+  win.document.open();
   win.document.write(html);
   win.document.close();
 }
