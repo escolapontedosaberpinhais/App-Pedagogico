@@ -5756,6 +5756,7 @@ function renderHaPonto() {
             <div style="flex:1;font-size:13px;"><strong>${h.professoraNome}</strong>
               <div style="font-size:11px;color:var(--gray-400);">Início: ${inicio.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})} · Há ${dur}${alerta}</div>
             </div>
+            <button class="btn btn-danger btn-sm" onclick="encerrarHaGestao('${h.professoraId}')" title="Encerrar sessão desta professora">⏹️ Encerrar</button>
           </div>`;
         }).join('');
     }
@@ -5910,6 +5911,35 @@ function encerrarHaPonto() {
   if (duracao > 3600) msg += ' · ⚠️ Excedeu 1h nesta sessão!';
   if (usadoSeg > meta * 3600) msg += ` · Quota semanal excedida (${usadoH}h / ${meta}h)`;
   showToast(msg, 6000);
+  renderHaPonto();
+  renderHaTopbar();
+}
+
+// Encerrar sessão de qualquer professora (uso exclusivo da gestão)
+function encerrarHaGestao(professoraId) {
+  const ha = db.horaAtividade.find(h => h.professoraId === professoraId);
+  if (!ha?.sessaoAtiva?.inicio) { showToast('Nenhuma sessão ativa para esta professora.'); return; }
+
+  if (!confirm(`Encerrar a sessão de hora-atividade de ${ha.professoraNome}?`)) return;
+
+  const inicio  = new Date(ha.sessaoAtiva.inicio);
+  const fim     = new Date();
+  const duracao = Math.floor((fim - inicio) / 1000);
+  const semana  = getISOWeek(new Date());
+
+  if (!ha.registros) ha.registros = [];
+  ha.registros.push({
+    id: uid(), semana,
+    data:    inicio.toLocaleDateString('pt-BR'),
+    inicio:  inicio.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }),
+    fim:     fim.toLocaleTimeString('pt-BR',    { hour:'2-digit', minute:'2-digit' }),
+    duracao,
+    encerradoPor: currentUser?.nome || 'Gestão'
+  });
+  ha.sessaoAtiva = null;
+  save();
+
+  showToast(`⏹️ Sessão de ${ha.professoraNome} encerrada pela gestão (${formatarDuracao(duracao)})`, 5000);
   renderHaPonto();
   renderHaTopbar();
 }
