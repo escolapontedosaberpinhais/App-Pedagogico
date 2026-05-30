@@ -769,6 +769,26 @@
   .notif-body span { font-size: 12px; color: var(--gray-600); }
   .notif-body time { font-size: 11px; color: var(--gray-400); display: block; margin-top: 2px; }
   .notif-empty { padding: 32px 16px; text-align: center; color: var(--gray-400); font-size: 13px; }
+
+  /* ─── BNCC Autocomplete ─────────────────────────────────── */
+  .bncc-selector { position: relative; }
+  .bncc-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
+  .bncc-chip { display: inline-flex; align-items: center; gap: 4px; background: #e8f5e9; border: 1.5px solid #81c784; border-radius: 20px; padding: 3px 8px 3px 10px; font-size: 11.5px; font-weight: 700; color: #1b5e20; cursor: default; max-width: 100%; }
+  .bncc-chip-label { font-family: monospace; }
+  .bncc-chip-remove { background: none; border: none; color: #c62828; cursor: pointer; font-size: 13px; line-height: 1; padding: 0 2px; flex-shrink: 0; }
+  .bncc-chip-remove:hover { color: #b71c1c; }
+  .bncc-search-wrap { position: relative; }
+  .bncc-search { width: 100%; padding: 8px 12px; border: 1.5px solid var(--gray-200); border-radius: 8px; font-size: 13px; outline: none; box-sizing: border-box; }
+  .bncc-search:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(45,134,83,.12); }
+  .bncc-dropdown { position: absolute; top: calc(100% + 3px); left: 0; right: 0; background: #fff; border: 1.5px solid var(--gray-200); border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.14); z-index: 800; max-height: 270px; overflow-y: auto; }
+  .bncc-group-label { padding: 5px 12px 2px; font-size: 10.5px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: .06em; background: #f9fafb; border-bottom: 1px solid var(--gray-100); position: sticky; top: 0; }
+  .bncc-option { display: flex; align-items: flex-start; gap: 10px; padding: 7px 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0; transition: background .1s; }
+  .bncc-option:last-child { border-bottom: none; }
+  .bncc-option:hover, .bncc-option.bncc-focused { background: var(--green-light); }
+  .bncc-option-code { font-family: monospace; font-size: 12px; font-weight: 800; color: var(--green-dark); min-width: 96px; flex-shrink: 0; }
+  .bncc-option-desc { font-size: 12px; color: var(--gray-600); line-height: 1.4; }
+  .bncc-empty { padding: 14px 12px; text-align: center; color: var(--gray-400); font-size: 12.5px; }
+  .bncc-hint { font-size: 11px; color: var(--gray-400); margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -1462,7 +1482,19 @@ function getFolder(path) {
         </div>
         <div class="form-group full">
           <label>Objetivos / Habilidades BNCC *</label>
-          <textarea id="pl-bncc" placeholder="Ex: (EI02EO01) Demonstrar atitudes de cuidado e solidariedade na interação com crianças e adultos.&#10;(EI02CG02) Deslocar seu corpo no espaço, orientando-se por noções como em frente, atrás, no alto…"></textarea>
+          <div class="bncc-selector" id="bsel-pl-bncc">
+            <div class="bncc-chips" id="bchips-pl-bncc"></div>
+            <div class="bncc-search-wrap">
+              <input type="text" class="bncc-search" id="bsearch-pl-bncc"
+                     placeholder="🔍 Digite o código (EI02EO01) ou palavra-chave…"
+                     oninput="bnccSearch(this,'pl-bncc')"
+                     onkeydown="bnccKeydown(event,'pl-bncc')"
+                     autocomplete="off">
+              <div class="bncc-dropdown" id="bdrop-pl-bncc" style="display:none;"></div>
+            </div>
+            <span class="bncc-hint">Digite o código ou uma palavra — selecione para adicionar à lista</span>
+          </div>
+          <textarea id="pl-bncc" style="display:none;"></textarea>
         </div>
         <div class="form-group full">
           <label>Conteúdos *</label>
@@ -1560,7 +1592,7 @@ function getFolder(path) {
           <div id="pls-campos-dia-0">
             <div class="form-grid">
               <div class="form-group full"><label>Conteúdos *</label><input type="text" id="pls-conteudos-0" placeholder="Ex: Matemática — sequência numérica"/></div>
-              <div class="form-group full"><label>Objetivos / Habilidades BNCC</label><textarea id="pls-bncc-0" placeholder="(EI02EO01) …" style="min-height:70px;"></textarea></div>
+              <div class="form-group full"><label>Objetivos / Habilidades BNCC</label><div class="bncc-selector" id="bsel-pls-bncc-0"><div class="bncc-chips" id="bchips-pls-bncc-0"></div><div class="bncc-search-wrap"><input type="text" class="bncc-search" id="bsearch-pls-bncc-0" placeholder="🔍 Código ou palavra-chave…" oninput="bnccSearch(this,'pls-bncc-0')" onkeydown="bnccKeydown(event,'pls-bncc-0')" autocomplete="off"><div class="bncc-dropdown" id="bdrop-pls-bncc-0" style="display:none;"></div></div></div><textarea id="pls-bncc-0" style="display:none;"></textarea></div>
               <div class="form-group full"><label>Desenvolvimento da Atividade *</label><textarea id="pls-desenvolvimento-0" placeholder="Como a atividade será desenvolvida…" style="min-height:90px;"></textarea><div style="margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:var(--green-light);border:1.5px solid var(--green-mid);border-radius:6px;font-size:12px;color:var(--green-dark);font-weight:600;">📷 Imagem<input type="file" accept="image/*" style="display:none;" onchange="carregarImagemDia(this,0)"></label></div><div id="pls-imagem-preview-0" style="display:none;margin-top:6px;position:relative;display:inline-block;"><img id="pls-imagem-thumb-0" src="" style="max-width:180px;max-height:120px;border-radius:6px;border:1.5px solid var(--gray-200);display:block;"><button onclick="removerImagemDia(0)" style="position:absolute;top:-8px;right:-8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;">✕</button></div></div>
             </div>
           </div>
@@ -1575,7 +1607,7 @@ function getFolder(path) {
           <div id="pls-campos-dia-1">
             <div class="form-grid">
               <div class="form-group full"><label>Conteúdos *</label><input type="text" id="pls-conteudos-1" placeholder="Ex: Linguagem — nome dos colegas"/></div>
-              <div class="form-group full"><label>Objetivos / Habilidades BNCC</label><textarea id="pls-bncc-1" placeholder="(EI02EO01) …" style="min-height:70px;"></textarea></div>
+              <div class="form-group full"><label>Objetivos / Habilidades BNCC</label><div class="bncc-selector" id="bsel-pls-bncc-1"><div class="bncc-chips" id="bchips-pls-bncc-1"></div><div class="bncc-search-wrap"><input type="text" class="bncc-search" id="bsearch-pls-bncc-1" placeholder="🔍 Código ou palavra-chave…" oninput="bnccSearch(this,'pls-bncc-1')" onkeydown="bnccKeydown(event,'pls-bncc-1')" autocomplete="off"><div class="bncc-dropdown" id="bdrop-pls-bncc-1" style="display:none;"></div></div></div><textarea id="pls-bncc-1" style="display:none;"></textarea></div>
               <div class="form-group full"><label>Desenvolvimento da Atividade *</label><textarea id="pls-desenvolvimento-1" placeholder="Como a atividade será desenvolvida…" style="min-height:90px;"></textarea><div style="margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:var(--green-light);border:1.5px solid var(--green-mid);border-radius:6px;font-size:12px;color:var(--green-dark);font-weight:600;">📷 Imagem<input type="file" accept="image/*" style="display:none;" onchange="carregarImagemDia(this,1)"></label></div><div id="pls-imagem-preview-1" style="display:none;margin-top:6px;position:relative;display:inline-block;"><img id="pls-imagem-thumb-1" src="" style="max-width:180px;max-height:120px;border-radius:6px;border:1.5px solid var(--gray-200);display:block;"><button onclick="removerImagemDia(1)" style="position:absolute;top:-8px;right:-8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;">✕</button></div></div>
             </div>
           </div>
@@ -1590,7 +1622,7 @@ function getFolder(path) {
           <div id="pls-campos-dia-2">
             <div class="form-grid">
               <div class="form-group full"><label>Conteúdos *</label><input type="text" id="pls-conteudos-2" placeholder="Ex: Arte — colagem livre"/></div>
-              <div class="form-group full"><label>Objetivos / Habilidades BNCC</label><textarea id="pls-bncc-2" placeholder="(EI02EO01) …" style="min-height:70px;"></textarea></div>
+              <div class="form-group full"><label>Objetivos / Habilidades BNCC</label><div class="bncc-selector" id="bsel-pls-bncc-2"><div class="bncc-chips" id="bchips-pls-bncc-2"></div><div class="bncc-search-wrap"><input type="text" class="bncc-search" id="bsearch-pls-bncc-2" placeholder="🔍 Código ou palavra-chave…" oninput="bnccSearch(this,'pls-bncc-2')" onkeydown="bnccKeydown(event,'pls-bncc-2')" autocomplete="off"><div class="bncc-dropdown" id="bdrop-pls-bncc-2" style="display:none;"></div></div></div><textarea id="pls-bncc-2" style="display:none;"></textarea></div>
               <div class="form-group full"><label>Desenvolvimento da Atividade *</label><textarea id="pls-desenvolvimento-2" placeholder="Como a atividade será desenvolvida…" style="min-height:90px;"></textarea><div style="margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:var(--green-light);border:1.5px solid var(--green-mid);border-radius:6px;font-size:12px;color:var(--green-dark);font-weight:600;">📷 Imagem<input type="file" accept="image/*" style="display:none;" onchange="carregarImagemDia(this,2)"></label></div><div id="pls-imagem-preview-2" style="display:none;margin-top:6px;position:relative;display:inline-block;"><img id="pls-imagem-thumb-2" src="" style="max-width:180px;max-height:120px;border-radius:6px;border:1.5px solid var(--gray-200);display:block;"><button onclick="removerImagemDia(2)" style="position:absolute;top:-8px;right:-8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;">✕</button></div></div>
             </div>
           </div>
@@ -1605,7 +1637,7 @@ function getFolder(path) {
           <div id="pls-campos-dia-3">
             <div class="form-grid">
               <div class="form-group full"><label>Conteúdos *</label><input type="text" id="pls-conteudos-3" placeholder="Ex: Ciências — animais da fazenda"/></div>
-              <div class="form-group full"><label>Objetivos / Habilidades BNCC</label><textarea id="pls-bncc-3" placeholder="(EI02EO01) …" style="min-height:70px;"></textarea></div>
+              <div class="form-group full"><label>Objetivos / Habilidades BNCC</label><div class="bncc-selector" id="bsel-pls-bncc-3"><div class="bncc-chips" id="bchips-pls-bncc-3"></div><div class="bncc-search-wrap"><input type="text" class="bncc-search" id="bsearch-pls-bncc-3" placeholder="🔍 Código ou palavra-chave…" oninput="bnccSearch(this,'pls-bncc-3')" onkeydown="bnccKeydown(event,'pls-bncc-3')" autocomplete="off"><div class="bncc-dropdown" id="bdrop-pls-bncc-3" style="display:none;"></div></div></div><textarea id="pls-bncc-3" style="display:none;"></textarea></div>
               <div class="form-group full"><label>Desenvolvimento da Atividade *</label><textarea id="pls-desenvolvimento-3" placeholder="Como a atividade será desenvolvida…" style="min-height:90px;"></textarea><div style="margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:var(--green-light);border:1.5px solid var(--green-mid);border-radius:6px;font-size:12px;color:var(--green-dark);font-weight:600;">📷 Imagem<input type="file" accept="image/*" style="display:none;" onchange="carregarImagemDia(this,3)"></label></div><div id="pls-imagem-preview-3" style="display:none;margin-top:6px;position:relative;display:inline-block;"><img id="pls-imagem-thumb-3" src="" style="max-width:180px;max-height:120px;border-radius:6px;border:1.5px solid var(--gray-200);display:block;"><button onclick="removerImagemDia(3)" style="position:absolute;top:-8px;right:-8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;">✕</button></div></div>
             </div>
           </div>
@@ -1620,7 +1652,7 @@ function getFolder(path) {
           <div id="pls-campos-dia-4">
             <div class="form-grid">
               <div class="form-group full"><label>Conteúdos *</label><input type="text" id="pls-conteudos-4" placeholder="Ex: Movimento — brincadeiras no pátio"/></div>
-              <div class="form-group full"><label>Objetivos / Habilidades BNCC</label><textarea id="pls-bncc-4" placeholder="(EI02EO01) …" style="min-height:70px;"></textarea></div>
+              <div class="form-group full"><label>Objetivos / Habilidades BNCC</label><div class="bncc-selector" id="bsel-pls-bncc-4"><div class="bncc-chips" id="bchips-pls-bncc-4"></div><div class="bncc-search-wrap"><input type="text" class="bncc-search" id="bsearch-pls-bncc-4" placeholder="🔍 Código ou palavra-chave…" oninput="bnccSearch(this,'pls-bncc-4')" onkeydown="bnccKeydown(event,'pls-bncc-4')" autocomplete="off"><div class="bncc-dropdown" id="bdrop-pls-bncc-4" style="display:none;"></div></div></div><textarea id="pls-bncc-4" style="display:none;"></textarea></div>
               <div class="form-group full"><label>Desenvolvimento da Atividade *</label><textarea id="pls-desenvolvimento-4" placeholder="Como a atividade será desenvolvida…" style="min-height:90px;"></textarea><div style="margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:var(--green-light);border:1.5px solid var(--green-mid);border-radius:6px;font-size:12px;color:var(--green-dark);font-weight:600;">📷 Imagem<input type="file" accept="image/*" style="display:none;" onchange="carregarImagemDia(this,4)"></label></div><div id="pls-imagem-preview-4" style="display:none;margin-top:6px;position:relative;display:inline-block;"><img id="pls-imagem-thumb-4" src="" style="max-width:180px;max-height:120px;border-radius:6px;border:1.5px solid var(--gray-200);display:block;"><button onclick="removerImagemDia(4)" style="position:absolute;top:-8px;right:-8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;">✕</button></div></div>
             </div>
           </div>
@@ -2147,6 +2179,281 @@ function getFolder(path) {
 </main>
 
 <script>
+// =====================================================================
+// BNCC DATABASE — Educação Infantil (EI01 · EI02 · EI03)
+// Fonte: Base Nacional Comum Curricular, MEC 2018
+// =====================================================================
+const BNCC_DB = [
+  // ── EI01 · Bebês (0 a 1 ano e 6 meses) ──────────────────────
+  {c:'EI01EO01',f:'EI01',g:'O eu, o outro e o nós',d:'Perceber que suas ações têm efeitos nas outras crianças e nos adultos.'},
+  {c:'EI01EO02',f:'EI01',g:'O eu, o outro e o nós',d:'Perceber as possibilidades e os limites de seu corpo nas brincadeiras e interações das quais participa.'},
+  {c:'EI01EO03',f:'EI01',g:'O eu, o outro e o nós',d:'Interagir com crianças da mesma faixa etária e adultos ao ser cuidado e ao explorar os ambientes, materiais e objetos ao seu redor.'},
+  {c:'EI01EO04',f:'EI01',g:'O eu, o outro e o nós',d:'Comunicar necessidades, desejos e emoções, utilizando gestos, balbucios, palavras.'},
+  {c:'EI01EO05',f:'EI01',g:'O eu, o outro e o nós',d:'Reconhecer seu corpo e expressar suas sensações em momentos de alimentação, higiene, brincadeira e descanso.'},
+  {c:'EI01EO06',f:'EI01',g:'O eu, o outro e o nós',d:'Interagir com outras crianças da mesma faixa etária e adultos, adaptando-se ao convívio social.'},
+  {c:'EI01CG01',f:'EI01',g:'Corpo, Gestos e Movimentos',d:'Movimentar as partes do corpo para exprimir corporalmente emoções, necessidades e desejos.'},
+  {c:'EI01CG02',f:'EI01',g:'Corpo, Gestos e Movimentos',d:'Experimentar as possibilidades corporais nas brincadeiras e interações em ambientes acolhedores e desafiantes.'},
+  {c:'EI01CG03',f:'EI01',g:'Corpo, Gestos e Movimentos',d:'Imitar gestos e movimentos de outras crianças e adultos no cuidado e nas brincadeiras.'},
+  {c:'EI01CG04',f:'EI01',g:'Corpo, Gestos e Movimentos',d:'Participar do cuidado do seu corpo e da promoção do seu bem-estar.'},
+  {c:'EI01CG05',f:'EI01',g:'Corpo, Gestos e Movimentos',d:'Utilizar os movimentos de preensão, encaixe e lançamento, ampliando suas possibilidades de manuseio de diferentes materiais e objetos.'},
+  {c:'EI01TS01',f:'EI01',g:'Traços, Sons, Cores e Formas',d:'Explorar sons produzidos com o próprio corpo e com objetos do ambiente.'},
+  {c:'EI01TS02',f:'EI01',g:'Traços, Sons, Cores e Formas',d:'Traçar marcas gráficas, em diferentes suportes, usando instrumentos riscantes e tintas.'},
+  {c:'EI01TS03',f:'EI01',g:'Traços, Sons, Cores e Formas',d:'Explorar diferentes fontes sonoras e materiais para acompanhar brincadeiras cantadas, canções, músicas e melodias.'},
+  {c:'EI01EF01',f:'EI01',g:'Escuta, Fala, Pensamento e Imaginação',d:'Reconhecer quando é chamado por seu nome e reconhecer os nomes das pessoas com quem convive.'},
+  {c:'EI01EF02',f:'EI01',g:'Escuta, Fala, Pensamento e Imaginação',d:'Demonstrar interesse ao ouvir a leitura de poemas e a apresentação de músicas.'},
+  {c:'EI01EF03',f:'EI01',g:'Escuta, Fala, Pensamento e Imaginação',d:'Demonstrar interesse ao ouvir histórias lidas ou contadas, observando ilustrações e os movimentos de leitura do adulto-leitor (modo de segurar o portador e de virar as páginas).'},
+  {c:'EI01EF04',f:'EI01',g:'Escuta, Fala, Pensamento e Imaginação',d:'Reconhecer elementos das ilustrações de histórias, apontando-os, a pedido do adulto-leitor.'},
+  {c:'EI01EF05',f:'EI01',g:'Escuta, Fala, Pensamento e Imaginação',d:'Imitar as variações de entonação e ritmo de fala do adulto ao ler histórias e ao cantar.'},
+  {c:'EI01EF06',f:'EI01',g:'Escuta, Fala, Pensamento e Imaginação',d:'Comunicar-se com outras pessoas usando movimentos, gestos, balbucios, fala e outras formas de expressão.'},
+  {c:'EI01EF07',f:'EI01',g:'Escuta, Fala, Pensamento e Imaginação',d:'Conhecer e manipular materiais impressos e audiovisuais em diferentes portadores (livro, revista, gibi, jornal, cartaz, tablet, celular etc.).'},
+  {c:'EI01EF08',f:'EI01',g:'Escuta, Fala, Pensamento e Imaginação',d:'Participar de situações de escuta de textos em diferentes gêneros textuais (poemas, fábulas, contos, receitas, quadrinhos, anúncios etc.).'},
+  {c:'EI01EF09',f:'EI01',g:'Escuta, Fala, Pensamento e Imaginação',d:'Conhecer e manipular diferentes instrumentos e suportes de escrita.'},
+  {c:'EI01ET01',f:'EI01',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Explorar e descobrir as propriedades de objetos e materiais (odor, cor, sabor, temperatura).'},
+  {c:'EI01ET02',f:'EI01',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Explorar relações de causa e efeito (transbordar, tingir, misturar, mover e remover etc.) na interação com o mundo físico.'},
+  {c:'EI01ET03',f:'EI01',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Explorar o ambiente pela ação e observação, manipulando, experimentando e fazendo descobertas.'},
+  {c:'EI01ET04',f:'EI01',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Manipular, experimentar, arrumar e explorar o espaço por meio de experiências de deslocamentos de si e dos objetos.'},
+  {c:'EI01ET05',f:'EI01',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Manipular materiais diversos e variados para comparar as diferenças e semelhanças entre eles.'},
+  {c:'EI01ET06',f:'EI01',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Vivenciar diferentes ritmos, velocidades e fluxos nas interações e brincadeiras (em danças, balanços, escorregadores etc.).'},
+
+  // ── EI02 · Crianças bem pequenas (1a7m a 3a11m) ─────────────
+  {c:'EI02EO01',f:'EI02',g:'O eu, o outro e o nós',d:'Demonstrar atitudes de cuidado e solidariedade na interação com crianças e adultos.'},
+  {c:'EI02EO02',f:'EI02',g:'O eu, o outro e o nós',d:'Demonstrar imagem positiva de si e confiança em sua capacidade para enfrentar dificuldades e desafios.'},
+  {c:'EI02EO03',f:'EI02',g:'O eu, o outro e o nós',d:'Compartilhar os objetos e os espaços com crianças da mesma faixa etária e adultos.'},
+  {c:'EI02EO04',f:'EI02',g:'O eu, o outro e o nós',d:'Comunicar-se com os colegas e os adultos, buscando compreendê-los e fazendo-se compreender.'},
+  {c:'EI02EO05',f:'EI02',g:'O eu, o outro e o nós',d:'Perceber que as pessoas têm características físicas diferentes, respeitando essas diferenças.'},
+  {c:'EI02EO06',f:'EI02',g:'O eu, o outro e o nós',d:'Respeitar regras básicas de convívio social nas interações e brincadeiras.'},
+  {c:'EI02EO07',f:'EI02',g:'O eu, o outro e o nós',d:'Resolver conflitos nas interações e brincadeiras, com a orientação de um adulto.'},
+  {c:'EI02CG01',f:'EI02',g:'Corpo, Gestos e Movimentos',d:'Apropriar-se de gestos e movimentos de sua cultura no cuidado de si e nos jogos e brincadeiras.'},
+  {c:'EI02CG02',f:'EI02',g:'Corpo, Gestos e Movimentos',d:'Deslocar seu corpo no espaço, orientando-se por noções como em frente, atrás, no alto, embaixo, dentro, fora etc., ao se envolver em brincadeiras e atividades de diferentes naturezas.'},
+  {c:'EI02CG03',f:'EI02',g:'Corpo, Gestos e Movimentos',d:'Explorar formas de deslocamento no espaço (pular, saltar, dançar), combinando movimentos e seguindo orientações.'},
+  {c:'EI02CG04',f:'EI02',g:'Corpo, Gestos e Movimentos',d:'Demonstrar progressiva independência no cuidado do seu corpo.'},
+  {c:'EI02CG05',f:'EI02',g:'Corpo, Gestos e Movimentos',d:'Desenvolver progressivamente as habilidades manuais, adquirindo controle para desenhar, pintar, rasgar, dobrar, esculpir etc.'},
+  {c:'EI02TS01',f:'EI02',g:'Traços, Sons, Cores e Formas',d:'Criar sons com materiais, objetos e instrumentos musicais, para acompanhar diversos ritmos de música.'},
+  {c:'EI02TS02',f:'EI02',g:'Traços, Sons, Cores e Formas',d:'Utilizar materiais variados com possibilidades de manipulação (argila, massa de modelar), explorando cores, texturas, superfícies, planos, formas e volumes ao criar objetos tridimensionais.'},
+  {c:'EI02TS03',f:'EI02',g:'Traços, Sons, Cores e Formas',d:'Utilizar diferentes fontes sonoras disponíveis no ambiente em brincadeiras cantadas, canções, músicas e melodias.'},
+  {c:'EI02EF01',f:'EI02',g:'Escuta, Fala, Pensamento e Imaginação',d:'Dialogar com crianças e adultos, expressando seus desejos, necessidades, sentimentos e opiniões.'},
+  {c:'EI02EF02',f:'EI02',g:'Escuta, Fala, Pensamento e Imaginação',d:'Identificar e criar diferentes sons e reconhecer rimas e aliterações em cantigas de roda e textos poéticos.'},
+  {c:'EI02EF03',f:'EI02',g:'Escuta, Fala, Pensamento e Imaginação',d:'Demonstrar interesse e atenção ao ouvir a leitura de histórias e outros textos, diferenciando escrita de ilustrações, e acompanhando, com orientação, a direção da leitura (de cima para baixo, da esquerda para a direita).'},
+  {c:'EI02EF04',f:'EI02',g:'Escuta, Fala, Pensamento e Imaginação',d:'Formular e responder perguntas sobre fatos da história narrada, identificando cenários, personagens e principais acontecimentos.'},
+  {c:'EI02EF05',f:'EI02',g:'Escuta, Fala, Pensamento e Imaginação',d:'Relatar experiências e fatos acontecidos, histórias ouvidas, filmes ou peças teatrais assistidos etc.'},
+  {c:'EI02EF06',f:'EI02',g:'Escuta, Fala, Pensamento e Imaginação',d:'Criar e contar histórias oralmente, com base em imagens ou temas sugeridos.'},
+  {c:'EI02EF07',f:'EI02',g:'Escuta, Fala, Pensamento e Imaginação',d:'Manusear diferentes portadores textuais, demonstrando reconhecer seus usos sociais.'},
+  {c:'EI02EF08',f:'EI02',g:'Escuta, Fala, Pensamento e Imaginação',d:'Manipular textos e participar de situações de escuta para ampliar seu contato com diferentes gêneros textuais (parlendas, histórias de aventura, tirinhas, cartazes de sala, cardápios, notícias etc.).'},
+  {c:'EI02EF09',f:'EI02',g:'Escuta, Fala, Pensamento e Imaginação',d:'Manusear diferentes instrumentos e suportes de escrita para desenhar, traçar letras e outros sinais gráficos.'},
+  {c:'EI02ET01',f:'EI02',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Explorar e descrever semelhanças e diferenças entre as características e propriedades dos objetos (textura, massa, tamanho).'},
+  {c:'EI02ET02',f:'EI02',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Observar, relatar e descrever incidentes do cotidiano e fenômenos naturais (luz solar, vento, chuva etc.).'},
+  {c:'EI02ET03',f:'EI02',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Compartilhar, com outras crianças, situações de cuidado de plantas e animais nos espaços da instituição e fora dela.'},
+  {c:'EI02ET04',f:'EI02',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Identificar relações espaciais (dentro e fora, em cima, embaixo, acima, abaixo, entre e do lado) e temporais (antes, durante e depois).'},
+  {c:'EI02ET05',f:'EI02',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Classificar objetos, considerando determinado atributo (tamanho, peso, cor, forma etc.).'},
+  {c:'EI02ET06',f:'EI02',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Utilizar conceitos básicos de tempo (agora, antes, durante, depois, ontem, hoje, amanhã, lento, rápido, depressa, devagar).'},
+  {c:'EI02ET07',f:'EI02',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Contar objetos de seu cotidiano, reconhecendo numerais cardinais.'},
+  {c:'EI02ET08',f:'EI02',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Registrar com números a quantidade de crianças (e de outras situações do cotidiano), usando o registro numérico.'},
+
+  // ── EI03 · Crianças pequenas (4 anos a 5a11m) ───────────────
+  {c:'EI03EO01',f:'EI03',g:'O eu, o outro e o nós',d:'Demonstrar empatia pelos outros, percebendo que as pessoas têm diferentes sentimentos, necessidades e maneiras de pensar e agir.'},
+  {c:'EI03EO02',f:'EI03',g:'O eu, o outro e o nós',d:'Agir de maneira independente, com confiança em suas capacidades, reconhecendo suas conquistas e limitações.'},
+  {c:'EI03EO03',f:'EI03',g:'O eu, o outro e o nós',d:'Ampliar as relações interpessoais, desenvolvendo atitudes de participação e cooperação.'},
+  {c:'EI03EO04',f:'EI03',g:'O eu, o outro e o nós',d:'Comunicar suas ideias e sentimentos a pessoas e grupos diversos.'},
+  {c:'EI03EO05',f:'EI03',g:'O eu, o outro e o nós',d:'Demonstrar valorização das características de seu corpo e respeitar as características dos outros (crianças e adultos) com os quais convive.'},
+  {c:'EI03EO06',f:'EI03',g:'O eu, o outro e o nós',d:'Manifestar interesse e respeito por diferentes culturas e modos de vida.'},
+  {c:'EI03EO07',f:'EI03',g:'O eu, o outro e o nós',d:'Usar estratégias pautadas no respeito mútuo para lidar com conflitos nas interações com crianças e adultos.'},
+  {c:'EI03EO08',f:'EI03',g:'O eu, o outro e o nós',d:'Relacionar-se com outras pessoas, sem discriminação por características individuais, estabelecendo formas de atuação coletiva baseadas na solidariedade.'},
+  {c:'EI03CG01',f:'EI03',g:'Corpo, Gestos e Movimentos',d:'Criar com o corpo formas diversificadas de expressão de sentimentos, sensações e emoções, tanto nas situações do cotidiano quanto em brincadeiras, dança, teatro, música.'},
+  {c:'EI03CG02',f:'EI03',g:'Corpo, Gestos e Movimentos',d:'Demonstrar controle e adequação do uso de seu corpo em brincadeiras e jogos, escuta e reconto de histórias, atividades artísticas, entre outras possibilidades.'},
+  {c:'EI03CG03',f:'EI03',g:'Corpo, Gestos e Movimentos',d:'Criar movimentos, gestos, olhares e mímicas com o corpo, adequando ao espaço de diferentes suportes e às variações de velocidade e fluxo para expressar ideias, sentimentos e estados internos.'},
+  {c:'EI03CG04',f:'EI03',g:'Corpo, Gestos e Movimentos',d:'Adotar hábitos de autocuidado relacionados a higiene, alimentação, conforto e aparência.'},
+  {c:'EI03CG05',f:'EI03',g:'Corpo, Gestos e Movimentos',d:'Coordenar suas habilidades manuais no atendimento adequado a seus interesses e necessidades em situações diversas.'},
+  {c:'EI03CG06',f:'EI03',g:'Corpo, Gestos e Movimentos',d:'Manifestar e expressar corporalmente percepções, sensações e emoções em situações que envolvam músicas, danças, teatros, brincadeiras de faz de conta e outros.'},
+  {c:'EI03TS01',f:'EI03',g:'Traços, Sons, Cores e Formas',d:'Utilizar sons produzidos por materiais, objetos e instrumentos musicais durante brincadeiras de faz de conta, encenações, criações musicais, festas.'},
+  {c:'EI03TS02',f:'EI03',g:'Traços, Sons, Cores e Formas',d:'Expressar-se livremente por meio de desenho, pintura, colagem, dobradura e escultura, criando produções bidimensionais e tridimensionais.'},
+  {c:'EI03TS03',f:'EI03',g:'Traços, Sons, Cores e Formas',d:'Reconhecer as qualidades do som (intensidade, duração, altura e timbre), utilizando-as em suas produções sonoras e ao ouvir músicas e sons.'},
+  {c:'EI03EF01',f:'EI03',g:'Escuta, Fala, Pensamento e Imaginação',d:'Expressar ideias, desejos e sentimentos sobre suas vivências, por meio da linguagem oral e escrita (escrita espontânea), de fotos, desenhos e outras formas de expressão.'},
+  {c:'EI03EF02',f:'EI03',g:'Escuta, Fala, Pensamento e Imaginação',d:'Inventar brincadeiras cantadas, poemas e canções, criando rimas, aliterações e ritmos.'},
+  {c:'EI03EF03',f:'EI03',g:'Escuta, Fala, Pensamento e Imaginação',d:'Escolher e folhear livros, procurando orientar-se por temas e ilustrações, e tentando identificar palavras conhecidas.'},
+  {c:'EI03EF04',f:'EI03',g:'Escuta, Fala, Pensamento e Imaginação',d:'Recontar histórias ouvidas e planejar coletivamente roteiros de vídeos e de encenações, definindo os contextos, os personagens, a estrutura da história.'},
+  {c:'EI03EF05',f:'EI03',g:'Escuta, Fala, Pensamento e Imaginação',d:'Recontar histórias ouvidas para produção de reconto escrito, tendo o professor como escriba.'},
+  {c:'EI03EF06',f:'EI03',g:'Escuta, Fala, Pensamento e Imaginação',d:'Produzir suas próprias histórias orais e escritas (escrita espontânea), em situações com função social significativa.'},
+  {c:'EI03EF07',f:'EI03',g:'Escuta, Fala, Pensamento e Imaginação',d:'Levantar hipóteses sobre gêneros textuais veiculados em portadores conhecidos, recorrendo a estratégias de observação gráfica e/ou de leitura.'},
+  {c:'EI03EF08',f:'EI03',g:'Escuta, Fala, Pensamento e Imaginação',d:'Selecionar livros e textos de gêneros conhecidos para a leitura de um adulto e/ou para sua própria leitura (partindo de seu repertório sobre esses textos, como a recuperação pela memória, pela leitura das ilustrações etc.).'},
+  {c:'EI03EF09',f:'EI03',g:'Escuta, Fala, Pensamento e Imaginação',d:'Levantar hipóteses em relação à linguagem escrita, realizando registros de palavras e textos, por meio de escrita espontânea.'},
+  {c:'EI03ET01',f:'EI03',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Estabelecer relações de comparação entre objetos, observando suas propriedades.'},
+  {c:'EI03ET02',f:'EI03',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Observar e descrever mudanças em diferentes materiais, resultantes de ações sobre eles, em experimentos envolvendo fenômenos naturais e artificiais.'},
+  {c:'EI03ET03',f:'EI03',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Identificar e selecionar fontes de informações, para responder a questões sobre a natureza, seus fenômenos, sua conservação.'},
+  {c:'EI03ET04',f:'EI03',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Registrar observações, manipulações e medidas, usando múltiplas linguagens (desenho, registro por números ou escrita espontânea), em diferentes suportes.'},
+  {c:'EI03ET05',f:'EI03',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Classificar objetos e figuras de acordo com suas semelhanças e diferenças.'},
+  {c:'EI03ET06',f:'EI03',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Relatar fatos importantes sobre seu nascimento e desenvolvimento, a história dos seus familiares e da sua comunidade.'},
+  {c:'EI03ET07',f:'EI03',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Relacionar números às suas respectivas quantidades e identificar o antes, o depois e o entre em uma sequência.'},
+  {c:'EI03ET08',f:'EI03',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Expressar medidas (peso, altura etc.), construindo gráficos básicos.'},
+  {c:'EI03ET09',f:'EI03',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Contar oralmente e representar a quantidade de objetos de uma coleção mediante registros informais ou de maneira convencional (número), ao solucionar problemas cotidianos.'},
+  {c:'EI03ET10',f:'EI03',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Reconhecer e comunicar mudanças que ocorrem na natureza, em comparação a diferentes épocas do ano, em situações e atividades diversas.'},
+  {c:'EI03ET11',f:'EI03',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Reconhecer a importância do cuidado do meio ambiente e a responsabilidade humana na sua preservação.'},
+  {c:'EI03ET12',f:'EI03',g:'Espaços, Tempos, Quantidades, Relações e Transformações',d:'Identificar relações entre grandezas e quantidades no cotidiano, utilizando formas de registro variadas.'},
+];
+
+// Índice rápido por código
+const BNCC_MAP = Object.fromEntries(BNCC_DB.map(x => [x.c, x]));
+
+// =====================================================================
+// BNCC AUTOCOMPLETE ENGINE
+// =====================================================================
+const _bncc = {};   // estado por fieldId: { selecionados: Set, focusIdx: -1 }
+
+function _bnccState(id) {
+  if (!_bncc[id]) _bncc[id] = { selecionados: new Set(), focusIdx: -1, resultados: [] };
+  return _bncc[id];
+}
+
+function bnccSearch(input, id) {
+  const q = input.value.trim().toLowerCase();
+  const drop = document.getElementById('bdrop-' + id);
+  if (!drop) return;
+  const st = _bnccState(id);
+  st.focusIdx = -1;
+
+  if (q.length < 1) { drop.style.display = 'none'; st.resultados = []; return; }
+
+  const resultados = BNCC_DB.filter(x =>
+    !st.selecionados.has(x.c) &&
+    (x.c.toLowerCase().includes(q) || x.d.toLowerCase().includes(q) || x.g.toLowerCase().includes(q) || x.f.toLowerCase().includes(q))
+  ).slice(0, 40);
+  st.resultados = resultados;
+
+  if (!resultados.length) {
+    drop.innerHTML = '<div class="bncc-empty">Nenhum resultado para "' + _esc(input.value) + '"</div>';
+    drop.style.display = 'block'; return;
+  }
+
+  // Agrupar por faixa + campo
+  const grupos = {};
+  resultados.forEach(x => {
+    const k = x.f + '|' + x.g;
+    if (!grupos[k]) grupos[k] = { label: x.f + ' · ' + x.g, itens: [] };
+    grupos[k].itens.push(x);
+  });
+
+  let html = '';
+  let optIdx = 0;
+  Object.values(grupos).forEach(g => {
+    html += `<div class="bncc-group-label">${_esc(g.label)}</div>`;
+    g.itens.forEach(x => {
+      html += `<div class="bncc-option" data-idx="${optIdx}" data-codigo="${x.c}" onmousedown="bnccSelect('${id}','${x.c}')">
+        <span class="bncc-option-code">${x.c}</span>
+        <span class="bncc-option-desc">${_esc(x.d)}</span>
+      </div>`;
+      optIdx++;
+    });
+  });
+  drop.innerHTML = html;
+  drop.style.display = 'block';
+}
+
+function bnccKeydown(e, id) {
+  const drop = document.getElementById('bdrop-' + id);
+  const st = _bnccState(id);
+  const opts = drop ? drop.querySelectorAll('.bncc-option') : [];
+  if (e.key === 'Escape') { bnccHide(id); return; }
+  if (!opts.length) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    st.focusIdx = Math.min(st.focusIdx + 1, opts.length - 1);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    st.focusIdx = Math.max(st.focusIdx - 1, 0);
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (st.focusIdx >= 0 && opts[st.focusIdx]) {
+      const cod = opts[st.focusIdx].dataset.codigo;
+      if (cod) bnccSelect(id, cod);
+    }
+    return;
+  } else { return; }
+  opts.forEach((o, i) => o.classList.toggle('bncc-focused', i === st.focusIdx));
+  if (opts[st.focusIdx]) opts[st.focusIdx].scrollIntoView({ block: 'nearest' });
+}
+
+function bnccSelect(id, codigo) {
+  const st = _bnccState(id);
+  st.selecionados.add(codigo);
+  st.focusIdx = -1;
+  const inp = document.getElementById('bsearch-' + id);
+  if (inp) { inp.value = ''; inp.focus(); }
+  bnccHide(id);
+  bnccRenderChips(id);
+  bnccSyncTextarea(id);
+}
+
+function bnccRemove(id, codigo) {
+  _bnccState(id).selecionados.delete(codigo);
+  bnccRenderChips(id);
+  bnccSyncTextarea(id);
+}
+
+function bnccHide(id) {
+  const drop = document.getElementById('bdrop-' + id);
+  if (drop) drop.style.display = 'none';
+}
+
+function bnccRenderChips(id) {
+  const cont = document.getElementById('bchips-' + id);
+  if (!cont) return;
+  const st = _bnccState(id);
+  if (!st.selecionados.size) { cont.innerHTML = ''; return; }
+  cont.innerHTML = [...st.selecionados].map(c => {
+    const item = BNCC_MAP[c];
+    const label = item ? c : c;
+    return `<span class="bncc-chip" title="${item ? _esc(item.d) : c}">
+      <span class="bncc-chip-label">${label}</span>
+      <button class="bncc-chip-remove" onclick="bnccRemove('${id}','${c}')" title="Remover">✕</button>
+    </span>`;
+  }).join('');
+}
+
+function bnccSyncTextarea(id) {
+  const ta = document.getElementById(id);
+  if (!ta) return;
+  const st = _bnccState(id);
+  ta.value = [...st.selecionados].map(c => {
+    const item = BNCC_MAP[c];
+    return item ? `(${c}) ${item.d}` : `(${c})`;
+  }).join('\n');
+}
+
+function bnccClear(id) {
+  const st = _bnccState(id);
+  st.selecionados.clear();
+  st.focusIdx = -1;
+  st.resultados = [];
+  bnccRenderChips(id);
+  bnccHide(id);
+  const inp = document.getElementById('bsearch-' + id);
+  if (inp) inp.value = '';
+  const ta = document.getElementById(id);
+  if (ta) ta.value = '';
+}
+
+// Carrega chips a partir de texto já salvo — ex: "(EI02EO01) Demonstrar..."
+function bnccLoad(id, texto) {
+  bnccClear(id);
+  if (!texto) return;
+  const st = _bnccState(id);
+  const re = /\(?(EI0[123][A-Z]{2}\d{2})\)?/g;
+  let m;
+  while ((m = re.exec(texto)) !== null) st.selecionados.add(m[1]);
+  bnccRenderChips(id);
+  // mantém textarea com valor original para compatibilidade
+  const ta = document.getElementById(id);
+  if (ta) ta.value = texto;
+}
+
+function _esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// Fechar dropdown ao clicar fora
+document.addEventListener('click', e => {
+  document.querySelectorAll('.bncc-dropdown').forEach(d => {
+    if (!d.closest('.bncc-selector')?.contains(e.target)) d.style.display = 'none';
+  });
+}, true);
+
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
@@ -3248,10 +3555,11 @@ function salvarPlanejamento() {
 }
 
 function limparFormPlanejamento() {
-  ['pl-data','pl-bncc','pl-conteudos','pl-desenvolvimento','pl-bimestre'].forEach(id => {
+  ['pl-data','pl-conteudos','pl-desenvolvimento','pl-bimestre'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
+  bnccClear('pl-bncc');
   document.querySelectorAll('input[name="pl-direitos"], input[name="pl-campos"]').forEach(c => {
     c.checked = false;
     c.closest('.check-item')?.classList.remove('checked');
@@ -3384,11 +3692,10 @@ function limparFormSemanal() {
   window._plsDiasImagens = {};
   for (let i = 0; i < 5; i++) {
     const conc  = document.getElementById(`pls-conteudos-${i}`);
-    const bncc  = document.getElementById(`pls-bncc-${i}`);
     const desenv = document.getElementById(`pls-desenvolvimento-${i}`);
     if (conc)  conc.value  = '';
-    if (bncc)  bncc.value  = '';
     if (desenv) desenv.value = '';
+    bnccClear(`pls-bncc-${i}`);
     const cb = document.getElementById(`pls-ativo-${i}`);
     if (cb) { cb.checked = true; plsToggleDia(i); }
     const lbl = document.getElementById(`pls-data-label-${i}`);
