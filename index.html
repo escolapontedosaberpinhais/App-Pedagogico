@@ -1510,7 +1510,7 @@ function getFolder(path) {
             </label>
             <span style="font-size:11px;color:var(--gray-400);">PNG, JPG ou WEBP — comprimida automaticamente</span>
           </div>
-          <div id="pl-imagem-preview" style="display:none;margin-top:8px;position:relative;display:inline-block;">
+          <div id="pl-imagem-preview" style="display:none;margin-top:8px;position:relative;">
             <img id="pl-imagem-thumb" src="" style="max-width:220px;max-height:140px;border-radius:6px;border:1.5px solid var(--gray-200);display:block;">
             <button onclick="removerImagemDesenvolvimento()" title="Remover imagem" style="position:absolute;top:-8px;right:-8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;">✕</button>
           </div>
@@ -3528,8 +3528,9 @@ function salvarPlanejamento() {
   };
   db.planejamentos.unshift(pl);
   save();
-  limparFormPlanejamento();
-  renderPlanejamentos();
+  try { limparFormPlanejamento(); } catch(eL) { console.error('[PL] limparForm error:', eL); }
+  try { renderPlanejamentos(); } catch(eR) { console.error('[PL] render error:', eR); showToast('⚠️ Erro ao exibir planejamentos: ' + eR.message); }
+  console.log('[PL] db.planejamentos.length após salvar:', db.planejamentos.length);
   const turmaNomeNotif = db.turmas.find(t => t.id === turmaId)?.nome || 'Turma';
   criarNotificacao(
     '📋 Novo planejamento para corrigir',
