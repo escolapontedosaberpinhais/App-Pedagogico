@@ -4636,11 +4636,20 @@ function devolverParaCorrecao(tipo, id) {
     ? db.planejamentos.find(p => p.id === id)
     : db.pareceres.find(p => p.id === id);
   if (!item) return;
-  item.revisao = 'devolvido';
-  item.corrigido = false;
-  item.prontoImpressao = false;
-  item.devolvidoEm = new Date().toISOString();
-  pushHistorico(item, 'devolvido');
+
+  // Se o item pertence a uma semana, devolve TODOS os dias da semana
+  const alvos = (tipo === 'pl' && item.semanaId)
+    ? db.planejamentos.filter(p => p.semanaId === item.semanaId)
+    : [item];
+
+  alvos.forEach(p => {
+    p.revisao = 'devolvido';
+    p.corrigido = false;
+    p.prontoImpressao = false;
+    p.devolvidoEm = new Date().toISOString();
+    pushHistorico(p, 'devolvido');
+  });
+
   save();
   renderCorrecoes();
   renderPareceres();
@@ -4654,9 +4663,18 @@ function aprovarRevisao(tipo, id) {
     ? db.planejamentos.find(p => p.id === id)
     : db.pareceres.find(p => p.id === id);
   if (!item) return;
-  item.revisao = 'aprovado';
-  item.corrigido = true;
-  pushHistorico(item, 'aprovado');
+
+  // Se pertence a uma semana, aprova TODOS os dias
+  const alvos = (tipo === 'pl' && item.semanaId)
+    ? db.planejamentos.filter(p => p.semanaId === item.semanaId)
+    : [item];
+
+  alvos.forEach(p => {
+    p.revisao = 'aprovado';
+    p.corrigido = true;
+    pushHistorico(p, 'aprovado');
+  });
+
   save();
   renderCorrecoes();
   renderDashboard();
@@ -4669,9 +4687,18 @@ function profEnviarCorrecao(tipo, id) {
     ? db.planejamentos.find(p => p.id === id)
     : db.pareceres.find(p => p.id === id);
   if (!item) return;
-  item.revisao = 'revisado';
-  item.revisadoEm = new Date().toISOString();
-  pushHistorico(item, 'revisado');
+
+  // Se pertence a uma semana, envia correção de TODOS os dias
+  const alvos = (tipo === 'pl' && item.semanaId)
+    ? db.planejamentos.filter(p => p.semanaId === item.semanaId)
+    : [item];
+
+  alvos.forEach(p => {
+    p.revisao = 'revisado';
+    p.revisadoEm = new Date().toISOString();
+    pushHistorico(p, 'revisado');
+  });
+
   save();
   renderPareceres();
   renderPlanejamentos();
