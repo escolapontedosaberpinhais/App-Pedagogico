@@ -4909,26 +4909,49 @@ function verSemanal(semanaId) {
   const p0 = dias[0];
   const turma = db.turmas.find(t => t.id === p0.turmaId);
 
-  // Se algum dia tem docUrl, abre o primeiro que tiver (nova aba)
-  const comDoc = dias.find(p => p.docUrl);
-  if (comDoc && (currentUser?.papel !== 'professora' || true)) {
-    window.open(comDoc.docUrl, '_blank');
+  const diasComDoc = dias.filter(p => p.docUrl);
+
+  // Se só 1 dia tem docUrl e é o único doc → abre direto
+  if (diasComDoc.length === 1 && dias.length === 1) {
+    window.open(diasComDoc[0].docUrl, '_blank');
     return;
   }
 
-  // Caso contrário, exibe modal in-app com o conteúdo de cada dia
-  const NOMES = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
-  const linhas = [`Turma: ${turma?.nome || '—'}  |  Bimestre: ${p0.bimestre || '—'}\n`];
-  dias.forEach(p => {
+  // Sempre mostra modal com TODOS os dias (com links se tiver docUrl)
+  const overlay = document.getElementById('modal-visualizar-overlay');
+  const titulo  = document.getElementById('modal-visualizar-titulo');
+  const corpo   = document.getElementById('modal-visualizar-corpo');
+  if (!overlay || !titulo || !corpo) return;
+
+  titulo.textContent = `📋 Planejamento Semanal — ${turma?.nome || ''}`;
+
+  corpo.innerHTML = dias.map(p => {
     const dt = p.data ? new Date(p.data + 'T12:00:00') : null;
-    const label = dt ? dt.toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'2-digit' }) : p.data || '—';
-    linhas.push(`── ${label.toUpperCase()} ──`);
-    if (p.conteudos)     linhas.push(`Conteúdos: ${p.conteudos}`);
-    if (p.bncc)          linhas.push(`BNCC: ${p.bncc}`);
-    if (p.desenvolvimento) linhas.push(`Desenvolvimento:\n${p.desenvolvimento}`);
-    linhas.push('');
-  });
-  abrirModalVisualizar(`📋 Planejamento Semanal — ${turma?.nome || ''}`, linhas.join('\n'));
+    const label = dt
+      ? dt.toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'2-digit' }).toUpperCase()
+      : (p.data || '—').toUpperCase();
+    const bnccHtml = p.bncc
+      ? `<div style="font-size:11.5px;color:#4b5563;margin:4px 0;"><strong>BNCC:</strong> ${p.bncc.replace(/\n/g,'<br>')}</div>`
+      : '';
+    const docsBtn = p.docUrl
+      ? `<a href="${p.docUrl}" target="_blank"
+           style="display:inline-block;margin-top:8px;padding:5px 14px;background:#1a5c38;color:#fff;
+                  border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;">
+           📄 Abrir no Google Docs
+         </a>`
+      : '';
+    return `<div style="border:1.5px solid #e5e7eb;border-radius:8px;padding:12px 14px;margin-bottom:10px;">
+      <div style="font-weight:700;font-size:13px;color:#1a5c38;margin-bottom:6px;">${label}</div>
+      <div style="font-size:12.5px;color:#374151;margin-bottom:3px;"><strong>Conteúdos:</strong> ${p.conteudos || '—'}</div>
+      ${bnccHtml}
+      <div style="font-size:12.5px;color:#374151;white-space:pre-wrap;margin-bottom:2px;">
+        <strong>Desenvolvimento:</strong> ${p.desenvolvimento || '—'}
+      </div>
+      ${docsBtn}
+    </div>`;
+  }).join('');
+
+  overlay.style.display = 'block';
 }
 
 async function verPlanejamento(id) {
