@@ -2457,7 +2457,7 @@ document.addEventListener('click', e => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.5.7';
+const APP_VERSION = 'v2.5.8';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -2603,14 +2603,49 @@ async function loadFromFirestore() {
 // Referência do listener de planejamentos — permite desligar/religar durante exclusão
 let _unsubPlanejamentos = null;
 
+// IDs excluídos em memória — carregados do Firestore no init e atualizados a cada exclusão.
+// Garante que mesmo que um dispositivo antigo regrave a lista, os excluídos são filtrados.
+let _planejDeletedIds = new Set();
+
+async function carregarDeletedIds() {
+  try {
+    const d = await fstore.collection('appdata').doc('planejamentos_deleted').get();
+    if (d.exists) {
+      const ids = d.data().ids || [];
+      const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000; // 7 dias
+      ids.forEach(e => { if (e.ts > cutoff) _planejDeletedIds.add(e.id); });
+    }
+  } catch(e) { /* offline — ignora */ }
+}
+
+async function registrarDeletedIds(ids) {
+  try {
+    const d = await fstore.collection('appdata').doc('planejamentos_deleted').get();
+    const existing = d.exists ? (d.data().ids || []) : [];
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const limpo = existing.filter(e => e.ts > cutoff);
+    const novos = ids.map(id => ({ id: String(id), ts: Date.now() }));
+    await fstore.collection('appdata').doc('planejamentos_deleted').set({ ids: [...limpo, ...novos] });
+    ids.forEach(id => _planejDeletedIds.add(String(id)));
+  } catch(e) { ids.forEach(id => _planejDeletedIds.add(String(id))); }
+}
+
 function resubscribePlanejamentos() {
   if (_unsubPlanejamentos) { _unsubPlanejamentos(); _unsubPlanejamentos = null; }
   _unsubPlanejamentos = FSREF('planejamentos').onSnapshot(doc => {
     if (!doc.exists || doc.metadata.hasPendingWrites) return;
-    // O servidor é a fonte da verdade. NUNCA regravar dados antigos por cima
-    // (isso ressuscitava itens excluídos). Apenas reflete o estado do servidor.
-    db.planejamentos = doc.data().data ?? [];
-    LS.set('ps_planejamentos', db.planejamentos);
+    let data = doc.data().data ?? [];
+    // Filtra IDs que foram excluídos — mesmo que dispositivo antigo tente restaurá-los
+    if (_planejDeletedIds.size > 0) {
+      const antes = data.length;
+      data = data.filter(p => !_planejDeletedIds.has(String(p.id)));
+      if (data.length < antes) {
+        // Regrava o servidor sem os itens excluídos
+        FSREF('planejamentos').set({ data }).catch(() => {});
+      }
+    }
+    db.planejamentos = data;
+    LS.set('ps_planejamentos', data);
     refreshCurrentView();
   });
 }
@@ -3346,6 +3381,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Carrega dados do Firestore
   await loadFromFirestore();
   await migrarImagensPlanej();   // move fotos antigas para fora do doc principal (idempotente)
+  await carregarDeletedIds();    // carrega IDs excluídos — proteção contra dispositivos antigos
   setupSync();
   document.getElementById('loading-screen').style.display = 'none';
 
@@ -4787,29 +4823,25 @@ function deletePlanejamento(id) {
   });
 }
 
-// Exclusão à prova de corrida: desliga o listener, GRAVA e AGUARDA a confirmação
-// do servidor, religa o listener só depois, e NUNCA chama saveToFirestore (que
-// regravaria todas as coleções de forma concorrente). Mostra a contagem real do
-// servidor como prova de que a exclusão persistiu.
 async function executarExclusaoPlanej(novaLista, idsParaExcluirImagem) {
   if (_unsubPlanejamentos) { _unsubPlanejamentos(); _unsubPlanejamentos = null; }
   showToast('⏳ Excluindo…');
   try {
-    await FSREF('planejamentos').set({ data: novaLista });   // grava e AGUARDA
+    // 1. Registra os IDs como excluídos ANTES de gravar — proteção cross-device
+    await registrarDeletedIds(idsParaExcluirImagem || []);
+    // 2. Grava a nova lista e AGUARDA confirmação do servidor
+    await FSREF('planejamentos').set({ data: novaLista });
     db.planejamentos = novaLista;
     LS.set('ps_planejamentos', novaLista);
     (idsParaExcluirImagem || []).forEach(id => excluirImagemPlanej(id));
     renderPlanejamentos();
     renderDashboard();
-    // Prova: relê do servidor e mostra a contagem
-    const snap = await FSREF('planejamentos').get();
-    const n = (snap.exists && snap.data().data) ? snap.data().data.length : 0;
-    showToast('🗑️ Excluído. Servidor agora tem ' + n + ' planejamento(s).', 3500);
+    showToast('🗑️ Excluído com sucesso!', 3000);
   } catch (e) {
     console.warn('Erro ao excluir do Firestore:', e);
     showToast('⚠️ Erro ao excluir no servidor: ' + (e.message || e), 4000);
   } finally {
-    resubscribePlanejamentos();   // religa só depois que a gravação terminou
+    resubscribePlanejamentos();
   }
 }
 
