@@ -2457,7 +2457,7 @@ document.addEventListener('click', e => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.5.0';
+const APP_VERSION = 'v2.5.3';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -2576,7 +2576,12 @@ function saveToFirestore() {
   batch.set(FSREF('horaAtividade'), { data: db.horaAtividade });
   if (_rotinasCarregadas)    batch.set(FSREF('rotinas'),    { data: db.rotinas });
   if (_atividadesCarregadas) batch.set(FSREF('atividades'), { data: db.atividades });
-  batch.commit().catch(e => console.warn('Firestore write error:', e));
+  batch.commit()
+    .then(() => {
+      // Após confirmação do Firestore, limpa os IDs protegidos contra restauração
+      if (window._deletedPlanejIds?.size > 0) window._deletedPlanejIds.clear();
+    })
+    .catch(e => console.warn('Firestore write error:', e));
 }
 
 function setupSync() {
@@ -2588,7 +2593,24 @@ function setupSync() {
 
   const handle = (field, def) => (doc) => {
     if (!doc.exists || doc.metadata.hasPendingWrites) return;
-    const serverData = doc.data().data ?? def;
+    let serverData = doc.data().data ?? def;
+
+    // ── Proteção contra restauração de itens excluídos ───────────────────
+    // Se o snapshot chegar com dados antigos (antes do commit da exclusão),
+    // filtramos os IDs que acabaram de ser excluídos localmente.
+    if (field === 'planejamentos' && window._deletedPlanejIds?.size > 0) {
+      const before = serverData.length;
+      serverData = serverData.filter(p => !window._deletedPlanejIds.has(String(p.id)));
+      if (serverData.length < before) {
+        console.log('[Sync] Filtrados ' + (before - serverData.length) + ' planejamento(s) excluídos do snapshot.');
+        // Re-salva para garantir que o Firestore fique atualizado
+        setTimeout(() => { db.planejamentos = serverData; saveToFirestore(); }, 500);
+        db[field] = serverData;
+        LS.set(LS_KEYS[field] || ('ps_' + field), serverData);
+        refreshCurrentView();
+        return;
+      }
+    }
 
     // ── Proteção anti-rollback ────────────────────────────────────────────
     // Se o servidor retornou MENOS registros que o localStorage,
@@ -3812,9 +3834,13 @@ async function imprimirPlanejamentoSemanal(semanaId) {
     const dt  = new Date(p.data + 'T12:00:00');
     const diaLabel = dt.toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'2-digit' });
     const bnccHtml = p.bncc ? `<div class="campo"><strong>BNCC:</strong> ${p.bncc.replace(/\n/g,'<br>')}</div>` : '';
+    const diaDireitos = ((p.direitos?.length ? p.direitos : p0.direitos) || []).join(' · ') || '—';
+    const diaCampos   = ((p.campos?.length   ? p.campos   : p0.campos)   || []).join('; ')  || '—';
     return `
       <div class="dia-box">
         <div class="dia-header">${diaLabel.toUpperCase()}</div>
+        <div class="campo"><strong>Direitos de Aprendizagem:</strong><br>${diaDireitos}</div>
+        <div class="campo"><strong>Campos de Experiência:</strong><br>${diaCampos}</div>
         <div class="campo"><strong>Conteúdos:</strong><br>${(p.conteudos||'—').replace(/\n/g,'<br>')}</div>
         ${bnccHtml}
         <div class="campo desenv"><strong>Desenvolvimento:</strong><br>${(p.desenvolvimento||'—').replace(/\n/g,'<br>')}</div>
@@ -3830,7 +3856,7 @@ body{ font-family:Arial,Helvetica,sans-serif; font-size:10.5px; color:#000; back
 .no-print{ display:flex; gap:10px; margin-bottom:14px; }
 .btn-p{ padding:8px 20px; background:#1D9E75; color:#fff; border:none; border-radius:5px; font-size:13px; font-weight:bold; cursor:pointer; }
 .btn-f{ padding:8px 20px; background:#fff; color:#555; border:1.5px solid #bbb; border-radius:5px; font-size:13px; cursor:pointer; }
-.page{ background:#fff; padding:14px 16px 18px; box-shadow:0 2px 12px rgba(0,0,0,.18); }
+.page{ background:#fff; padding:14px 16px 18px; box-shadow:0 2px 12px rgba(0,0,0,.18); display:flex; flex-direction:column; min-height:calc(297mm - 20mm); }
 .cabecalho{ display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid #1D9E75; padding-bottom:8px; margin-bottom:10px; }
 .escola-info{ text-align:center; flex:1; }
 .escola-info h1{ font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; }
@@ -3840,13 +3866,13 @@ body{ font-family:Arial,Helvetica,sans-serif; font-size:10.5px; color:#000; back
 .meta-cell strong{ display:block; font-size:8.5px; color:#444; text-transform:uppercase; margin-bottom:1px; }
 .meta-cell span{ font-size:10px; }
 .meta-full{ grid-column:1/-1; }
-.dias-grid{ display:grid; grid-template-columns:repeat(${Math.min(dias.length, 5)},1fr); gap:6px; }
+.dias-grid{ display:grid; grid-template-columns:repeat(${Math.min(dias.length, 5)},1fr); gap:6px; flex:1; }
 .dia-box{ border:1.5px solid #bbb; border-radius:5px; overflow:hidden; display:flex; flex-direction:column; }
 .dia-header{ background:#1D9E75; color:#fff; font-size:9.5px; font-weight:800; text-align:center; padding:5px 4px; letter-spacing:.3px; }
 .campo{ padding:5px 6px; border-bottom:1px solid #e5e7eb; font-size:9.5px; line-height:1.5; }
 .campo.desenv{ border-bottom:none; flex:1; }
-.assinatura{ display:flex; justify-content:space-between; margin-top:14px; gap:20px; }
-.assinatura-linha{ flex:1; border-top:1px solid #000; padding-top:4px; text-align:center; font-size:9px; }
+.assinatura{ display:flex; justify-content:space-between; margin-top:auto; padding-top:40px; gap:40px; }
+.assinatura-linha{ flex:1; border-top:1.5px solid #000; padding-top:6px; text-align:center; font-size:10px; font-weight:bold; }
 .footer{ margin-top:8px; font-size:8px; color:#999; text-align:right; }
 @media print{ body{background:#fff;padding:0;} .no-print{display:none!important;} }
 </style></head><body>
@@ -3868,8 +3894,6 @@ body{ font-family:Arial,Helvetica,sans-serif; font-size:10.5px; color:#000; back
     <div class="meta-cell"><strong>Turma</strong><span>${turmaNome}</span></div>
     <div class="meta-cell"><strong>Bimestre</strong><span>${bimestre}</span></div>
     <div class="meta-cell"><strong>Semana</strong><span>${semanaLabel}</span></div>
-    <div class="meta-cell meta-full"><strong>Direitos de Aprendizagem</strong><span>${direitos}</span></div>
-    <div class="meta-cell meta-full"><strong>Campos de Experiência</strong><span>${campos}</span></div>
   </div>
   <div class="dias-grid">${diasHtml}</div>
   <div class="assinatura">
@@ -4730,13 +4754,18 @@ function toggleCorrigido(id) {
 }
 
 function deletePlanejamento(id) {
-  const pl = db.planejamentos.find(p => p.id === id);
-  if (!pl) return;
   if (currentUser?.papel !== 'diretor' && currentUser?.papel !== 'pedagoga') { showToast('⚠️ Sem permissão para excluir planejamentos.'); return; }
-  if (!confirm('Excluir planejamento?')) return;
-  db.planejamentos = db.planejamentos.filter(p => p.id !== id);
-  save();
-  renderPlanejamentos();
+  const pl = db.planejamentos.find(p => String(p.id) === String(id));
+  if (!pl) { showToast('⚠️ Planejamento não encontrado.'); return; }
+  showConfirmModal('Excluir este planejamento?<br><small style="color:#888;font-weight:400;">Esta ação não pode ser desfeita.</small>', () => {
+    if (!window._deletedPlanejIds) window._deletedPlanejIds = new Set();
+    window._deletedPlanejIds.add(String(id));
+    db.planejamentos = db.planejamentos.filter(p => String(p.id) !== String(id));
+    save();
+    renderPlanejamentos();
+    renderDashboard();
+    showToast('🗑️ Planejamento excluído com sucesso.');
+  });
 }
 
 function renderPlanejamentos() {
@@ -4897,9 +4926,18 @@ function profEnviarCorrecaoSemanal(semanaId) {
   save(); renderPlanejamentos(); showToast('📤 Correção enviada para a pedagoga!');
 }
 function deleteSemanal(semanaId) {
-  if (!confirm('Excluir todos os dias desta semana?')) return;
-  db.planejamentos = db.planejamentos.filter(p => p.semanaId !== semanaId);
-  save(); renderPlanejamentos(); showToast('🗑️ Planejamento semanal excluído.');
+  if (currentUser?.papel !== 'diretor' && currentUser?.papel !== 'pedagoga') { showToast('⚠️ Sem permissão para excluir planejamentos.'); return; }
+  const dias = db.planejamentos.filter(p => String(p.semanaId) === String(semanaId));
+  if (!dias.length) { showToast('⚠️ Planejamento não encontrado.'); return; }
+  showConfirmModal(`Excluir todos os ${dias.length} dia(s) desta semana?<br><small style="color:#888;font-weight:400;">Esta ação não pode ser desfeita.</small>`, () => {
+    if (!window._deletedPlanejIds) window._deletedPlanejIds = new Set();
+    dias.forEach(p => window._deletedPlanejIds.add(String(p.id)));
+    db.planejamentos = db.planejamentos.filter(p => String(p.semanaId) !== String(semanaId));
+    save();
+    renderPlanejamentos();
+    renderDashboard();
+    showToast('🗑️ Planejamento semanal excluído com sucesso.');
+  });
 }
 
 function verSemanal(semanaId) {
@@ -8357,6 +8395,25 @@ function downloadTxt(content, filename) {
   a.href = url; a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ── Modal de confirmação (substitui window.confirm) ───────────────────
+function showConfirmModal(msg, onConfirm) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-box" style="max-width:340px;text-align:center;">
+      <div style="font-size:32px;margin-bottom:10px;">⚠️</div>
+      <p style="font-size:15px;font-weight:600;margin-bottom:8px;color:var(--gray-800);">${msg}</p>
+      <div style="display:flex;gap:10px;margin-top:20px;justify-content:center;">
+        <button id="_conf-cancel" class="btn btn-secondary" style="flex:1;">Cancelar</button>
+        <button id="_conf-ok" class="btn btn-danger" style="flex:1;">Excluir</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#_conf-cancel').onclick = () => overlay.remove();
+  overlay.querySelector('#_conf-ok').onclick = () => { overlay.remove(); onConfirm(); };
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
 }
 
 function showToast(msg, duration) {
