@@ -2457,7 +2457,7 @@ document.addEventListener('click', e => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.5.3';
+const APP_VERSION = 'v2.5.4';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -2564,6 +2564,9 @@ async function loadFromFirestore() {
   }
 }
 
+// Timestamp até quando o onSnapshot de planejamentos deve ser ignorado (pós-exclusão)
+let _planejLockUntil = 0;
+
 function saveToFirestore() {
   const batch = fstore.batch();
   batch.set(FSREF('turmas'),        { data: db.turmas });
@@ -2576,12 +2579,7 @@ function saveToFirestore() {
   batch.set(FSREF('horaAtividade'), { data: db.horaAtividade });
   if (_rotinasCarregadas)    batch.set(FSREF('rotinas'),    { data: db.rotinas });
   if (_atividadesCarregadas) batch.set(FSREF('atividades'), { data: db.atividades });
-  batch.commit()
-    .then(() => {
-      // Após confirmação do Firestore, limpa os IDs protegidos contra restauração
-      if (window._deletedPlanejIds?.size > 0) window._deletedPlanejIds.clear();
-    })
-    .catch(e => console.warn('Firestore write error:', e));
+  batch.commit().catch(e => console.warn('Firestore write error:', e));
 }
 
 function setupSync() {
@@ -2595,21 +2593,18 @@ function setupSync() {
     if (!doc.exists || doc.metadata.hasPendingWrites) return;
     let serverData = doc.data().data ?? def;
 
-    // ── Proteção contra restauração de itens excluídos ───────────────────
-    // Se o snapshot chegar com dados antigos (antes do commit da exclusão),
-    // filtramos os IDs que acabaram de ser excluídos localmente.
-    if (field === 'planejamentos' && window._deletedPlanejIds?.size > 0) {
-      const before = serverData.length;
-      serverData = serverData.filter(p => !window._deletedPlanejIds.has(String(p.id)));
-      if (serverData.length < before) {
-        console.log('[Sync] Filtrados ' + (before - serverData.length) + ' planejamento(s) excluídos do snapshot.');
-        // Re-salva para garantir que o Firestore fique atualizado
-        setTimeout(() => { db.planejamentos = serverData; saveToFirestore(); }, 500);
-        db[field] = serverData;
-        LS.set(LS_KEYS[field] || ('ps_' + field), serverData);
-        refreshCurrentView();
+    // ── Proteção pós-exclusão (lock por timestamp) ────────────────────────
+    // Após excluir um planejamento, bloqueamos snapshots por até 15s.
+    // Se o servidor mandar MAIS itens que o local, é dado antigo — ignora.
+    if (field === 'planejamentos' && Date.now() < _planejLockUntil) {
+      if (serverData.length > db.planejamentos.length) {
+        console.log('[Sync] Lock pós-exclusão ativo — servidor: ' + serverData.length + ', local: ' + db.planejamentos.length + '. Ignorando snapshot antigo.');
+        // Re-força a escrita para garantir que o Firestore atualize
+        setTimeout(() => FSREF('planejamentos').set({ data: db.planejamentos }).catch(() => {}), 2000);
         return;
       }
+      // Servidor tem igual ou menos — dados corretos, libera o lock
+      _planejLockUntil = 0;
     }
 
     // ── Proteção anti-rollback ────────────────────────────────────────────
@@ -4758,13 +4753,18 @@ function deletePlanejamento(id) {
   const pl = db.planejamentos.find(p => String(p.id) === String(id));
   if (!pl) { showToast('⚠️ Planejamento não encontrado.'); return; }
   showConfirmModal('Excluir este planejamento?<br><small style="color:#888;font-weight:400;">Esta ação não pode ser desfeita.</small>', () => {
-    if (!window._deletedPlanejIds) window._deletedPlanejIds = new Set();
-    window._deletedPlanejIds.add(String(id));
+    // Ativa lock: ignora snapshots por 15s para evitar restauração do dado antigo
+    _planejLockUntil = Date.now() + 15000;
     db.planejamentos = db.planejamentos.filter(p => String(p.id) !== String(id));
-    save();
+    LS.set('ps_planejamentos', db.planejamentos);
     renderPlanejamentos();
     renderDashboard();
     showToast('🗑️ Planejamento excluído com sucesso.');
+    // Escrita direta (fora do batch) — confirmação rápida e precisa
+    FSREF('planejamentos').set({ data: db.planejamentos })
+      .then(() => { _planejLockUntil = 0; })
+      .catch(e => { console.warn('Erro ao excluir do Firestore:', e); showToast('⚠️ Erro ao salvar no servidor.'); });
+    saveToFirestore(); // sincroniza demais coleções
   });
 }
 
@@ -4930,13 +4930,18 @@ function deleteSemanal(semanaId) {
   const dias = db.planejamentos.filter(p => String(p.semanaId) === String(semanaId));
   if (!dias.length) { showToast('⚠️ Planejamento não encontrado.'); return; }
   showConfirmModal(`Excluir todos os ${dias.length} dia(s) desta semana?<br><small style="color:#888;font-weight:400;">Esta ação não pode ser desfeita.</small>`, () => {
-    if (!window._deletedPlanejIds) window._deletedPlanejIds = new Set();
-    dias.forEach(p => window._deletedPlanejIds.add(String(p.id)));
+    // Ativa lock: ignora snapshots por 15s para evitar restauração do dado antigo
+    _planejLockUntil = Date.now() + 15000;
     db.planejamentos = db.planejamentos.filter(p => String(p.semanaId) !== String(semanaId));
-    save();
+    LS.set('ps_planejamentos', db.planejamentos);
     renderPlanejamentos();
     renderDashboard();
     showToast('🗑️ Planejamento semanal excluído com sucesso.');
+    // Escrita direta (fora do batch) — confirmação rápida e precisa
+    FSREF('planejamentos').set({ data: db.planejamentos })
+      .then(() => { _planejLockUntil = 0; })
+      .catch(e => { console.warn('Erro ao excluir do Firestore:', e); showToast('⚠️ Erro ao salvar no servidor.'); });
+    saveToFirestore(); // sincroniza demais coleções
   });
 }
 
