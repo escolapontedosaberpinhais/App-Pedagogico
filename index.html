@@ -2580,12 +2580,54 @@ function saveToFirestore() {
 }
 
 function setupSync() {
-  const handle = (field, def) => (doc) => {
-    if (doc.exists && !doc.metadata.hasPendingWrites) {
-      db[field] = doc.data().data ?? def;
-      refreshCurrentView();
-    }
+  // Mapa de chaves localStorage para cada campo do Firestore
+  const LS_KEYS = {
+    turmas: 'ps_turmas', alunos: 'ps_alunos', planejamentos: 'ps_planejamentos',
+    pareceres: 'ps_pareceres', usuarios: 'ps_usuarios', horaAtividade: 'ps_hora_atividade'
   };
+
+  const handle = (field, def) => (doc) => {
+    if (!doc.exists || doc.metadata.hasPendingWrites) return;
+    const serverData = doc.data().data ?? def;
+
+    // ── Proteção anti-rollback ────────────────────────────────────────────
+    // Se o servidor retornou MENOS registros que o localStorage,
+    // provavelmente o write foi rejeitado (regras de segurança / offline).
+    // Usamos o localStorage como fonte de verdade e re-tentamos o envio.
+    if (Array.isArray(serverData) && LS_KEYS[field]) {
+      const lsData = LS.get(LS_KEYS[field], []);
+      if (Array.isArray(lsData) && lsData.length > serverData.length) {
+        db[field] = lsData;
+        console.warn('[Sync] Rollback detectado em "' + field + '" — servidor: ' + serverData.length + ', local: ' + lsData.length + '. Usando localStorage e re-tentando save.');
+        setTimeout(saveToFirestore, 3000);
+        refreshCurrentView();
+        return;
+      }
+    }
+
+    db[field] = serverData;
+    LS.set(LS_KEYS[field] || ('ps_' + field), serverData);   // mantém LS sempre atualizado
+
+    // ── Atualiza currentUser quando db.usuarios muda ─────────────────────
+    // Corrige sessões desatualizadas (ex: admin vincula turma após login)
+    if (field === 'usuarios' && currentUser) {
+      const updated = db.usuarios.find(u =>
+        u.id === currentUser.id || u.usuario === currentUser.usuario
+      );
+      if (updated) {
+        const changed = JSON.stringify(updated.turmaIds) !== JSON.stringify(currentUser.turmaIds)
+                     || updated.papel !== currentUser.papel;
+        if (changed) {
+          currentUser = { ...updated };
+          sessionStorage.setItem('ps_sess', JSON.stringify(currentUser));
+          console.log('[Sync] currentUser atualizado — turmaIds:', JSON.stringify(currentUser.turmaIds));
+        }
+      }
+    }
+
+    refreshCurrentView();
+  };
+
   FSREF('turmas').onSnapshot(handle('turmas', []));
   FSREF('alunos').onSnapshot(handle('alunos', []));
   FSREF('planejamentos').onSnapshot(handle('planejamentos', []));
@@ -3528,9 +3570,8 @@ function salvarPlanejamento() {
   };
   db.planejamentos.unshift(pl);
   save();
-  try { limparFormPlanejamento(); } catch(eL) { console.error('[PL] limparForm error:', eL); }
-  try { renderPlanejamentos(); } catch(eR) { console.error('[PL] render error:', eR); showToast('⚠️ Erro ao exibir planejamentos: ' + eR.message); }
-  console.log('[PL] db.planejamentos.length após salvar:', db.planejamentos.length);
+  limparFormPlanejamento();
+  renderPlanejamentos();
   const turmaNomeNotif = db.turmas.find(t => t.id === turmaId)?.nome || 'Turma';
   criarNotificacao(
     '📋 Novo planejamento para corrigir',
@@ -3673,9 +3714,8 @@ function salvarPlanejamentoSemanal() {
 
   db.planejamentos.unshift(...criados);
   save();
-  try { limparFormSemanal(); } catch(eL) { console.error('[PLS] limparForm error:', eL); }
-  try { renderPlanejamentos(); } catch(eR) { console.error('[PLS] render error:', eR); showToast('⚠️ Erro ao exibir: ' + eR.message); }
-  console.log('[PLS] criados:', criados.length, '| db.planejamentos.length:', db.planejamentos.length, '| turmaId:', criados[0]?.turmaId, '| userTurmas:', JSON.stringify(getUsrTurmaIds(currentUser)));
+  limparFormSemanal();
+  renderPlanejamentos();
   showToast(`✅ Semana salva! ${criados.length} dia${criados.length > 1 ? 's' : ''} de planejamento.`);
 
   // Notificação para a pedagoga
