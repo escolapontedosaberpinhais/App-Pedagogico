@@ -3673,8 +3673,9 @@ function salvarPlanejamentoSemanal() {
 
   db.planejamentos.unshift(...criados);
   save();
-  limparFormSemanal();
-  renderPlanejamentos();
+  try { limparFormSemanal(); } catch(eL) { console.error('[PLS] limparForm error:', eL); }
+  try { renderPlanejamentos(); } catch(eR) { console.error('[PLS] render error:', eR); showToast('⚠️ Erro ao exibir: ' + eR.message); }
+  console.log('[PLS] criados:', criados.length, '| db.planejamentos.length:', db.planejamentos.length, '| turmaId:', criados[0]?.turmaId, '| userTurmas:', JSON.stringify(getUsrTurmaIds(currentUser)));
   showToast(`✅ Semana salva! ${criados.length} dia${criados.length > 1 ? 's' : ''} de planejamento.`);
 
   // Notificação para a pedagoga
