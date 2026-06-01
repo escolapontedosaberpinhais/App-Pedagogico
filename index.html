@@ -2457,7 +2457,7 @@ document.addEventListener('click', e => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.5.6';
+const APP_VERSION = 'v2.5.7';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -2607,24 +2607,13 @@ function resubscribePlanejamentos() {
   if (_unsubPlanejamentos) { _unsubPlanejamentos(); _unsubPlanejamentos = null; }
   _unsubPlanejamentos = FSREF('planejamentos').onSnapshot(doc => {
     if (!doc.exists || doc.metadata.hasPendingWrites) return;
-    const serverData = doc.data().data ?? [];
-    const lsData = LS.get('ps_planejamentos', []);
-    // Anti-rollback: se local tem mais, servidor rejeitou — usa local e re-tenta
-    if (lsData.length > serverData.length) {
-      db.planejamentos = lsData;
-      console.warn('[Sync] Rollback em planejamentos — re-salvando.');
-      setTimeout(() => FSREF('planejamentos').set({ data: db.planejamentos }).catch(() => {}), 3000);
-      refreshCurrentView();
-      return;
-    }
-    db.planejamentos = serverData;
-    LS.set('ps_planejamentos', serverData);
+    // O servidor é a fonte da verdade. NUNCA regravar dados antigos por cima
+    // (isso ressuscitava itens excluídos). Apenas reflete o estado do servidor.
+    db.planejamentos = doc.data().data ?? [];
+    LS.set('ps_planejamentos', db.planejamentos);
     refreshCurrentView();
   });
 }
-
-// Timestamp até quando o onSnapshot de planejamentos deve ser ignorado (pós-exclusão)
-let _planejLockUntil = 0;
 
 function saveToFirestore() {
   const batch = fstore.batch();
@@ -2652,34 +2641,8 @@ function setupSync() {
     if (!doc.exists || doc.metadata.hasPendingWrites) return;
     let serverData = doc.data().data ?? def;
 
-    // ── Proteção pós-exclusão (lock por timestamp) ────────────────────────
-    // Após excluir um planejamento, bloqueamos snapshots por até 15s.
-    // Se o servidor mandar MAIS itens que o local, é dado antigo — ignora.
-    if (field === 'planejamentos' && Date.now() < _planejLockUntil) {
-      if (serverData.length > db.planejamentos.length) {
-        console.log('[Sync] Lock pós-exclusão ativo — servidor: ' + serverData.length + ', local: ' + db.planejamentos.length + '. Ignorando snapshot antigo.');
-        // Re-força a escrita para garantir que o Firestore atualize
-        setTimeout(() => FSREF('planejamentos').set({ data: db.planejamentos }).catch(() => {}), 2000);
-        return;
-      }
-      // Servidor tem igual ou menos — dados corretos, libera o lock
-      _planejLockUntil = 0;
-    }
-
-    // ── Proteção anti-rollback ────────────────────────────────────────────
-    // Se o servidor retornou MENOS registros que o localStorage,
-    // provavelmente o write foi rejeitado (regras de segurança / offline).
-    // Usamos o localStorage como fonte de verdade e re-tentamos o envio.
-    if (Array.isArray(serverData) && LS_KEYS[field]) {
-      const lsData = LS.get(LS_KEYS[field], []);
-      if (Array.isArray(lsData) && lsData.length > serverData.length) {
-        db[field] = lsData;
-        console.warn('[Sync] Rollback detectado em "' + field + '" — servidor: ' + serverData.length + ', local: ' + lsData.length + '. Usando localStorage e re-tentando save.');
-        setTimeout(saveToFirestore, 3000);
-        refreshCurrentView();
-        return;
-      }
-    }
+    // O servidor é a fonte da verdade. Não há mais "anti-rollback" que regrava
+    // dados antigos por cima — esse mecanismo ressuscitava itens excluídos.
 
     db[field] = serverData;
     LS.set(LS_KEYS[field] || ('ps_' + field), serverData);   // mantém LS sempre atualizado
@@ -4819,21 +4782,35 @@ function deletePlanejamento(id) {
   if (currentUser?.papel !== 'diretor' && currentUser?.papel !== 'pedagoga') { showToast('⚠️ Sem permissão para excluir planejamentos.'); return; }
   const pl = db.planejamentos.find(p => String(p.id) === String(id));
   if (!pl) { showToast('⚠️ Planejamento não encontrado.'); return; }
-  showConfirmModal('Excluir este planejamento?<br><small style="color:#888;font-weight:400;">Esta ação não pode ser desfeita.</small>', () => {
-    // 1. Desliga listener — nenhum snapshot pode restaurar o dado durante a exclusão
-    if (_unsubPlanejamentos) { _unsubPlanejamentos(); _unsubPlanejamentos = null; }
-    // 2. Remove localmente
-    db.planejamentos = db.planejamentos.filter(p => String(p.id) !== String(id));
-    LS.set('ps_planejamentos', db.planejamentos);
+  showConfirmModal('Excluir este planejamento?<br><small style="color:#888;font-weight:400;">Esta ação não pode ser desfeita.</small>', async () => {
+    await executarExclusaoPlanej(db.planejamentos.filter(p => String(p.id) !== String(id)), [id]);
+  });
+}
+
+// Exclusão à prova de corrida: desliga o listener, GRAVA e AGUARDA a confirmação
+// do servidor, religa o listener só depois, e NUNCA chama saveToFirestore (que
+// regravaria todas as coleções de forma concorrente). Mostra a contagem real do
+// servidor como prova de que a exclusão persistiu.
+async function executarExclusaoPlanej(novaLista, idsParaExcluirImagem) {
+  if (_unsubPlanejamentos) { _unsubPlanejamentos(); _unsubPlanejamentos = null; }
+  showToast('⏳ Excluindo…');
+  try {
+    await FSREF('planejamentos').set({ data: novaLista });   // grava e AGUARDA
+    db.planejamentos = novaLista;
+    LS.set('ps_planejamentos', novaLista);
+    (idsParaExcluirImagem || []).forEach(id => excluirImagemPlanej(id));
     renderPlanejamentos();
     renderDashboard();
-    showToast('🗑️ Planejamento excluído com sucesso.');
-    excluirImagemPlanej(id);   // remove a foto associada (se houver)
-    // 3. Salva no Firestore e só depois religa o listener
-    FSREF('planejamentos').set({ data: db.planejamentos })
-      .then(() => { resubscribePlanejamentos(); saveToFirestore(); })
-      .catch(e => { console.warn('Erro ao excluir do Firestore:', e); showToast('⚠️ Erro ao salvar no servidor.'); resubscribePlanejamentos(); });
-  });
+    // Prova: relê do servidor e mostra a contagem
+    const snap = await FSREF('planejamentos').get();
+    const n = (snap.exists && snap.data().data) ? snap.data().data.length : 0;
+    showToast('🗑️ Excluído. Servidor agora tem ' + n + ' planejamento(s).', 3500);
+  } catch (e) {
+    console.warn('Erro ao excluir do Firestore:', e);
+    showToast('⚠️ Erro ao excluir no servidor: ' + (e.message || e), 4000);
+  } finally {
+    resubscribePlanejamentos();   // religa só depois que a gravação terminou
+  }
 }
 
 function renderPlanejamentos() {
@@ -4997,20 +4974,11 @@ function deleteSemanal(semanaId) {
   if (currentUser?.papel !== 'diretor' && currentUser?.papel !== 'pedagoga') { showToast('⚠️ Sem permissão para excluir planejamentos.'); return; }
   const dias = db.planejamentos.filter(p => String(p.semanaId) === String(semanaId));
   if (!dias.length) { showToast('⚠️ Planejamento não encontrado.'); return; }
-  showConfirmModal(`Excluir todos os ${dias.length} dia(s) desta semana?<br><small style="color:#888;font-weight:400;">Esta ação não pode ser desfeita.</small>`, () => {
-    // 1. Desliga listener — nenhum snapshot pode restaurar o dado durante a exclusão
-    if (_unsubPlanejamentos) { _unsubPlanejamentos(); _unsubPlanejamentos = null; }
-    // 2. Remove localmente
-    db.planejamentos = db.planejamentos.filter(p => String(p.semanaId) !== String(semanaId));
-    LS.set('ps_planejamentos', db.planejamentos);
-    renderPlanejamentos();
-    renderDashboard();
-    showToast('🗑️ Planejamento semanal excluído com sucesso.');
-    dias.forEach(p => excluirImagemPlanej(p.id));   // remove as fotos associadas (se houver)
-    // 3. Salva no Firestore e só depois religa o listener
-    FSREF('planejamentos').set({ data: db.planejamentos })
-      .then(() => { resubscribePlanejamentos(); saveToFirestore(); })
-      .catch(e => { console.warn('Erro ao excluir do Firestore:', e); showToast('⚠️ Erro ao salvar no servidor.'); resubscribePlanejamentos(); });
+  showConfirmModal(`Excluir todos os ${dias.length} dia(s) desta semana?<br><small style="color:#888;font-weight:400;">Esta ação não pode ser desfeita.</small>`, async () => {
+    await executarExclusaoPlanej(
+      db.planejamentos.filter(p => String(p.semanaId) !== String(semanaId)),
+      dias.map(p => p.id)
+    );
   });
 }
 
