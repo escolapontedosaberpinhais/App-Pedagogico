@@ -2457,7 +2457,7 @@ document.addEventListener('click', e => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.5.5';
+const APP_VERSION = 'v2.5.6';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -2482,6 +2482,42 @@ firebase.initializeApp({
 });
 const fstore = firebase.firestore();
 const FSREF  = (col) => fstore.collection('appdata').doc(col);
+
+// ── Imagens de planejamento armazenadas FORA do documento principal ──────────
+// O Firestore limita cada documento a 1 MiB. Guardar fotos base64 dentro do
+// documento "planejamentos" estourava esse limite e travava TODAS as gravações
+// (inclusive exclusões). Agora cada foto fica em seu próprio documento.
+const IMGREF = (id) => fstore.collection('appdata').doc('plimg_' + String(id));
+function salvarImagemPlanej(id, base64) {
+  if (!base64) return Promise.resolve();
+  return IMGREF(id).set({ img: base64 }).catch(e => console.warn('Erro ao salvar imagem do planejamento:', e));
+}
+function carregarImagemPlanej(id) {
+  return IMGREF(id).get().then(d => (d.exists ? (d.data().img || null) : null)).catch(() => null);
+}
+function excluirImagemPlanej(id) {
+  return IMGREF(id).delete().catch(() => {});
+}
+
+// Migração automática: move fotos inline antigas para documentos separados.
+// Idempotente — só age quando encontra fotos no formato antigo.
+async function migrarImagensPlanej() {
+  const comFoto = db.planejamentos.filter(p => p.imagemDesenvolvimento);
+  if (!comFoto.length) return;
+  console.log('[Migração] Movendo ' + comFoto.length + ' foto(s) para fora do documento principal…');
+  try {
+    for (const p of comFoto) {
+      await salvarImagemPlanej(p.id, p.imagemDesenvolvimento);
+      p.temImagem = true;
+      delete p.imagemDesenvolvimento;
+    }
+    LS.set('ps_planejamentos', db.planejamentos);
+    await FSREF('planejamentos').set({ data: db.planejamentos });
+    console.log('[Migração] Concluída. Documento principal otimizado.');
+  } catch (e) {
+    console.warn('[Migração] Erro:', e);
+  }
+}
 
 async function loadFromFirestore() {
   try {
@@ -3346,6 +3382,7 @@ function getModel() {
 window.addEventListener('DOMContentLoaded', async () => {
   // Carrega dados do Firestore
   await loadFromFirestore();
+  await migrarImagensPlanej();   // move fotos antigas para fora do doc principal (idempotente)
   setupSync();
   document.getElementById('loading-screen').style.display = 'none';
 
@@ -3592,6 +3629,7 @@ function salvarPlanejamento() {
     return;
   }
   const bimestre = document.getElementById('pl-bimestre').value;
+  const imgBase64 = window._plImagemBase64 || null;
   const pl = {
     id: uid(),
     turmaId,
@@ -3603,13 +3641,14 @@ function salvarPlanejamento() {
     bncc,
     conteudos,
     desenvolvimento,
-    imagemDesenvolvimento: window._plImagemBase64 || null,
+    temImagem: !!imgBase64,
     criadoEm: new Date().toISOString(),
     criadoPor: currentUser?.login || currentUser?.usuario || currentUser?.nome || '',
     historico: [{ acao: 'criado', por: currentUser?.nome || 'Professora', em: new Date().toISOString() }],
   };
   db.planejamentos.unshift(pl);
   save();
+  if (imgBase64) salvarImagemPlanej(pl.id, imgBase64);   // foto vai para doc separado
   limparFormPlanejamento();
   renderPlanejamentos();
   const turmaNomeNotif = db.turmas.find(t => t.id === turmaId)?.nome || 'Turma';
@@ -3721,6 +3760,7 @@ function salvarPlanejamentoSemanal() {
   const campos   = [...document.querySelectorAll('input[name="pls-campos"]:checked')].map(c => c.value);
   const semanaId = uid();
   const criados  = [];
+  const imagensParaSalvar = [];
   let algumDia   = false;
 
   for (let i = 0; i < 5; i++) {
@@ -3734,12 +3774,15 @@ function salvarPlanejamentoSemanal() {
     }
     const d = new Date(seg); d.setDate(seg.getDate() + i);
     const dataStr = d.toISOString().slice(0, 10);
+    const novoId = uid();
+    const imgDia = window._plsDiasImagens?.[i] || null;
+    if (imgDia) imagensParaSalvar.push({ id: novoId, img: imgDia });
     criados.push({
-      id: uid(), turmaId, bimestre, prof, direitos, campos,
+      id: novoId, turmaId, bimestre, prof, direitos, campos,
       data: dataStr,
       bncc: document.getElementById(`pls-bncc-${i}`)?.value.trim() || '',
       conteudos, desenvolvimento,
-      imagemDesenvolvimento: window._plsDiasImagens?.[i] || null,
+      temImagem: !!imgDia,
       semanaId,
       diaSemana: PLS_DIAS[i],
       tipo: 'semanal',
@@ -3754,6 +3797,7 @@ function salvarPlanejamentoSemanal() {
 
   db.planejamentos.unshift(...criados);
   save();
+  imagensParaSalvar.forEach(x => salvarImagemPlanej(x.id, x.img));   // fotos vão para docs separados
   limparFormSemanal();
   renderPlanejamentos();
   showToast(`✅ Semana salva! ${criados.length} dia${criados.length > 1 ? 's' : ''} de planejamento.`);
@@ -4784,6 +4828,7 @@ function deletePlanejamento(id) {
     renderPlanejamentos();
     renderDashboard();
     showToast('🗑️ Planejamento excluído com sucesso.');
+    excluirImagemPlanej(id);   // remove a foto associada (se houver)
     // 3. Salva no Firestore e só depois religa o listener
     FSREF('planejamentos').set({ data: db.planejamentos })
       .then(() => { resubscribePlanejamentos(); saveToFirestore(); })
@@ -4899,7 +4944,7 @@ function renderPlanejamentos() {
       : revisado ? `<span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:11px;">🔄 Aguardando aprovação</span>`
       : p.corrigido ? `<span class="badge" style="background:#d1fae5;color:#065f46;font-size:11px;">✅ Aprovado</span>` : '';
     const cardStyle = devolvido ? 'border:2px solid #f59e0b;background:#fffbeb;' : '';
-    const imgBadge = p.imagemDesenvolvimento ? `<span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:11px;">🖼️ Com imagem</span>` : '';
+    const imgBadge = (p.temImagem || p.imagemDesenvolvimento) ? `<span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:11px;">🖼️ Com imagem</span>` : '';
     return `<div class="item-card" style="${cardStyle}">
       <div class="info">
         <strong>${conteudosTxt}</strong>
@@ -4961,6 +5006,7 @@ function deleteSemanal(semanaId) {
     renderPlanejamentos();
     renderDashboard();
     showToast('🗑️ Planejamento semanal excluído com sucesso.');
+    dias.forEach(p => excluirImagemPlanej(p.id));   // remove as fotos associadas (se houver)
     // 3. Salva no Firestore e só depois religa o listener
     FSREF('planejamentos').set({ data: db.planejamentos })
       .then(() => { resubscribePlanejamentos(); saveToFirestore(); })
@@ -5142,6 +5188,10 @@ async function imprimirPlanejamento(id) {
       if (logoEl && logoEl.src) logoSrc = logoEl.src;
     } catch(e3) {}
 
+    // Busca foto do desenvolvimento (armazenada em documento separado)
+    var imgSrc = p.imagemDesenvolvimento || (p.temImagem ? await carregarImagemPlanej(p.id) : null);
+    var imgHtml = imgSrc ? '<br><img src="' + imgSrc + '" style="max-width:100%;max-height:160px;margin-top:4px;border-radius:4px;">' : '';
+
     // Formata data com dia da semana
     function fmtDataPlan(dateStr) {
       if (!dateStr) return '—';
@@ -5259,7 +5309,7 @@ async function imprimirPlanejamento(id) {
       '<td>' + campos + '</td>',
       '<td>' + bncc + '</td>',
       '<td>' + conteudos + '</td>',
-      '<td>' + desenvolv + (p.imagemDesenvolvimento ? '<br><img src="' + p.imagemDesenvolvimento + '" style="max-width:100%;max-height:160px;margin-top:4px;border-radius:4px;">' : '') + '</td>',
+      '<td>' + desenvolv + imgHtml + '</td>',
       '</tr>',
       '</tbody>',
       '</table>',
