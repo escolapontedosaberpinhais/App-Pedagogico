@@ -2455,9 +2455,215 @@ document.addEventListener('click', e => {
 }, true);
 
 // =====================================================================
+// LOGGER SERVICE — Observabilidade enterprise para SPA client-side
+// =====================================================================
+// Stack: Vanilla JS + Firebase Firestore (sem backend/Node.js)
+// Estratégia:
+//   • Logs estruturados JSON no console (dev) ou silenciosos (prod)
+//   • Audit trail persistido no Firestore (coleção appdata/auditlog)
+//   • Masking automático de dados sensíveis
+//   • Error boundary global para exceções não tratadas
+//   • Performance tracking para operações lentas
+//   • Buffer async para não bloquear a UI
+// =====================================================================
+const LoggerService = (() => {
+  // ── Configuração (sobreposta por env via localStorage) ───────────────
+  const CFG = {
+    level:              localStorage.getItem('LOG_LEVEL')               || 'warn',   // debug|info|warn|error
+    toConsole:         (localStorage.getItem('LOG_TO_CONSOLE')          || 'true') === 'true',
+    toFirestore:       (localStorage.getItem('LOG_TO_FIRESTORE')        || 'true') === 'true',
+    auditEnabled:      (localStorage.getItem('LOG_AUDIT')               || 'true') === 'true',
+    slowThresholdMs:    parseInt(localStorage.getItem('SLOW_REQUEST_THRESHOLD') || '1000', 10),
+    maxPayloadChars:    parseInt(localStorage.getItem('LOG_MAX_PAYLOAD')         || '500',  10),
+    env: (() => {
+      if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') return 'development';
+      if (location.hostname.includes('vercel.app')) return 'production';
+      return 'unknown';
+    })(),
+  };
+
+  const LEVELS = { debug: 0, info: 1, warn: 2, error: 3 };
+
+  // ── Campos a mascarar automaticamente ───────────────────────────────
+  const SENSITIVE_KEYS = new Set([
+    'senha','password','token','jwt','cookie','cpf','cnpj',
+    'telefone','phone','cartao','card','cvv','secret',
+    'apiKey','apikey','api_key','authorization','auth',
+  ]);
+
+  function _mask(value, key) {
+    if (typeof value !== 'string') return '[MASKED]';
+    if (key === 'cpf' && value.length >= 11)
+      return value.slice(0,3).replace(/\d/g,'*') + '.' + value.slice(3,6).replace(/\d/g,'*') + '.' + value.slice(6,9).replace(/\d/g,'*') + '-' + value.slice(9);
+    if ((key === 'telefone' || key === 'phone') && value.length >= 8)
+      return value.slice(0,4) + '*****' + value.slice(-4);
+    if (key === 'apiKey' || key === 'apikey' || key === 'api_key')
+      return value.slice(0,6) + '...[MASKED]';
+    return '[MASKED]';
+  }
+
+  function sanitize(obj, depth) {
+    if (depth === undefined) depth = 0;
+    if (depth > 4 || obj === null || obj === undefined) return obj;
+    if (typeof obj === 'string') {
+      return obj.length > CFG.maxPayloadChars ? obj.slice(0, CFG.maxPayloadChars) + '…[truncated]' : obj;
+    }
+    if (typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.slice(0, 20).map(i => sanitize(i, depth + 1));
+    const out = {};
+    for (const [k, v] of Object.entries(obj)) {
+      out[k] = SENSITIVE_KEYS.has(k.toLowerCase()) ? _mask(v, k.toLowerCase()) : sanitize(v, depth + 1);
+    }
+    return out;
+  }
+
+  // ── Geração de IDs de rastreabilidade ───────────────────────────────
+  let _sessionId = sessionStorage.getItem('_logSessionId');
+  if (!_sessionId) { _sessionId = 'sess_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); sessionStorage.setItem('_logSessionId', _sessionId); }
+
+  function _reqId() { return 'req_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+  // ── Buffer async (não bloqueia a UI) ────────────────────────────────
+  const _queue = [];
+  let _flushing = false;
+
+  async function _flush() {
+    if (_flushing || _queue.length === 0) return;
+    _flushing = true;
+    while (_queue.length > 0) {
+      const item = _queue.shift();
+      try {
+        if (typeof fstore !== 'undefined' && CFG.toFirestore) {
+          await fstore.collection('logs').add(item);
+        }
+      } catch (_) { /* nunca bloquear por falha de log */ }
+    }
+    _flushing = false;
+  }
+
+  function _enqueue(entry) {
+    _queue.push(entry);
+    setTimeout(_flush, 0);   // async, fora do call stack atual
+  }
+
+  // ── Construtor de entrada de log ─────────────────────────────────────
+  function _build(level, data) {
+    const user = (() => { try { return JSON.parse(sessionStorage.getItem('ps_sess')); } catch(_) { return null; } })();
+    return {
+      timestamp:     new Date().toISOString(),
+      level:         level.toUpperCase(),
+      environment:   CFG.env,
+      sessionId:     _sessionId,
+      userId:        user?.usuario || user?.nome || null,
+      userRole:      user?.papel   || null,
+      schoolId:      'escola-ponte-saber',
+      module:        data.module  || 'app',
+      action:        data.action  || 'unknown',
+      message:       data.message || '',
+      requestId:     data.requestId || _reqId(),
+      correlationId: data.correlationId || null,
+      durationMs:    data.durationMs   != null ? data.durationMs : null,
+      route:         location.pathname + location.search,
+      payload:       data.payload ? sanitize(data.payload) : null,
+      error:         data.error   ? { message: data.error.message, stack: (data.error.stack || '').slice(0, 800) } : null,
+      meta:          data.meta    ? sanitize(data.meta) : null,
+    };
+  }
+
+  // ── Saída no console (apenas em dev ou se forçado) ───────────────────
+  function _toConsole(level, entry) {
+    if (!CFG.toConsole) return;
+    if (LEVELS[level] < LEVELS[CFG.level]) return;
+    const methods = { debug: 'debug', info: 'info', warn: 'warn', error: 'error' };
+    const fn = console[methods[level]] || console.log;
+    const prefix = `[${entry.level}][${entry.module}/${entry.action}]`;
+    if (CFG.env === 'development') {
+      fn(prefix, entry.message, entry.error || '', entry.payload || '');
+    } else {
+      fn(prefix, entry.message);
+    }
+  }
+
+  // ── API pública ──────────────────────────────────────────────────────
+  function _log(level, data) {
+    if (LEVELS[level] === undefined) level = 'info';
+    const entry = _build(level, typeof data === 'string' ? { message: data } : data);
+    _toConsole(level, entry);
+    if (level === 'error' || level === 'warn' || entry.module === 'audit') {
+      _enqueue(entry);
+    }
+    return entry;
+  }
+
+  // ── Audit log pedagógico ─────────────────────────────────────────────
+  // Registra ação irreversível com before/after no Firestore
+  function audit(data) {
+    if (!CFG.auditEnabled) return;
+    const entry = _build('audit', { ...data, module: data.module || 'audit' });
+    entry.level = 'AUDIT';
+    entry.before = data.before ? sanitize(data.before) : null;
+    entry.after  = data.after  ? sanitize(data.after)  : null;
+    _toConsole('info', { ...entry, message: `[AUDIT] ${entry.action}: ${entry.message}` });
+    _enqueue(entry);
+  }
+
+  // ── Performance tracker ──────────────────────────────────────────────
+  function timer(module, action) {
+    const t0 = performance.now();
+    return {
+      done(extra) {
+        const ms = Math.round(performance.now() - t0);
+        const data = { module, action, durationMs: ms, message: `${action} concluído em ${ms}ms`, ...extra };
+        if (ms >= CFG.slowThresholdMs) {
+          _log('warn', { ...data, message: `[SLOW] ${action} levou ${ms}ms (threshold: ${CFG.slowThresholdMs}ms)` });
+        } else {
+          _log('debug', data);
+        }
+        return ms;
+      }
+    };
+  }
+
+  return {
+    debug: d => _log('debug', d),
+    info:  d => _log('info',  d),
+    warn:  d => _log('warn',  d),
+    error: d => _log('error', d),
+    audit,
+    timer,
+    sanitize,
+    get sessionId() { return _sessionId; },
+    get config()    { return { ...CFG }; },
+  };
+})();
+
+// Alias curto para uso interno
+const logger = LoggerService;
+
+// ── Error boundary global ────────────────────────────────────────────────────
+// Captura exceções não tratadas com contexto completo
+window.addEventListener('error', evt => {
+  logger.error({
+    module: 'global',
+    action: 'unhandled-error',
+    message: evt.message || 'Unhandled error',
+    error: evt.error || { message: evt.message, stack: `${evt.filename}:${evt.lineno}:${evt.colno}` },
+  });
+});
+
+window.addEventListener('unhandledrejection', evt => {
+  logger.error({
+    module: 'global',
+    action: 'unhandled-promise-rejection',
+    message: String(evt.reason?.message || evt.reason || 'Promise rejection'),
+    error: evt.reason instanceof Error ? evt.reason : { message: String(evt.reason), stack: '' },
+  });
+});
+
+// =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.5.8';
+const APP_VERSION = 'v2.6.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -2490,7 +2696,7 @@ const FSREF  = (col) => fstore.collection('appdata').doc(col);
 const IMGREF = (id) => fstore.collection('appdata').doc('plimg_' + String(id));
 function salvarImagemPlanej(id, base64) {
   if (!base64) return Promise.resolve();
-  return IMGREF(id).set({ img: base64 }).catch(e => console.warn('Erro ao salvar imagem do planejamento:', e));
+  return IMGREF(id).set({ img: base64 }).catch(e => logger.error({ module: 'imagem', action: 'salvar-imagem', message: 'Erro ao salvar imagem do planejamento', error: e }));
 }
 function carregarImagemPlanej(id) {
   return IMGREF(id).get().then(d => (d.exists ? (d.data().img || null) : null)).catch(() => null);
@@ -2504,7 +2710,7 @@ function excluirImagemPlanej(id) {
 async function migrarImagensPlanej() {
   const comFoto = db.planejamentos.filter(p => p.imagemDesenvolvimento);
   if (!comFoto.length) return;
-  console.log('[Migração] Movendo ' + comFoto.length + ' foto(s) para fora do documento principal…');
+  logger.info({ module: 'migração', action: 'migrar-imagens', message: 'Movendo ' + comFoto.length + ' foto(s) para fora do documento principal' });
   try {
     for (const p of comFoto) {
       await salvarImagemPlanej(p.id, p.imagemDesenvolvimento);
@@ -2513,13 +2719,14 @@ async function migrarImagensPlanej() {
     }
     LS.set('ps_planejamentos', db.planejamentos);
     await FSREF('planejamentos').set({ data: db.planejamentos });
-    console.log('[Migração] Concluída. Documento principal otimizado.');
+    logger.info({ module: 'migração', action: 'migrar-imagens', message: 'Concluída. Documento principal otimizado.' });
   } catch (e) {
-    console.warn('[Migração] Erro:', e);
+    logger.error({ module: 'migração', action: 'migrar-imagens', message: 'Erro na migração de imagens', error: e });
   }
 }
 
 async function loadFromFirestore() {
+  const _t = logger.timer('firestore', 'load-initial');
   try {
     const [rT, rA, rP, rPar, rAv, rU, rCfg, rNot, rHa, rRot, rAtiv] = await Promise.all([
       FSREF('turmas').get(), FSREF('alunos').get(),
@@ -2545,7 +2752,7 @@ async function loadFromFirestore() {
       if (lsRot.length > 0) {
         db.rotinas = lsRot;
         FSREF('rotinas').set({ data: db.rotinas })
-          .catch(e => console.warn('Rotina restore to Firestore error:', e));
+          .catch(e => logger.warn({ module: 'sync', action: 'restore-rotinas', message: 'Erro ao restaurar rotinas no Firestore', error: e }));
       }
     }
     _rotinasCarregadas = true;
@@ -2556,7 +2763,7 @@ async function loadFromFirestore() {
       if (lsAtiv.length > 0) {
         db.atividades = lsAtiv;
         FSREF('atividades').set({ data: db.atividades })
-          .catch(e => console.warn('Atividades restore error:', e));
+          .catch(e => logger.warn({ module: 'sync', action: 'restore-atividades', message: 'Erro ao restaurar atividades no Firestore', error: e }));
       }
     }
     _atividadesCarregadas = true;
@@ -2584,8 +2791,9 @@ async function loadFromFirestore() {
       _rotinasCarregadas = true; _atividadesCarregadas = true;
       saveToFirestore();
     }
+    _t.done({ meta: { planejamentos: db.planejamentos.length, alunos: db.alunos.length, turmas: db.turmas.length } });
   } catch (e) {
-    console.warn('Firestore indisponível, usando localStorage:', e);
+    logger.warn({ module: 'firestore', action: 'load', message: 'Firestore indisponível, usando localStorage', error: e });
     db.turmas        = LS.get('ps_turmas', []);
     db.alunos        = LS.get('ps_alunos', []);
     db.planejamentos = LS.get('ps_planejamentos', []);
@@ -2662,7 +2870,7 @@ function saveToFirestore() {
   batch.set(FSREF('horaAtividade'), { data: db.horaAtividade });
   if (_rotinasCarregadas)    batch.set(FSREF('rotinas'),    { data: db.rotinas });
   if (_atividadesCarregadas) batch.set(FSREF('atividades'), { data: db.atividades });
-  batch.commit().catch(e => console.warn('Firestore write error:', e));
+  batch.commit().catch(e => logger.error({ module: 'firestore', action: 'batch-commit', message: 'Erro ao commitar batch no Firestore', error: e }));
 }
 
 function setupSync() {
@@ -2694,7 +2902,7 @@ function setupSync() {
         if (changed) {
           currentUser = { ...updated };
           sessionStorage.setItem('ps_sess', JSON.stringify(currentUser));
-          console.log('[Sync] currentUser atualizado — turmaIds:', JSON.stringify(currentUser.turmaIds));
+          logger.info({ module: 'sync', action: 'update-current-user', message: 'currentUser atualizado pelo Firestore', meta: { turmaIds: currentUser.turmaIds, papel: currentUser.papel } });
         }
       }
     }
@@ -2832,6 +3040,7 @@ function fazerLogin() {
   currentUser = user;
   sessionStorage.setItem('ps_sess', JSON.stringify(user));
   document.getElementById('login-overlay').style.display = 'none';
+  logger.audit({ module: 'auth', action: 'login', message: `Login realizado: ${user.nome} (${user.papel})`, meta: { papel: user.papel } });
   aplicarPapel();
 }
 
@@ -2865,11 +3074,13 @@ function trocarSenha() {
   currentUser.senha = hashPw(nova);
   sessionStorage.setItem('ps_sess', JSON.stringify(currentUser));
   save();
+  logger.audit({ module: 'auth', action: 'change-password', message: `Senha alterada pelo usuário: ${currentUser.nome}` });
   fecharTrocarSenha();
   showToast('✅ Senha alterada com sucesso!');
 }
 
 function fazerLogout() {
+  logger.audit({ module: 'auth', action: 'logout', message: `Logout: ${currentUser?.nome || 'desconhecido'} (${currentUser?.papel || ''})` });
   currentUser = null;
   sessionStorage.removeItem('ps_sess');
   document.getElementById('login-overlay').style.display = 'flex';
@@ -3063,8 +3274,10 @@ function addUsuario() {
   if (db.usuarios.find(u => u.usuario === login)) {
     alert('Já existe um usuário com esse login.'); return;
   }
-  db.usuarios.push({ id: uid(), nome, usuario: login, senha: hashPw(senha), papel, turmaIds });
+  const novoUsuario = { id: uid(), nome, usuario: login, senha: hashPw(senha), papel, turmaIds };
+  db.usuarios.push(novoUsuario);
   save();
+  logger.audit({ module: 'usuario', action: 'create', message: `Usuário criado: ${nome} (${papel})`, after: { nome, usuario: login, papel, turmaIds } });
   document.getElementById('usr-nome').value = '';
   document.getElementById('usr-login').value = '';
   document.getElementById('usr-senha').value = '';
@@ -3110,6 +3323,7 @@ function salvarEdicaoUsuario() {
   const idx = db.usuarios.findIndex(u => u.id === id);
   if (idx === -1) return;
 
+  const antes = { nome: db.usuarios[idx].nome, usuario: db.usuarios[idx].usuario, papel: db.usuarios[idx].papel, turmaIds: db.usuarios[idx].turmaIds };
   db.usuarios[idx].nome     = nome;
   db.usuarios[idx].usuario  = login;
   db.usuarios[idx].papel    = papel;
@@ -3124,6 +3338,7 @@ function salvarEdicaoUsuario() {
   }
 
   save();
+  logger.audit({ module: 'usuario', action: 'update', message: `Usuário editado: ${nome}`, before: antes, after: { nome, usuario: login, papel, turmaIds }, meta: { senhaAlterada: !!senha } });
   document.getElementById('modal-editar-usr').style.display = 'none';
   renderUsuarios();
   showToast('✅ Usuário atualizado!');
@@ -3132,8 +3347,10 @@ function salvarEdicaoUsuario() {
 function deleteUsuario(id) {
   if (id === currentUser?.id) { alert('Não é possível excluir o usuário logado.'); return; }
   if (!confirm('Excluir este usuário?')) return;
+  const usr = db.usuarios.find(u => u.id === id);
   db.usuarios = db.usuarios.filter(u => u.id !== id);
   save();
+  logger.audit({ module: 'usuario', action: 'delete', message: `Usuário excluído: ${usr?.nome || id}`, before: { nome: usr?.nome, usuario: usr?.usuario, papel: usr?.papel } });
   renderUsuarios();
 }
 
@@ -3238,7 +3455,7 @@ function mostrarPushNotif(titulo, corpo) {
       tag: 'pontesaber-' + Date.now(),
     });
     n.onclick = () => { window.focus(); showTab('correcao'); n.close(); };
-  } catch(e) { console.warn('Push notification failed:', e); }
+  } catch(e) { logger.warn({ module: 'notificacao', action: 'push', message: 'Falha ao enviar push notification', error: e }); }
 }
 
 // =====================================================================
@@ -3348,7 +3565,7 @@ function saveApiKey() {
   db.apiKey = key;
   localStorage.setItem('ps_apikey', key);
   FSREF('config').set({ apiKey: key, model: getModel() }, { merge: true })
-    .catch(e => console.warn('Firestore config save error:', e));
+    .catch(e => logger.error({ module: 'config', action: 'save-config', message: 'Erro ao salvar configuração no Firestore', error: e }));
   setKeyStatus('✅ Chave salva com sucesso!', 'ok');
 }
 
@@ -3367,7 +3584,7 @@ function saveModel() {
   const model = document.getElementById('gemini-model').value;
   localStorage.setItem('ps_gemini_model', model);
   FSREF('config').set({ model, apiKey: db.apiKey }, { merge: true })
-    .catch(e => console.warn('Firestore config save error:', e));
+    .catch(e => logger.error({ module: 'config', action: 'save-config', message: 'Erro ao salvar configuração no Firestore', error: e }));
   document.getElementById('model-status').textContent = '✅ Salvo';
   setTimeout(() => { document.getElementById('model-status').textContent = ''; }, 1800);
 }
@@ -3423,8 +3640,10 @@ function addTurma() {
   const periodo = document.getElementById('turma-periodo').value;
   if (!nome) { showToast('⚠️ Informe o nome da turma.'); return; }
   if (currentUser?.papel !== 'diretor' && currentUser?.papel !== 'pedagoga') { showToast('⚠️ Sem permissão.'); return; }
-  db.turmas.push({ id: uid(), nome, prof, periodo });
+  const novaTurma = { id: uid(), nome, prof, periodo };
+  db.turmas.push(novaTurma);
   save();
+  logger.audit({ module: 'turma', action: 'create', message: `Turma criada: ${nome}`, after: { nome, prof, periodo } });
   document.getElementById('turma-nome').value = '';
   document.getElementById('turma-prof').value = '';
   renderTurmas();
@@ -3434,9 +3653,12 @@ function addTurma() {
 function deleteTurma(id) {
   if (currentUser?.papel !== 'diretor') { showToast('⚠️ Apenas o diretor pode excluir turmas.'); return; }
   if (!confirm('Excluir turma e todos os alunos vinculados?')) return;
+  const turma = db.turmas.find(t => t.id === id);
+  const alunosRemovidos = db.alunos.filter(a => a.turmaId === id).length;
   db.turmas = db.turmas.filter(t => t.id !== id);
   db.alunos = db.alunos.filter(a => a.turmaId !== id);
   save();
+  logger.audit({ module: 'turma', action: 'delete', message: `Turma excluída: ${turma?.nome || id} (${alunosRemovidos} aluno(s) removido(s))`, before: { nome: turma?.nome, prof: turma?.prof, alunosRemovidos } });
   renderTurmas();
   renderAlunos();
   populateSelects();
@@ -3505,8 +3727,11 @@ function addAluno() {
   // Verifica duplicidade
   const existe = db.alunos.find(a => a.turmaId === turmaId && a.nome.toLowerCase() === nome.toLowerCase());
   if (existe) { showToast('⚠️ Já existe um aluno com esse nome nessa turma.'); return; }
-  db.alunos.push({ id: uid(), turmaId, nome, nasc });
+  const novoAluno = { id: uid(), turmaId, nome, nasc };
+  db.alunos.push(novoAluno);
   save();
+  const turmaNome = db.turmas.find(t => t.id === turmaId)?.nome || turmaId;
+  logger.audit({ module: 'aluno', action: 'create', message: `Aluno cadastrado: ${nome} na turma ${turmaNome}`, after: { nome, nasc, turma: turmaNome } });
   document.getElementById('aluno-nome').value = '';
   document.getElementById('aluno-nasc').value = '';
   showToast('✅ Aluno cadastrado com sucesso!');
@@ -3516,8 +3741,11 @@ function addAluno() {
 
 function deleteAluno(id) {
   if (!confirm('Excluir este aluno?')) return;
+  const aluno = db.alunos.find(a => a.id === id);
+  const turmaNome = db.turmas.find(t => t.id === aluno?.turmaId)?.nome || '';
   db.alunos = db.alunos.filter(a => a.id !== id);
   save();
+  logger.audit({ module: 'aluno', action: 'delete', message: `Aluno excluído: ${aluno?.nome || id} da turma ${turmaNome}`, before: { nome: aluno?.nome, nasc: aluno?.nasc, turma: turmaNome } });
   renderAlunos();
   renderTurmas();
   populateSelects();
@@ -3648,6 +3876,7 @@ function salvarPlanejamento() {
   db.planejamentos.unshift(pl);
   save();
   if (imgBase64) salvarImagemPlanej(pl.id, imgBase64);   // foto vai para doc separado
+  logger.audit({ module: 'planejamento', action: 'create', message: `Planejamento criado: ${conteudos}`, after: { turmaId, data, prof, conteudos, bimestre, direitos, campos } });
   limparFormPlanejamento();
   renderPlanejamentos();
   const turmaNomeNotif = db.turmas.find(t => t.id === turmaId)?.nome || 'Turma';
@@ -4213,7 +4442,7 @@ function criarNotificacao(titulo, descricao, tipo, refId) {
   db.notificacoes.unshift(notif);
   // Salva só as notificações (sem interferir no batch principal)
   FSREF('notificacoes').set({ data: db.notificacoes })
-    .catch(e => console.warn('Notif save error:', e));
+    .catch(e => logger.warn({ module: 'notificacao', action: 'save', message: 'Erro ao salvar notificação', error: e }));
 }
 
 function renderSino() {
@@ -4277,7 +4506,7 @@ function marcarLidaNotif(id) {
   if (!n.lidoPor) n.lidoPor = [];
   if (!n.lidoPor.includes(login)) n.lidoPor.push(login);
   FSREF('notificacoes').set({ data: db.notificacoes })
-    .catch(e => console.warn('Notif save error:', e));
+    .catch(e => logger.warn({ module: 'notificacao', action: 'save', message: 'Erro ao salvar notificação', error: e }));
   renderSino();
 }
 
@@ -4291,7 +4520,7 @@ function marcarTodasLidasNotif() {
     }
   });
   FSREF('notificacoes').set({ data: db.notificacoes })
-    .catch(e => console.warn('Notif save error:', e));
+    .catch(e => logger.warn({ module: 'notificacao', action: 'save', message: 'Erro ao salvar notificação', error: e }));
   renderSino();
 }
 
@@ -4736,6 +4965,7 @@ function devolverParaCorrecao(tipo, id) {
   });
 
   save();
+  logger.audit({ module: tipo === 'pl' ? 'planejamento' : 'parecer', action: 'devolver', message: `${alvos.length} item(ns) devolvido(s) para correção`, meta: { tipo, ids: alvos.map(a => a.id) } });
   renderCorrecoes();
   renderPareceres();
   renderPlanejamentos();
@@ -4761,6 +4991,7 @@ function aprovarRevisao(tipo, id) {
   });
 
   save();
+  logger.audit({ module: tipo === 'pl' ? 'planejamento' : 'parecer', action: 'aprovar', message: `${alvos.length} item(ns) aprovado(s)`, meta: { tipo, ids: alvos.map(a => a.id) } });
   renderCorrecoes();
   renderDashboard();
   showToast('✅ Revisão aprovada!');
@@ -4834,11 +5065,12 @@ async function executarExclusaoPlanej(novaLista, idsParaExcluirImagem) {
     db.planejamentos = novaLista;
     LS.set('ps_planejamentos', novaLista);
     (idsParaExcluirImagem || []).forEach(id => excluirImagemPlanej(id));
+    logger.audit({ module: 'planejamento', action: 'delete', message: `${(idsParaExcluirImagem || []).length} planejamento(s) excluído(s)`, meta: { ids: idsParaExcluirImagem } });
     renderPlanejamentos();
     renderDashboard();
     showToast('🗑️ Excluído com sucesso!', 3000);
   } catch (e) {
-    console.warn('Erro ao excluir do Firestore:', e);
+    logger.error({ module: 'planejamento', action: 'delete', message: 'Erro ao excluir do Firestore', error: e });
     showToast('⚠️ Erro ao excluir no servidor: ' + (e.message || e), 4000);
   } finally {
     resubscribePlanejamentos();
@@ -5338,7 +5570,7 @@ async function imprimirPlanejamento(id) {
     if (docsConteudo) showToast('✅ Conteúdo atualizado do Google Docs carregado!');
 
   } catch(err) {
-    console.error('imprimirPlanejamento erro:', err);
+    logger.error({ module: 'planejamento', action: 'imprimir', message: 'Erro ao gerar impressão de planejamento', error: err });
     showToast('⚠️ Erro ao gerar impressão: ' + (err.message || err));
   }
 }
@@ -5511,6 +5743,7 @@ function salvarParecer() {
   };
   db.pareceres.unshift(p);
   save();
+  logger.audit({ module: 'parecer', action: 'create', message: `Parecer criado para ${aluno.nome}`, after: { alunoNome: aluno.nome, turmaId, periodo, tom: selectedTone } });
   renderPareceres();
   document.getElementById('card-resultado').style.display = 'none';
   const turmaNomeNotif2 = db.turmas.find(t => t.id === turmaId)?.nome || 'Turma';
@@ -5548,6 +5781,7 @@ function deleteParecer(id) {
   if (!confirm('Excluir parecer?')) return;
   db.pareceres = db.pareceres.filter(p => p.id !== id);
   save();
+  logger.audit({ module: 'parecer', action: 'delete', message: `Parecer excluído: ${par.alunoNome}`, before: { alunoNome: par.alunoNome, periodo: par.periodo, turmaId: par.turmaId } });
   renderPareceres();
 }
 
@@ -6081,13 +6315,16 @@ function renderTabelaAvaliacoes() {
 
 function salvarAvaliacoes() {
   const rows = document.querySelectorAll('#av-tbody tr');
+  let count = 0;
   rows.forEach(row => {
     const avKey = row.dataset.key;
     const conceito = row.querySelector('.conceito').value;
     const obs = row.querySelector('input[type=text]').value.trim();
     db.avaliacoes[avKey] = { conceito, obs };
+    if (conceito) count++;
   });
   save();
+  logger.audit({ module: 'avaliacao', action: 'save', message: `${count} avaliação(ões) salva(s)`, meta: { count } });
   renderTabelaAvaliacoes();
   showToast('Avaliações salvas!');
 }
@@ -7088,7 +7325,7 @@ function salvarRotina() {
   // Escrita direta só para rotinas — garante persistência independente do batch
   LS.set('ps_rotinas', db.rotinas);
   FSREF('rotinas').set({ data: db.rotinas })
-    .catch(e => console.warn('Rotina direct Firestore write error:', e));
+    .catch(e => logger.error({ module: 'rotina', action: 'save', message: 'Erro ao salvar rotina no Firestore', error: e }));
   showToast(`✅ ${_labelTipoRotina(tipo)} salva!`);
   _renderRotinaView(turmaId, tipo, rotina);
 }
@@ -7100,7 +7337,7 @@ function deleteRotina(turmaId, tipo) {
   db.rotinas = db.rotinas.filter(r => !(r.turmaId === turmaId && (r.tipo || 'diaria') === tipo));
   save();
   LS.set('ps_rotinas', db.rotinas);
-  FSREF('rotinas').set({ data: db.rotinas }).catch(e => console.warn('Rotina delete error:', e));
+  FSREF('rotinas').set({ data: db.rotinas }).catch(e => logger.error({ module: 'rotina', action: 'delete', message: 'Erro ao excluir rotina no Firestore', error: e }));
   carregarRotina();
   showToast('🗑️ Rotina excluída.');
 }
@@ -7957,7 +8194,7 @@ function _seedAtividades() {
   }));
   _atividadesCarregadas = true;
   LS.set('ps_atividades', db.atividades);
-  FSREF('atividades').set({ data: db.atividades }).catch(e => console.warn(e));
+  FSREF('atividades').set({ data: db.atividades }).catch(e => logger.error({ module: 'atividades', action: 'save', message: 'Erro ao salvar atividades no Firestore', error: e }));
 }
 
 // Adiciona ao banco atividades do seed que ainda não existem (atualização incremental)
@@ -7989,7 +8226,7 @@ function _atualizarBancoAtividades() {
   }));
   db.atividades.push(...novasComId);
   LS.set('ps_atividades', db.atividades);
-  FSREF('atividades').set({ data: db.atividades }).catch(e => console.warn(e));
+  FSREF('atividades').set({ data: db.atividades }).catch(e => logger.error({ module: 'atividades', action: 'save', message: 'Erro ao salvar atividades no Firestore', error: e }));
 }
 
 function renderAtividades() {
@@ -8122,7 +8359,7 @@ function salvarAtividade() {
   if (idx >= 0) db.atividades[idx] = ativ; else db.atividades.push(ativ);
   save();
   LS.set('ps_atividades', db.atividades);
-  FSREF('atividades').set({ data: db.atividades }).catch(e => console.warn(e));
+  FSREF('atividades').set({ data: db.atividades }).catch(e => logger.error({ module: 'atividades', action: 'save', message: 'Erro ao salvar atividades no Firestore', error: e }));
   closeAtividadeForm();
   renderAtividades();
   showToast('✅ Atividade salva!');
@@ -8134,7 +8371,7 @@ function deleteAtividade(id) {
   db.atividades = db.atividades.filter(x => x.id !== id);
   save();
   LS.set('ps_atividades', db.atividades);
-  FSREF('atividades').set({ data: db.atividades }).catch(e => console.warn(e));
+  FSREF('atividades').set({ data: db.atividades }).catch(e => logger.error({ module: 'atividades', action: 'save', message: 'Erro ao salvar atividades no Firestore', error: e }));
   renderAtividades();
   showToast('🗑️ Atividade excluída.');
 }
@@ -8311,7 +8548,7 @@ function saveAppsScript() {
   localStorage.setItem('ps_apps_script_url', url);
   // Salva no Firestore para sincronizar com todos os dispositivos/usuários
   FSREF('config').set({ appsScriptUrl: url, apiKey: db.apiKey }, { merge: true })
-    .catch(e => console.warn('Firestore appsScript save error:', e));
+    .catch(e => logger.error({ module: 'config', action: 'save-apps-script-url', message: 'Erro ao salvar Apps Script URL no Firestore', error: e }));
   updateCloudStatus(true);
   showToast('✅ Google Drive conectado!');
 }
@@ -8320,7 +8557,7 @@ function disconnectAppsScript() {
   appsScriptUrl = null;
   localStorage.removeItem('ps_apps_script_url');
   FSREF('config').set({ appsScriptUrl: null, apiKey: db.apiKey }, { merge: true })
-    .catch(e => console.warn('Firestore disconnect error:', e));
+    .catch(e => logger.error({ module: 'config', action: 'disconnect-drive', message: 'Erro ao desconectar Google Drive no Firestore', error: e }));
   updateCloudStatus(false);
   showToast('Desconectado.');
 }
@@ -8375,7 +8612,7 @@ async function uploadToDrive(filename, content, ...folderPath) {
     const res = await fetch(appsScriptUrl, { method: 'POST', body, redirect: 'follow' });
     // Se o servidor redirecionou para login do Google, o script precisa ser reautorizado
     if (res.url && (res.url.includes('accounts.google.com') || res.url.includes('google.com/ServiceLogin'))) {
-      console.warn('[Drive] Apps Script precisa de reautorização. Vá em Configurações > Google Drive.');
+      logger.warn({ module: 'drive', action: 'auth-check', message: 'Apps Script precisa de reautorização. Vá em Configurações > Google Drive.' });
       _alertarAutorizacao();
       return null;
     }
