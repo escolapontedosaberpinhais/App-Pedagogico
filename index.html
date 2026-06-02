@@ -425,6 +425,27 @@
   .login-error { background: #fdeaea; color: #8b1a1a; border-radius: 6px;
     padding: 10px 14px; font-size: 13px; margin-bottom: 12px; display: none; }
 
+  /* ── Indicador de sincronização ─────────────────────── */
+  #sync-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 600; border-radius: 20px;
+    padding: 3px 10px; transition: opacity .3s, transform .3s;
+    opacity: 0; pointer-events: none; white-space: nowrap;
+    background: rgba(255,255,255,0.18); color: #fff;
+    border: 1px solid rgba(255,255,255,0.25);
+  }
+  #sync-chip.visible { opacity: 1; pointer-events: auto; }
+  #sync-chip.sync-saving { background: rgba(251,191,36,0.25); border-color: rgba(251,191,36,0.5); color: #fef3c7; }
+  #sync-chip.sync-saved  { background: rgba(52,211,153,0.25); border-color: rgba(52,211,153,0.5); color: #d1fae5; }
+  #sync-chip.sync-error  { background: rgba(239,68,68,0.30);  border-color: rgba(239,68,68,0.5);  color: #fee2e2; }
+  #sync-chip.sync-offline{ background: rgba(107,114,128,0.35);border-color: rgba(107,114,128,0.5);color: #f3f4f6; }
+  @keyframes sync-spin { to { transform: rotate(360deg); } }
+  .sync-icon { display: inline-block; }
+  .sync-icon.spinning { animation: sync-spin .9s linear infinite; }
+  @media(max-width:600px) { #sync-chip { font-size: 0; padding: 5px 8px; }
+    #sync-chip .sync-label { display: none; }
+    #sync-chip { font-size: 14px; } }
+
   /* HEADER USER */
   .header-user {
     margin-left: auto; display: flex; align-items: center; gap: 10px; flex-shrink: 0;
@@ -937,6 +958,10 @@
     <div style="display:flex;align-items:center;gap:8px;">
       <span id="header-sub" style="font-size:13px;opacity:0.8;">— Gestão Pedagógica</span>
       <span id="header-version" style="font-size:10px;opacity:0.6;background:rgba(255,255,255,0.15);padding:1px 7px;border-radius:10px;letter-spacing:.3px;"></span>
+      <span id="sync-chip" title="Status de sincronização">
+        <span class="sync-icon" id="sync-icon">⟳</span>
+        <span class="sync-label" id="sync-label">Salvando…</span>
+      </span>
     </div>
   </div>
   <div class="header-user" id="header-user" style="display:none;">
@@ -2827,11 +2852,60 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.6.3';
+const APP_VERSION = 'v2.6.4';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
   els.forEach(id => { const el = document.getElementById(id); if (el) el.textContent = APP_VERSION; });
+})();
+
+// =====================================================================
+// INDICADOR DE SINCRONIZAÇÃO
+// =====================================================================
+const SyncStatus = (() => {
+  let _timer = null;
+  const _chip  = () => document.getElementById('sync-chip');
+  const _icon  = () => document.getElementById('sync-icon');
+  const _label = () => document.getElementById('sync-label');
+
+  const STATES = {
+    saving:  { cls: 'sync-saving', icon: '⟳',  spin: true,  label: 'Salvando…',  ttl: 0    },
+    saved:   { cls: 'sync-saved',  icon: '✓',   spin: false, label: 'Salvo',      ttl: 3000 },
+    error:   { cls: 'sync-error',  icon: '⚠️',  spin: false, label: 'Erro ao salvar', ttl: 6000 },
+    offline: { cls: 'sync-offline',icon: '📶',  spin: false, label: 'Offline',    ttl: 0    },
+  };
+
+  function _set(state) {
+    const chip = _chip(); if (!chip) return;
+    const cfg = STATES[state];
+    if (!cfg) { chip.classList.remove('visible'); return; }
+
+    // Limpa classes e timer anterior
+    clearTimeout(_timer);
+    chip.className = '';
+    chip.classList.add('visible', cfg.cls);
+
+    const ic = _icon(); if (ic) { ic.textContent = cfg.icon; ic.classList.toggle('spinning', cfg.spin); }
+    const lb = _label(); if (lb) lb.textContent = cfg.label;
+
+    if (cfg.ttl > 0) {
+      _timer = setTimeout(() => { chip.classList.remove('visible'); }, cfg.ttl);
+    }
+  }
+
+  // Detecta online/offline automaticamente
+  window.addEventListener('online',  () => { if (_chip()?.classList.contains('sync-offline')) _set(null); });
+  window.addEventListener('offline', () => _set('offline'));
+  // Estado inicial
+  if (!navigator.onLine) setTimeout(() => _set('offline'), 800);
+
+  return {
+    saving:  () => _set('saving'),
+    saved:   () => _set('saved'),
+    error:   () => _set('error'),
+    offline: () => _set('offline'),
+    clear:   () => { clearTimeout(_timer); const c = _chip(); if (c) c.classList.remove('visible'); },
+  };
 })();
 
 const LS = {
@@ -3023,6 +3097,8 @@ function resubscribePlanejamentos() {
 }
 
 function saveToFirestore() {
+  if (!navigator.onLine) { SyncStatus.offline(); return; }
+  SyncStatus.saving();
   const batch = fstore.batch();
   batch.set(FSREF('turmas'),        { data: db.turmas });
   batch.set(FSREF('alunos'),        { data: db.alunos });
@@ -3034,7 +3110,12 @@ function saveToFirestore() {
   batch.set(FSREF('horaAtividade'), { data: db.horaAtividade });
   if (_rotinasCarregadas)    batch.set(FSREF('rotinas'),    { data: db.rotinas });
   if (_atividadesCarregadas) batch.set(FSREF('atividades'), { data: db.atividades });
-  batch.commit().catch(e => logger.error({ module: 'firestore', action: 'batch-commit', message: 'Erro ao commitar batch no Firestore', error: e }));
+  batch.commit()
+    .then(() => SyncStatus.saved())
+    .catch(e => {
+      SyncStatus.error();
+      logger.error({ module: 'firestore', action: 'batch-commit', message: 'Erro ao commitar batch no Firestore', error: e });
+    });
 }
 
 function setupSync() {
@@ -5225,6 +5306,7 @@ function deletePlanejamento(id) {
 
 async function executarExclusaoPlanej(novaLista, idsParaExcluirImagem) {
   if (_unsubPlanejamentos) { _unsubPlanejamentos(); _unsubPlanejamentos = null; }
+  SyncStatus.saving();
   showToast('⏳ Excluindo…');
   try {
     // 1. Registra os IDs como excluídos ANTES de gravar — proteção cross-device
@@ -5237,8 +5319,10 @@ async function executarExclusaoPlanej(novaLista, idsParaExcluirImagem) {
     logger.audit({ module: 'planejamento', action: 'delete', message: `${(idsParaExcluirImagem || []).length} planejamento(s) excluído(s)`, meta: { ids: idsParaExcluirImagem } });
     renderPlanejamentos();
     renderDashboard();
+    SyncStatus.saved();
     showToast('🗑️ Excluído com sucesso!', 3000);
   } catch (e) {
+    SyncStatus.error();
     logger.error({ module: 'planejamento', action: 'delete', message: 'Erro ao excluir do Firestore', error: e });
     showToast('⚠️ Erro ao excluir no servidor: ' + (e.message || e), 4000);
   } finally {
