@@ -214,6 +214,34 @@
   }
   .badge-green { background: var(--green-light); color: var(--green-dark); }
   .badge-amber { background: #fef3e2; color: #8a5e1a; }
+
+  /* AUDITORIA */
+  .aud-card { background:#fff; border-radius:10px; border:1.5px solid var(--gray-200); padding:12px 14px; display:flex; flex-direction:column; gap:6px; transition:box-shadow .15s; }
+  .aud-card:hover { box-shadow:0 2px 10px rgba(0,0,0,.08); }
+  .aud-card.level-audit { border-left:4px solid var(--green); }
+  .aud-card.level-error { border-left:4px solid #ef4444; }
+  .aud-card.level-warn  { border-left:4px solid #f59e0b; }
+  .aud-card.level-info  { border-left:4px solid #3b82f6; }
+  .aud-header { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .aud-ts { font-size:11px; color:var(--gray-400); white-space:nowrap; }
+  .aud-badge { font-size:11px; font-weight:700; padding:2px 8px; border-radius:12px; }
+  .aud-badge.audit { background:#d1fae5; color:#065f46; }
+  .aud-badge.error { background:#fee2e2; color:#991b1b; }
+  .aud-badge.warn  { background:#fef3c7; color:#92400e; }
+  .aud-badge.info  { background:#dbeafe; color:#1e40af; }
+  .aud-module { font-size:12px; background:var(--gray-100); color:var(--gray-600); padding:2px 8px; border-radius:12px; font-weight:600; }
+  .aud-msg { font-size:13px; color:var(--gray-800); font-weight:500; }
+  .aud-user { font-size:12px; color:var(--gray-400); }
+  .aud-diff { display:none; margin-top:8px; border-top:1px solid var(--gray-200); padding-top:8px; }
+  .aud-diff.open { display:block; }
+  .aud-diff-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:6px; }
+  .aud-diff-box { background:var(--gray-100); border-radius:6px; padding:8px 10px; font-size:11px; }
+  .aud-diff-box.before { border-left:3px solid #ef4444; }
+  .aud-diff-box.after  { border-left:3px solid var(--green); }
+  .aud-diff-box strong { display:block; font-size:10px; text-transform:uppercase; color:var(--gray-400); margin-bottom:4px; }
+  .aud-resumo-card { background:#fff; border-radius:8px; border:1.5px solid var(--gray-200); padding:10px 16px; text-align:center; min-width:80px; }
+  .aud-resumo-card .num { font-size:22px; font-weight:800; color:var(--green); }
+  .aud-resumo-card .lbl { font-size:11px; color:var(--gray-400); margin-top:2px; }
   .badge-gray { background: var(--gray-200); color: var(--gray-600); }
 
   /* TABLE */
@@ -955,6 +983,9 @@
     <button class="dnav-btn" id="dnav-atividades" onclick="drawerNav('atividades')" style="display:none;">
       <span class="di">&#x1F3AF;</span> Atividades
     </button>
+    <button class="dnav-btn" id="dnav-auditoria" onclick="drawerNav('auditoria')" style="display:none;">
+      <span class="di">&#x1F4DC;</span> Auditoria
+    </button>
   </div>
   <div class="drawer-footer">
     <button class="drawer-key" onclick="fecharDrawer();abrirTrocarSenha();">&#x1F511; Trocar senha</button>
@@ -975,6 +1006,7 @@
   <button id="nav-hora-atividade" onclick="showTab('hora-atividade')" data-tab="hora-atividade" style="display:none;">⏰ Hora-Atividade</button>
   <button id="nav-rotina" onclick="showTab('rotina')" data-tab="rotina" style="display:none;">📅 Rotina</button>
   <button id="nav-atividades" onclick="showTab('atividades')" data-tab="atividades" style="display:none;">🎯 Atividades</button>
+  <button id="nav-auditoria" onclick="showTab('auditoria')" data-tab="auditoria" style="display:none;">📜 Auditoria</button>
 </nav>
 
 <!-- Barra fixa: professoras em hora-atividade agora (gestão) -->
@@ -2176,6 +2208,68 @@ function getFolder(path) {
   </div>
 </div>
 
+<!-- ===================== AUDITORIA ===================== -->
+<div id="tab-auditoria" class="section">
+  <div class="section-header">
+    <h2>📜 Auditoria</h2>
+    <p>Trilha completa de ações realizadas no sistema</p>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card" style="margin-bottom:14px;">
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+      <div class="form-group" style="margin:0;min-width:130px;">
+        <label style="font-size:12px;">Período</label>
+        <select id="aud-periodo" onchange="renderAuditoria()" style="padding:7px 10px;border:1.5px solid var(--gray-200);border-radius:6px;font-size:13px;width:100%;">
+          <option value="hoje">Hoje</option>
+          <option value="semana" selected>Últimos 7 dias</option>
+          <option value="mes">Últimos 30 dias</option>
+          <option value="tudo">Tudo</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;min-width:140px;">
+        <label style="font-size:12px;">Módulo</label>
+        <select id="aud-modulo" onchange="renderAuditoria()" style="padding:7px 10px;border:1.5px solid var(--gray-200);border-radius:6px;font-size:13px;width:100%;">
+          <option value="">Todos</option>
+          <option value="auth">Autenticação</option>
+          <option value="usuario">Usuários</option>
+          <option value="turma">Turmas</option>
+          <option value="aluno">Alunos</option>
+          <option value="planejamento">Planejamentos</option>
+          <option value="parecer">Pareceres</option>
+          <option value="avaliacao">Avaliações</option>
+          <option value="firestore">Sincronização</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;min-width:130px;">
+        <label style="font-size:12px;">Nível</label>
+        <select id="aud-nivel" onchange="renderAuditoria()" style="padding:7px 10px;border:1.5px solid var(--gray-200);border-radius:6px;font-size:13px;width:100%;">
+          <option value="">Todos</option>
+          <option value="AUDIT" selected>Auditoria</option>
+          <option value="ERROR">Erros</option>
+          <option value="WARN">Alertas</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;flex:1;min-width:160px;">
+        <label style="font-size:12px;">Usuário</label>
+        <input type="text" id="aud-usuario" oninput="renderAuditoria()" placeholder="Filtrar por usuário…"
+          style="padding:7px 10px;border:1.5px solid var(--gray-200);border-radius:6px;font-size:13px;width:100%;">
+      </div>
+      <button class="btn btn-secondary" onclick="carregarAuditoria()" style="height:36px;white-space:nowrap;">🔄 Recarregar</button>
+      <button class="btn btn-secondary" onclick="exportarAuditoriaCsv()" style="height:36px;white-space:nowrap;">⬇️ Exportar CSV</button>
+    </div>
+  </div>
+
+  <!-- Resumo -->
+  <div id="aud-resumo" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;"></div>
+
+  <!-- Lista -->
+  <div id="aud-lista" style="display:flex;flex-direction:column;gap:8px;">
+    <div class="empty"><div class="icon">📜</div><p>Clique em Recarregar para buscar os logs.</p></div>
+  </div>
+  <div id="aud-rodape" style="text-align:center;margin-top:14px;font-size:12px;color:var(--gray-400);"></div>
+</div>
+
 </main>
 
 <script>
@@ -2663,7 +2757,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.6.0';
+const APP_VERSION = 'v2.6.1';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -2973,6 +3067,7 @@ function refreshCurrentView() {
   if (id === 'tab-hora-atividade')  { renderHoraAtividade(); }
   if (id === 'tab-rotina')          { renderRotina(); }
   if (id === 'tab-atividades')      { renderAtividades(); }
+  if (id === 'tab-auditoria')       { carregarAuditoria(); }
 }
 
 // =====================================================================
@@ -3163,6 +3258,10 @@ function aplicarPapel() {
   // Atividades
   nav('nav-atividades',     isDiretor || isPedagoga || isProfessora);
   nav('dnav-atividades',    isDiretor || isPedagoga || isProfessora);
+
+  // Auditoria: apenas diretor
+  nav('nav-auditoria',  isDiretor);
+  nav('dnav-auditoria', isDiretor);
 
   // Diagnóstico de sincronização: apenas diretor
   nav('btn-diagnostico-sync', isDiretor);
@@ -8744,6 +8843,168 @@ function showToast(msg, duration) {
   });
   document.body.appendChild(t);
   setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, duration || 2200);
+}
+
+// =====================================================================
+// AUDITORIA — Painel de logs pedagógicos
+// =====================================================================
+let _audLogs = [];        // cache dos logs carregados
+let _audCarregado = false; // evita re-fetch desnecessário
+
+const _audIcone = {
+  auth: '🔐', usuario: '👤', turma: '🏫', aluno: '👧',
+  planejamento: '📋', parecer: '✨', avaliacao: '📊',
+  firestore: '☁️', imagem: '🖼️', sync: '🔄', global: '⚠️',
+};
+
+const _audModuloLabel = {
+  auth: 'Auth', usuario: 'Usuário', turma: 'Turma', aluno: 'Aluno',
+  planejamento: 'Planejamento', parecer: 'Parecer', avaliacao: 'Avaliação',
+  firestore: 'Firestore', imagem: 'Imagem', sync: 'Sync', global: 'Global',
+};
+
+async function carregarAuditoria() {
+  const lista = document.getElementById('aud-lista');
+  if (!lista) return;
+  lista.innerHTML = '<div style="text-align:center;padding:28px;color:var(--gray-400);">⏳ Carregando logs…</div>';
+  try {
+    // Firestore: busca os 500 logs mais recentes
+    const snap = await fstore.collection('logs').orderBy('timestamp', 'desc').limit(500).get();
+    _audLogs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    _audCarregado = true;
+    renderAuditoria();
+  } catch (e) {
+    lista.innerHTML = `<div class="empty"><div class="icon">⚠️</div><p>Erro ao carregar logs: ${e.message}<br><small>Pode ser necessário criar o índice no Firestore. <a href="https://console.firebase.google.com/project/escola-ponte-saber/firestore/indexes" target="_blank">Criar índice</a></small></p></div>`;
+  }
+}
+
+function renderAuditoria() {
+  if (!_audCarregado) { carregarAuditoria(); return; }
+
+  const periodoVal  = document.getElementById('aud-periodo')?.value  || 'semana';
+  const moduloVal   = document.getElementById('aud-modulo')?.value   || '';
+  const nivelVal    = document.getElementById('aud-nivel')?.value    || '';
+  const usuarioVal  = (document.getElementById('aud-usuario')?.value || '').toLowerCase();
+
+  // Filtro de período
+  const agora = Date.now();
+  const periodoMs = { hoje: 86400000, semana: 7*86400000, mes: 30*86400000, tudo: Infinity };
+  const limiteMs  = periodoMs[periodoVal] || periodoMs.semana;
+
+  const filtrado = _audLogs.filter(log => {
+    const ts = new Date(log.timestamp).getTime();
+    if (agora - ts > limiteMs) return false;
+    if (moduloVal && log.module !== moduloVal) return false;
+    if (nivelVal  && log.level  !== nivelVal)  return false;
+    if (usuarioVal && !(log.userId || '').toLowerCase().includes(usuarioVal)) return false;
+    return true;
+  });
+
+  // Resumo por nível
+  const contagem = { AUDIT: 0, ERROR: 0, WARN: 0, INFO: 0 };
+  filtrado.forEach(l => { if (contagem[l.level] !== undefined) contagem[l.level]++; });
+  const resumoEl = document.getElementById('aud-resumo');
+  if (resumoEl) {
+    resumoEl.innerHTML = [
+      { n: filtrado.length,      l: 'Total', c: 'var(--green)' },
+      { n: contagem.AUDIT,       l: 'Auditoria', c: '#065f46' },
+      { n: contagem.ERROR,       l: 'Erros', c: '#ef4444' },
+      { n: contagem.WARN,        l: 'Alertas', c: '#f59e0b' },
+    ].map(x => `<div class="aud-resumo-card"><div class="num" style="color:${x.c}">${x.n}</div><div class="lbl">${x.l}</div></div>`).join('');
+  }
+
+  const lista   = document.getElementById('aud-lista');
+  const rodape  = document.getElementById('aud-rodape');
+  if (!lista) return;
+
+  if (filtrado.length === 0) {
+    lista.innerHTML = '<div class="empty"><div class="icon">📜</div><p>Nenhum log encontrado para os filtros selecionados.</p></div>';
+    if (rodape) rodape.textContent = '';
+    return;
+  }
+
+  lista.innerHTML = filtrado.map((log, idx) => {
+    const nivel = (log.level || 'INFO').toLowerCase();
+    const nivelLabel = log.level || 'INFO';
+    const modulo = log.module || 'app';
+    const icone  = _audIcone[modulo] || '📌';
+    const moduloLabel = _audModuloLabel[modulo] || modulo;
+    const ts = new Date(log.timestamp);
+    const tsStr = ts.toLocaleDateString('pt-BR') + ' ' + ts.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    const usuario = log.userId ? `${log.userId} (${log.userRole || '?'})` : 'Sistema';
+    const duracao = log.durationMs != null ? ` · ${log.durationMs}ms` : '';
+    const temDiff = log.before || log.after;
+    const diffId = 'aud-diff-' + idx;
+
+    const beforeStr = log.before ? JSON.stringify(log.before, null, 2) : null;
+    const afterStr  = log.after  ? JSON.stringify(log.after,  null, 2) : null;
+    const errorStr  = log.error  ? `${log.error.message}\n${log.error.stack || ''}`.trim() : null;
+    const metaStr   = log.meta   ? JSON.stringify(log.meta, null, 2) : null;
+
+    return `
+    <div class="aud-card level-${nivel}">
+      <div class="aud-header">
+        <span class="aud-badge ${nivel}">${nivelLabel}</span>
+        <span class="aud-module">${icone} ${moduloLabel}</span>
+        <span style="font-size:12px;color:var(--gray-500);font-weight:600;">${log.action || ''}</span>
+        <span class="aud-ts">${tsStr}${duracao}</span>
+      </div>
+      <div class="aud-msg">${log.message || ''}</div>
+      <div class="aud-user">👤 ${usuario} · 🔗 ${log.sessionId?.slice(0,14) || '—'}</div>
+      ${temDiff || errorStr || metaStr ? `
+        <div>
+          <button onclick="document.getElementById('${diffId}').classList.toggle('open')"
+            style="font-size:11px;background:none;border:none;color:var(--green);cursor:pointer;padding:0;text-decoration:underline;">
+            ${temDiff ? '▶ Ver antes/depois' : errorStr ? '▶ Ver erro' : '▶ Ver detalhes'}
+          </button>
+          <div class="aud-diff" id="${diffId}">
+            ${temDiff ? `<div class="aud-diff-grid">
+              ${beforeStr ? `<div class="aud-diff-box before"><strong>🔴 Antes</strong><pre style="white-space:pre-wrap;font-size:11px;margin:0;">${escapeHtml(beforeStr)}</pre></div>` : '<div class="aud-diff-box before"><strong>🔴 Antes</strong><span style="color:var(--gray-400);font-size:11px;">—</span></div>'}
+              ${afterStr  ? `<div class="aud-diff-box after"><strong>🟢 Depois</strong><pre style="white-space:pre-wrap;font-size:11px;margin:0;">${escapeHtml(afterStr)}</pre></div>`  : '<div class="aud-diff-box after"><strong>🟢 Depois</strong><span style="color:var(--gray-400);font-size:11px;">—</span></div>'}
+            </div>` : ''}
+            ${errorStr ? `<div class="aud-diff-box" style="border-left:3px solid #ef4444;margin-top:4px;"><strong style="color:#ef4444;">Stack trace</strong><pre style="white-space:pre-wrap;font-size:10px;margin:0;color:#7f1d1d;">${escapeHtml(errorStr)}</pre></div>` : ''}
+            ${metaStr && !temDiff ? `<div class="aud-diff-box" style="margin-top:4px;"><strong>Meta</strong><pre style="white-space:pre-wrap;font-size:11px;margin:0;">${escapeHtml(metaStr)}</pre></div>` : ''}
+          </div>
+        </div>` : ''}
+    </div>`;
+  }).join('');
+
+  if (rodape) rodape.textContent = `Exibindo ${filtrado.length} de ${_audLogs.length} log(s) carregados`;
+}
+
+// Exportação CSV
+function exportarAuditoriaCsv() {
+  const periodoVal = document.getElementById('aud-periodo')?.value || 'semana';
+  const nivelVal   = document.getElementById('aud-nivel')?.value   || '';
+  const moduloVal  = document.getElementById('aud-modulo')?.value  || '';
+  const agora = Date.now();
+  const periodoMs = { hoje: 86400000, semana: 7*86400000, mes: 30*86400000, tudo: Infinity };
+  const limiteMs  = periodoMs[periodoVal] || periodoMs.semana;
+
+  const dados = _audLogs.filter(l => {
+    if (agora - new Date(l.timestamp).getTime() > limiteMs) return false;
+    if (nivelVal  && l.level  !== nivelVal)  return false;
+    if (moduloVal && l.module !== moduloVal) return false;
+    return true;
+  });
+
+  if (!dados.length) { showToast('Nenhum dado para exportar.'); return; }
+
+  const cabecalho = ['timestamp','level','module','action','message','userId','userRole','sessionId','durationMs'];
+  const linhas = dados.map(l =>
+    cabecalho.map(k => {
+      const v = l[k] ?? '';
+      return '"' + String(v).replace(/"/g, '""') + '"';
+    }).join(',')
+  );
+
+  const csv = [cabecalho.join(','), ...linhas].join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url;
+  a.download = `auditoria_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+  showToast('📥 CSV exportado!');
 }
 
 // =====================================================================
