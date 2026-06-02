@@ -216,6 +216,21 @@
   .badge-amber { background: #fef3e2; color: #8a5e1a; }
 
   /* AUDITORIA */
+  /* ── Filtros de planejamentos ───────────────────────── */
+  .pl-filtros { background:#f8fafc; border:1.5px solid var(--gray-200); border-radius:12px; padding:14px 16px; margin-bottom:14px; display:flex; flex-direction:column; gap:10px; }
+  .pl-filtros-row { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; }
+  .pl-filtro-group { display:flex; flex-direction:column; gap:4px; flex:1; min-width:140px; }
+  .pl-filtro-group label { font-size:11px; font-weight:600; color:var(--gray-500); text-transform:uppercase; letter-spacing:.5px; }
+  .pl-filtro-group input, .pl-filtro-group select { font-size:13px; padding:7px 10px; border:1.5px solid var(--gray-200); border-radius:8px; background:#fff; color:var(--gray-800); outline:none; transition:border .15s; width:100%; box-sizing:border-box; }
+  .pl-filtro-group input:focus, .pl-filtro-group select:focus { border-color:var(--green); }
+  .pl-busca-wrap { position:relative; flex:2; min-width:200px; }
+  .pl-busca-wrap input { padding-left:34px; }
+  .pl-busca-wrap::before { content:'🔍'; position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:14px; pointer-events:none; }
+  .pl-filtros-info { font-size:12px; color:var(--gray-400); display:flex; align-items:center; gap:8px; }
+  .pl-filtros-clear { font-size:12px; color:var(--green-dark); cursor:pointer; text-decoration:underline; font-weight:600; background:none; border:none; padding:0; }
+  .pl-filtros-clear:hover { color:var(--green); }
+  @media(max-width:600px) { .pl-filtro-group { min-width:100%; } .pl-busca-wrap { min-width:100%; } }
+
   .aud-card { background:#fff; border-radius:10px; border:1.5px solid var(--gray-200); padding:12px 14px; display:flex; flex-direction:column; gap:6px; transition:box-shadow .15s; }
   .aud-card:hover { box-shadow:0 2px 10px rgba(0,0,0,.08); }
   .aud-card.level-audit { border-left:4px solid var(--green); }
@@ -1698,11 +1713,54 @@ function getFolder(path) {
     </div>
   </div>
 
-  <div class="section-header" style="margin-top:8px;">
-    <span style="font-size:14px; color:var(--gray-600);">Filtrar por turma:</span>
-    <select id="filtro-pl-turma" onchange="renderPlanejamentos()" style="max-width:220px;">
-      <option value="">Todas as turmas</option>
-    </select>
+  <!-- ── Filtros de planejamentos ── -->
+  <div class="pl-filtros" id="pl-filtros-box">
+    <div class="pl-filtros-row">
+      <!-- Busca livre -->
+      <div class="pl-filtro-group pl-busca-wrap" style="flex:3;min-width:220px;">
+        <label>Buscar</label>
+        <input type="text" id="pl-busca-texto" placeholder="Professora, conteúdo, desenvolvimento…"
+          oninput="renderPlanejamentos()" autocomplete="off">
+      </div>
+      <!-- Turma -->
+      <div class="pl-filtro-group" style="min-width:160px;">
+        <label>Turma</label>
+        <select id="filtro-pl-turma" onchange="renderPlanejamentos()">
+          <option value="">Todas as turmas</option>
+        </select>
+      </div>
+      <!-- Status -->
+      <div class="pl-filtro-group" style="min-width:150px;">
+        <label>Status</label>
+        <select id="pl-filtro-status" onchange="renderPlanejamentos()">
+          <option value="">Todos</option>
+          <option value="pendente">⏳ Pendente</option>
+          <option value="devolvido">⚠️ Devolvido</option>
+          <option value="revisado">🔄 Aguardando</option>
+          <option value="aprovado">✅ Aprovado</option>
+        </select>
+      </div>
+    </div>
+    <div class="pl-filtros-row">
+      <!-- Data de -->
+      <div class="pl-filtro-group" style="min-width:140px;">
+        <label>De</label>
+        <input type="date" id="pl-filtro-de" onchange="renderPlanejamentos()">
+      </div>
+      <!-- Data até -->
+      <div class="pl-filtro-group" style="min-width:140px;">
+        <label>Até</label>
+        <input type="date" id="pl-filtro-ate" onchange="renderPlanejamentos()">
+      </div>
+      <!-- Info + limpar -->
+      <div class="pl-filtro-group" style="flex:2;min-width:120px;justify-content:flex-end;">
+        <label>&nbsp;</label>
+        <div class="pl-filtros-info" style="padding:7px 0;">
+          <span id="pl-filtros-count"></span>
+          <button class="pl-filtros-clear" id="pl-filtros-clear" onclick="limparFiltrosPl()" style="display:none;">✕ Limpar filtros</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="alerta-planejamentos-devolvidos"></div>
@@ -2769,7 +2827,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.6.2';
+const APP_VERSION = 'v2.6.3';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -5188,20 +5246,80 @@ async function executarExclusaoPlanej(novaLista, idsParaExcluirImagem) {
   }
 }
 
+function limparFiltrosPl() {
+  ['pl-busca-texto','filtro-pl-turma','pl-filtro-status','pl-filtro-de','pl-filtro-ate'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  renderPlanejamentos();
+}
+
 function renderPlanejamentos() {
   const el = document.getElementById('planejamentos-list');
   const alertEl = document.getElementById('alerta-planejamentos-devolvidos');
-  const filtro = document.getElementById('filtro-pl-turma')?.value;
+  const filtroTurma  = document.getElementById('filtro-pl-turma')?.value || '';
+  const filtroTexto  = (document.getElementById('pl-busca-texto')?.value || '').toLowerCase().trim();
+  const filtroStatus = document.getElementById('pl-filtro-status')?.value || '';
+  const filtroDe     = document.getElementById('pl-filtro-de')?.value || '';
+  const filtroAte    = document.getElementById('pl-filtro-ate')?.value || '';
   const canCorrect = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
   const isProf     = currentUser?.papel === 'professora';
   const canDeletePl = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
 
+  const totalGeral = db.planejamentos.length;
   let list = db.planejamentos;
+
+  // Filtro de turma da professora (restrição de acesso — não é filtro do usuário)
   if (isProf) {
     list = list.filter(p => getUsrTurmaIds(currentUser).includes(p.turmaId));
-  } else if (filtro) {
-    list = list.filter(p => p.turmaId === filtro);
+  } else if (filtroTurma) {
+    list = list.filter(p => p.turmaId === filtroTurma);
   }
+
+  // Filtro de texto livre: busca em prof, conteudos, tema, desenvolvimento, metodologia
+  if (filtroTexto) {
+    list = list.filter(p => {
+      const haystack = [p.prof, p.conteudos, p.tema, p.desenvolvimento, p.metodologia, p.bimestre]
+        .filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(filtroTexto);
+    });
+  }
+
+  // Filtro de status
+  if (filtroStatus) {
+    if (filtroStatus === 'pendente') {
+      list = list.filter(p => !p.revisao && !p.corrigido);
+    } else if (filtroStatus === 'devolvido') {
+      list = list.filter(p => p.revisao === 'devolvido');
+    } else if (filtroStatus === 'revisado') {
+      list = list.filter(p => p.revisao === 'revisado');
+    } else if (filtroStatus === 'aprovado') {
+      list = list.filter(p => p.corrigido || p.revisao === 'aprovado');
+    }
+  }
+
+  // Filtro de período
+  if (filtroDe) {
+    list = list.filter(p => p.data && p.data >= filtroDe);
+  }
+  if (filtroAte) {
+    list = list.filter(p => p.data && p.data <= filtroAte);
+  }
+
+  // Atualiza indicador de quantidade e botão limpar
+  const temFiltro = filtroTurma || filtroTexto || filtroStatus || filtroDe || filtroAte;
+  const countEl   = document.getElementById('pl-filtros-count');
+  const clearEl   = document.getElementById('pl-filtros-clear');
+  if (countEl) {
+    if (temFiltro) {
+      countEl.textContent = `${list.length} de ${totalGeral} planejamento${totalGeral !== 1 ? 's' : ''}`;
+      countEl.style.color = list.length === 0 ? '#ef4444' : 'var(--gray-500)';
+    } else {
+      countEl.textContent = totalGeral > 0 ? `${totalGeral} planejamento${totalGeral !== 1 ? 's' : ''}` : '';
+      countEl.style.color = 'var(--gray-400)';
+    }
+  }
+  if (clearEl) clearEl.style.display = temFiltro ? 'inline' : 'none';
 
   // Banner de alerta para professora quando há itens devolvidos
   if (alertEl) {
@@ -5218,7 +5336,9 @@ function renderPlanejamentos() {
   }
 
   if (list.length === 0) {
-    el.innerHTML = '<div class="empty"><div class="icon">📋</div><p>Nenhum planejamento salvo.</p></div>';
+    el.innerHTML = temFiltro
+      ? `<div class="empty"><div class="icon">🔍</div><p>Nenhum planejamento encontrado para os filtros aplicados.</p><button class="btn btn-secondary btn-sm" onclick="limparFiltrosPl()" style="margin-top:10px;">✕ Limpar filtros</button></div>`
+      : '<div class="empty"><div class="icon">📋</div><p>Nenhum planejamento salvo.</p></div>';
     return;
   }
 
