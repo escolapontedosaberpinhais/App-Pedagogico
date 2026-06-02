@@ -2621,18 +2621,30 @@ const LoggerService = (() => {
   const _queue = [];
   let _flushing = false;
 
+  // Logs ficam em appdata/logs_YYYYMMDD (dentro das regras de segurança existentes).
+  // arrayUnion = adiciona ao array sem ler o documento primeiro (eficiente).
+  function _logDocRef() {
+    const d = new Date();
+    const key = d.getFullYear() + ('0'+(d.getMonth()+1)).slice(-2) + ('0'+d.getDate()).slice(-2);
+    return FSREF('logs_' + key);
+  }
+
   async function _flush() {
     if (_flushing || _queue.length === 0) return;
     _flushing = true;
-    while (_queue.length > 0) {
-      const item = _queue.shift();
-      try {
-        if (typeof fstore !== 'undefined' && CFG.toFirestore) {
-          await fstore.collection('logs').add(item);
-        }
-      } catch (_) { /* nunca bloquear por falha de log */ }
-    }
+    // Agrupa todos os itens da fila num único arrayUnion (uma só escrita)
+    const batch = [..._queue];
+    _queue.length = 0;
+    try {
+      if (typeof fstore !== 'undefined' && CFG.toFirestore && batch.length > 0) {
+        await _logDocRef().set(
+          { entries: firebase.firestore.FieldValue.arrayUnion(...batch) },
+          { merge: true }
+        );
+      }
+    } catch (_) { /* nunca bloquear por falha de log */ }
     _flushing = false;
+    if (_queue.length > 0) setTimeout(_flush, 0); // processa itens que chegaram durante o flush
   }
 
   function _enqueue(entry) {
@@ -2757,7 +2769,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.6.1';
+const APP_VERSION = 'v2.6.2';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -8868,13 +8880,28 @@ async function carregarAuditoria() {
   if (!lista) return;
   lista.innerHTML = '<div style="text-align:center;padding:28px;color:var(--gray-400);">⏳ Carregando logs…</div>';
   try {
-    // Firestore: busca os 500 logs mais recentes
-    const snap = await fstore.collection('logs').orderBy('timestamp', 'desc').limit(500).get();
-    _audLogs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Logs ficam em appdata/logs_YYYYMMDD — busca os últimos 30 dias
+    const todos = [];
+    const agora = new Date();
+    const promessas = [];
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(agora); d.setDate(agora.getDate() - i);
+      const key = d.getFullYear() + ('0'+(d.getMonth()+1)).slice(-2) + ('0'+d.getDate()).slice(-2);
+      promessas.push(FSREF('logs_' + key).get());
+    }
+    const docs = await Promise.all(promessas);
+    docs.forEach(doc => {
+      if (doc.exists && Array.isArray(doc.data().entries)) {
+        todos.push(...doc.data().entries);
+      }
+    });
+    // Ordena por timestamp desc e limita a 500
+    todos.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+    _audLogs = todos.slice(0, 500);
     _audCarregado = true;
     renderAuditoria();
   } catch (e) {
-    lista.innerHTML = `<div class="empty"><div class="icon">⚠️</div><p>Erro ao carregar logs: ${e.message}<br><small>Pode ser necessário criar o índice no Firestore. <a href="https://console.firebase.google.com/project/escola-ponte-saber/firestore/indexes" target="_blank">Criar índice</a></small></p></div>`;
+    lista.innerHTML = `<div class="empty"><div class="icon">⚠️</div><p>Erro ao carregar logs: ${e.message}</p></div>`;
   }
 }
 
