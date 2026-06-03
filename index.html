@@ -1404,6 +1404,43 @@ function getFolder(path) {
     <div id="usuarios-list" class="item-list"></div>
   </div>
 
+  <!-- BACKUP E RESTAURAÇÃO -->
+  <div class="card" id="card-backup" style="display:none;">
+    <div class="card-title">💾 Backup e Restauração</div>
+    <p style="font-size:13px;color:var(--gray-600);margin-bottom:16px;">
+      Exporte todos os dados em um arquivo <strong>.json</strong> para guardar em segurança. Para restaurar, carregue um backup anterior — os dados atuais serão substituídos após confirmação.
+    </p>
+
+    <!-- EXPORTAR -->
+    <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
+      <div style="font-weight:700;font-size:14px;color:var(--green-dark);margin-bottom:6px;">📤 Exportar backup</div>
+      <div style="font-size:13px;color:var(--gray-600);margin-bottom:12px;">Baixa um arquivo <code style="background:#e0f2fe;padding:1px 5px;border-radius:4px;font-size:12px;">backup_pedagogico_AAAA-MM-DD.json</code> com turmas, alunos, planejamentos, pareceres, avaliações e usuários.</div>
+      <button class="btn btn-primary" onclick="exportarBackup()">⬇️ Baixar backup completo</button>
+    </div>
+
+    <!-- RESTAURAR -->
+    <div style="background:#fef9ec;border:1.5px solid #fbbf24;border-radius:10px;padding:14px 16px;">
+      <div style="font-weight:700;font-size:14px;color:#92400e;margin-bottom:6px;">📥 Restaurar backup</div>
+      <div style="font-size:13px;color:#78350f;margin-bottom:12px;">
+        ⚠️ <strong>Atenção:</strong> restaurar um backup <strong>substitui todos os dados atuais</strong> (turmas, alunos, planejamentos, pareceres, avaliações). Usuários e configurações <em>não</em> são sobrescritos para evitar perda de acesso.
+      </div>
+      <label class="btn btn-secondary" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+        📂 Escolher arquivo .json
+        <input type="file" id="backup-file-input" accept=".json" onchange="lerArquivoBackup(this)" style="display:none;">
+      </label>
+
+      <!-- Preview do backup carregado -->
+      <div id="backup-preview" style="display:none;margin-top:14px;background:#fff;border:1.5px solid var(--gray-200);border-radius:8px;padding:12px 14px;">
+        <div style="font-weight:700;font-size:13px;color:var(--gray-700);margin-bottom:10px;">📋 Conteúdo do backup:</div>
+        <div id="backup-preview-info" style="font-size:13px;color:var(--gray-600);line-height:2;"></div>
+        <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-danger" onclick="confirmarRestauracao()">🔄 Restaurar este backup</button>
+          <button class="btn btn-secondary" onclick="cancelarBackupImport()">✕ Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- TURMAS -->
 </div>
 
@@ -2852,7 +2889,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.6.4';
+const APP_VERSION = 'v2.6.5';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -3356,6 +3393,9 @@ function aplicarPapel() {
   // Card de usuários dentro de config: só diretor
   const cardUsr = document.getElementById('card-usuarios');
   if (cardUsr) cardUsr.style.display = isDiretor ? '' : 'none';
+  // Card de backup: só diretor
+  const cardBkp = document.getElementById('card-backup');
+  if (cardBkp) cardBkp.style.display = isDiretor ? '' : 'none';
 
   // ── MATRIZ DE VISIBILIDADE POR PAPEL ─────────────────────────
   // Diretor    : tudo
@@ -5888,6 +5928,142 @@ async function imprimirPlanejamento(id) {
     logger.error({ module: 'planejamento', action: 'imprimir', message: 'Erro ao gerar impressão de planejamento', error: err });
     showToast('⚠️ Erro ao gerar impressão: ' + (err.message || err));
   }
+}
+
+// =====================================================================
+// BACKUP E RESTAURAÇÃO
+// =====================================================================
+let _backupPendente = null; // guarda o objeto JSON carregado antes de confirmar
+
+function exportarBackup() {
+  const hoje = new Date().toISOString().slice(0, 10);
+  const payload = {
+    _meta: {
+      versao: APP_VERSION,
+      geradoEm: new Date().toISOString(),
+      escola: 'Escola Ponte do Saber',
+      formato: 'pedagogico-backup-v1',
+    },
+    turmas:        db.turmas,
+    alunos:        db.alunos,
+    planejamentos: db.planejamentos,
+    pareceres:     db.pareceres,
+    avaliacoes:    db.avaliacoes,
+    horaAtividade: db.horaAtividade,
+    rotinas:       db.rotinas,
+    atividades:    db.atividades,
+    // Usuários e apiKey são excluídos intencionalmente por segurança
+  };
+  const json = JSON.stringify(payload, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `backup_pedagogico_${hoje}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  logger.audit({ module: 'backup', action: 'export', message: 'Backup completo exportado', meta: {
+    turmas: db.turmas.length, alunos: db.alunos.length,
+    planejamentos: db.planejamentos.length, pareceres: db.pareceres.length,
+  }});
+  showToast('✅ Backup baixado com sucesso!', 3000);
+}
+
+function lerArquivoBackup(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data._meta || data._meta.formato !== 'pedagogico-backup-v1') {
+        showToast('⚠️ Arquivo inválido ou não é um backup deste sistema.', 5000);
+        input.value = '';
+        return;
+      }
+      _backupPendente = data;
+      // Monta preview
+      const linhas = [
+        `📅 <strong>Gerado em:</strong> ${new Date(data._meta.geradoEm).toLocaleString('pt-BR')}`,
+        `🏫 <strong>Versão do app:</strong> ${data._meta.versao || '—'}`,
+        `🏫 <strong>Turmas:</strong> ${(data.turmas || []).length}`,
+        `👦 <strong>Alunos:</strong> ${(data.alunos || []).length}`,
+        `📋 <strong>Planejamentos:</strong> ${(data.planejamentos || []).length}`,
+        `✨ <strong>Pareceres:</strong> ${(data.pareceres || []).length}`,
+        `📊 <strong>Avaliações:</strong> ${Object.keys(data.avaliacoes || {}).length} registros`,
+        `⏰ <strong>Hora-Atividade:</strong> ${(data.horaAtividade || []).length}`,
+        `📅 <strong>Rotinas:</strong> ${(data.rotinas || []).length}`,
+        `🎯 <strong>Atividades:</strong> ${(data.atividades || []).length}`,
+      ];
+      document.getElementById('backup-preview-info').innerHTML = linhas.join('<br>');
+      document.getElementById('backup-preview').style.display = 'block';
+    } catch {
+      showToast('⚠️ Erro ao ler o arquivo. Verifique se é um JSON válido.', 5000);
+      input.value = '';
+    }
+  };
+  reader.readAsText(file);
+}
+
+function cancelarBackupImport() {
+  _backupPendente = null;
+  document.getElementById('backup-preview').style.display = 'none';
+  document.getElementById('backup-file-input').value = '';
+}
+
+function confirmarRestauracao() {
+  if (!_backupPendente) return;
+  const d = _backupPendente;
+  showConfirmModal(
+    `Restaurar o backup de <strong>${new Date(d._meta.geradoEm).toLocaleDateString('pt-BR')}</strong>?<br>
+    <small style="color:#888;font-weight:400;">
+      Isso substituirá: ${(d.turmas||[]).length} turmas, ${(d.alunos||[]).length} alunos,
+      ${(d.planejamentos||[]).length} planejamentos e demais dados.<br>
+      Usuários e senha <strong>não</strong> serão alterados.
+    </small>`,
+    async () => {
+      SyncStatus.saving();
+      try {
+        // Aplica ao db em memória
+        if (d.turmas)        db.turmas        = d.turmas;
+        if (d.alunos)        db.alunos        = d.alunos;
+        if (d.planejamentos) db.planejamentos = d.planejamentos;
+        if (d.pareceres)     db.pareceres     = d.pareceres;
+        if (d.avaliacoes)    db.avaliacoes    = d.avaliacoes;
+        if (d.horaAtividade) db.horaAtividade = d.horaAtividade;
+        if (d.rotinas)       { db.rotinas = d.rotinas; _rotinasCarregadas = true; }
+        if (d.atividades)    { db.atividades = d.atividades; _atividadesCarregadas = true; }
+
+        // Persiste no Firestore (usa o batch normal + rotinas/atividades separados)
+        const batch = fstore.batch();
+        batch.set(FSREF('turmas'),        { data: db.turmas });
+        batch.set(FSREF('alunos'),        { data: db.alunos });
+        batch.set(FSREF('planejamentos'), { data: db.planejamentos });
+        batch.set(FSREF('pareceres'),     { data: db.pareceres });
+        batch.set(FSREF('avaliacoes'),    { data: db.avaliacoes });
+        batch.set(FSREF('horaAtividade'), { data: db.horaAtividade });
+        batch.set(FSREF('rotinas'),       { data: db.rotinas });
+        batch.set(FSREF('atividades'),    { data: db.atividades });
+        await batch.commit();
+
+        // Atualiza localStorage
+        save();
+
+        SyncStatus.saved();
+        logger.audit({ module: 'backup', action: 'restore', message: 'Backup restaurado com sucesso', meta: {
+          geradoEm: d._meta.geradoEm, turmas: db.turmas.length, alunos: db.alunos.length,
+        }});
+        cancelarBackupImport();
+        refreshCurrentView();
+        renderDashboard();
+        showToast('✅ Backup restaurado com sucesso!', 4000);
+      } catch(e) {
+        SyncStatus.error();
+        logger.error({ module: 'backup', action: 'restore', message: 'Erro ao restaurar backup', error: e });
+        showToast('⚠️ Erro ao restaurar: ' + (e.message || e), 5000);
+      }
+    }
+  );
 }
 
 function exportarPlanejamentos() {
