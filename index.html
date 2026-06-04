@@ -563,6 +563,48 @@
   .dnav-btn.active { background: var(--green-light); color: var(--green); font-weight: 600; }
   .dnav-btn.active::after { content:''; position:absolute; right:0; top:6px; bottom:6px; width:3px; background:var(--green); border-radius:2px 0 0 2px; }
   .dnav-btn .di { font-size: 20px; width: 26px; text-align: center; flex-shrink: 0; }
+
+  /* ── Drawer agrupado (diretor) ───────────────────────── */
+  .dnav-group-label {
+    display: none;
+    font-size: 10px; font-weight: 700; color: var(--gray-400);
+    text-transform: uppercase; letter-spacing: .8px;
+    padding: 14px 20px 4px;
+    margin-top: 4px;
+  }
+  .dnav-group-label:not(:first-child) { border-top: 1px solid var(--gray-100); }
+  .dir-drawer-mode .dnav-group-label { display: block; }
+  .dir-drawer-mode .dnav-btn { padding: 11px 20px 11px 30px; font-size: 14px; }
+
+  /* ── Nav dropdowns para diretoria (desktop) ──────────── */
+  #nav-dir { position: relative; }
+  .nav-grp { position: relative; display: inline-flex; }
+  .nav-grp-btn {
+    padding: 14px 16px; border: none; background: none; cursor: pointer;
+    font-size: 13px; font-weight: 600; color: var(--gray-600);
+    white-space: nowrap; border-bottom: 3px solid transparent;
+    display: flex; align-items: center; gap: 5px; transition: all .15s;
+  }
+  .nav-grp-btn:hover { color: var(--green); background: var(--green-light); }
+  .nav-grp-btn.active { color: var(--green); border-bottom-color: var(--green); }
+  .nav-grp-btn .nav-grp-arrow { font-size: 9px; opacity: .6; transition: transform .2s; }
+  .nav-grp-btn.open .nav-grp-arrow { transform: rotate(180deg); }
+  .nav-grp-drop {
+    display: none; position: absolute; top: 100%; left: 0;
+    background: #fff; border: 1.5px solid var(--gray-200);
+    border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.10);
+    min-width: 180px; z-index: 200; padding: 6px 0; overflow: hidden;
+  }
+  .nav-grp-drop.open { display: block; }
+  .nav-grp-drop button {
+    display: flex; align-items: center; gap: 8px;
+    width: 100%; padding: 10px 16px; border: none; background: none;
+    font-size: 13px; color: var(--gray-700); cursor: pointer;
+    text-align: left; transition: background .12s;
+    white-space: nowrap;
+  }
+  .nav-grp-drop button:hover { background: var(--green-light); color: var(--green-dark); }
+  .nav-grp-drop button.active { background: var(--green-light); color: var(--green); font-weight: 600; }
   .drawer-footer { padding: 14px 16px; border-top: 1px solid var(--gray-200); display: flex; flex-direction: column; gap: 8px; }
   .drawer-footer button { width: 100%; padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px; justify-content: center; }
   .drawer-logout { background: #fef2f2; color: #dc2626; }
@@ -992,21 +1034,26 @@
       <small id="drawer-user-info">&mdash;</small>
     </div>
   </div>
-  <div class="drawer-body">
+  <div class="drawer-body" id="drawer-body">
+    <!-- 🏠 Início -->
+    <div class="dnav-group-label">🏠 Início</div>
     <button class="dnav-btn" id="dnav-dashboard" onclick="drawerNav('dashboard')" style="display:none;">
       <span class="di">&#x1F3E0;</span> Dashboard
     </button>
+
+    <!-- 👥 Gestão Escolar -->
+    <div class="dnav-group-label">👥 Gestão Escolar</div>
     <button class="dnav-btn" id="dnav-cadastro" onclick="drawerNav('cadastro')">
       <span class="di">&#x1F4DD;</span> Cadastro
     </button>
     <button class="dnav-btn" id="dnav-impressao" onclick="drawerNav('impressao')" style="display:none;">
       <span class="di">&#x1F5A8;</span> Impress&atilde;o
     </button>
-    <button class="dnav-btn" id="dnav-planejamento" onclick="drawerNav('planejamento')">
-      <span class="di">&#x1F4CB;</span> Planejamentos
-    </button>
-    <button class="dnav-btn" id="dnav-pareceres" onclick="drawerNav('pareceres')">
-      <span class="di">&#x2728;</span> Pareceres IA
+
+    <!-- 📚 Pedagógico -->
+    <div class="dnav-group-label">📚 Pedag&oacute;gico</div>
+    <button class="dnav-btn" id="dnav-rotina" onclick="drawerNav('rotina')" style="display:none;">
+      <span class="di">&#x1F4C5;</span> Rotina
     </button>
     <button class="dnav-btn" id="dnav-avaliacoes" onclick="drawerNav('avaliacoes')">
       <span class="di">&#x1F4CA;</span> Avalia&ccedil;&otilde;es
@@ -1014,15 +1061,24 @@
     <button class="dnav-btn" id="dnav-correcao" onclick="drawerNav('correcao')" style="display:none;">
       <span class="di">&#x2705;</span> Corre&ccedil;&atilde;o
     </button>
+
+    <!-- ⏰ Docentes -->
+    <div class="dnav-group-label">&#x23F0; Docentes</div>
     <button class="dnav-btn" id="dnav-hora-atividade" onclick="drawerNav('hora-atividade')" style="display:none;">
       <span class="di">&#x23F0;</span> Hora-Atividade
     </button>
-    <button class="dnav-btn" id="dnav-rotina" onclick="drawerNav('rotina')" style="display:none;">
-      <span class="di">&#x1F4C5;</span> Rotina
+    <button class="dnav-btn" id="dnav-planejamento" onclick="drawerNav('planejamento')">
+      <span class="di">&#x1F4CB;</span> Planejamentos
+    </button>
+    <button class="dnav-btn" id="dnav-pareceres" onclick="drawerNav('pareceres')">
+      <span class="di">&#x2728;</span> Pareceres IA
     </button>
     <button class="dnav-btn" id="dnav-atividades" onclick="drawerNav('atividades')" style="display:none;">
       <span class="di">&#x1F3AF;</span> Atividades
     </button>
+
+    <!-- 🔒 Controle -->
+    <div class="dnav-group-label">&#x1F512; Controle</div>
     <button class="dnav-btn" id="dnav-auditoria" onclick="drawerNav('auditoria')" style="display:none;">
       <span class="di">&#x1F4DC;</span> Auditoria
     </button>
@@ -1047,6 +1103,61 @@
   <button id="nav-rotina" onclick="showTab('rotina')" data-tab="rotina" style="display:none;">📅 Rotina</button>
   <button id="nav-atividades" onclick="showTab('atividades')" data-tab="atividades" style="display:none;">🎯 Atividades</button>
   <button id="nav-auditoria" onclick="showTab('auditoria')" data-tab="auditoria" style="display:none;">📜 Auditoria</button>
+</nav>
+
+<!-- ── Nav agrupada para diretoria ── -->
+<nav id="nav-dir" style="display:none;">
+  <!-- 🏠 Início -->
+  <div class="nav-grp" id="navgrp-inicio">
+    <button class="nav-grp-btn" id="navgrp-btn-inicio" onclick="toggleNavGrp('inicio')">
+      🏠 Início <span class="nav-grp-arrow">▾</span>
+    </button>
+    <div class="nav-grp-drop" id="navdrop-inicio">
+      <button data-tab="dashboard" onclick="showTab('dashboard');closeNavGrp()">🏠 Dashboard</button>
+    </div>
+  </div>
+  <!-- 👥 Gestão Escolar -->
+  <div class="nav-grp" id="navgrp-gestao">
+    <button class="nav-grp-btn" id="navgrp-btn-gestao" onclick="toggleNavGrp('gestao')">
+      👥 Gestão Escolar <span class="nav-grp-arrow">▾</span>
+    </button>
+    <div class="nav-grp-drop" id="navdrop-gestao">
+      <button data-tab="cadastro" onclick="showTab('cadastro');closeNavGrp()">📝 Cadastro</button>
+      <button data-tab="impressao" onclick="showTab('impressao');closeNavGrp()">🖨️ Impressão</button>
+    </div>
+  </div>
+  <!-- 📚 Pedagógico -->
+  <div class="nav-grp" id="navgrp-pedagogico">
+    <button class="nav-grp-btn" id="navgrp-btn-pedagogico" onclick="toggleNavGrp('pedagogico')">
+      📚 Pedagógico <span class="nav-grp-arrow">▾</span>
+    </button>
+    <div class="nav-grp-drop" id="navdrop-pedagogico">
+      <button data-tab="rotina" onclick="showTab('rotina');closeNavGrp()">📅 Rotina</button>
+      <button data-tab="avaliacoes" onclick="showTab('avaliacoes');closeNavGrp()">📊 Avaliações</button>
+      <button data-tab="correcao" onclick="showTab('correcao');closeNavGrp()">✅ Correção</button>
+    </div>
+  </div>
+  <!-- ⏰ Docentes -->
+  <div class="nav-grp" id="navgrp-docentes">
+    <button class="nav-grp-btn" id="navgrp-btn-docentes" onclick="toggleNavGrp('docentes')">
+      ⏰ Docentes <span class="nav-grp-arrow">▾</span>
+    </button>
+    <div class="nav-grp-drop" id="navdrop-docentes">
+      <button data-tab="hora-atividade" onclick="showTab('hora-atividade');closeNavGrp()">⏰ Hora-Atividade</button>
+      <button data-tab="planejamento" onclick="showTab('planejamento');closeNavGrp()">📋 Planejamentos</button>
+      <button data-tab="pareceres" onclick="showTab('pareceres');closeNavGrp()">✨ Pareceres IA</button>
+      <button data-tab="atividades" onclick="showTab('atividades');closeNavGrp()">🎯 Atividades</button>
+    </div>
+  </div>
+  <!-- 🔒 Controle -->
+  <div class="nav-grp" id="navgrp-controle">
+    <button class="nav-grp-btn" id="navgrp-btn-controle" onclick="toggleNavGrp('controle')">
+      🔒 Controle <span class="nav-grp-arrow">▾</span>
+    </button>
+    <div class="nav-grp-drop" id="navdrop-controle">
+      <button data-tab="auditoria" onclick="showTab('auditoria');closeNavGrp()">📜 Auditoria</button>
+    </div>
+  </div>
 </nav>
 
 <!-- Barra fixa: professoras em hora-atividade agora (gestão) -->
@@ -2962,7 +3073,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.6.6';
+const APP_VERSION = 'v2.6.7';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -3538,6 +3649,22 @@ function aplicarPapel() {
   // Diagnóstico de sincronização: apenas diretor
   nav('btn-diagnostico-sync', isDiretor);
 
+  // ── Nav agrupada para diretoria ─────────────────────────
+  const navNormal = document.getElementById('nav');
+  const navDir    = document.getElementById('nav-dir');
+  const drawerBody = document.getElementById('drawer-body');
+  if (isDiretor) {
+    // Troca nav flat → nav agrupada no desktop
+    if (navNormal) navNormal.style.display = 'none';
+    if (navDir)    navDir.style.display    = '';
+    // Ativa modo agrupado no drawer
+    if (drawerBody) drawerBody.classList.add('dir-drawer-mode');
+  } else {
+    if (navNormal) navNormal.style.display = '';
+    if (navDir)    navDir.style.display    = 'none';
+    if (drawerBody) drawerBody.classList.remove('dir-drawer-mode');
+  }
+
   // Dashboard: seção correta por papel
   const dGestao = document.getElementById('dash-gestao');
   const dProf   = document.getElementById('dash-professora');
@@ -3766,6 +3893,40 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 // =====================================================================
 // NAVIGATION
 // =====================================================================
+// NAV AGRUPADA (diretoria)
+// =====================================================================
+const _TAB_GRUPOS = {
+  dashboard: 'inicio',
+  cadastro: 'gestao', impressao: 'gestao',
+  rotina: 'pedagogico', avaliacoes: 'pedagogico', correcao: 'pedagogico',
+  'hora-atividade': 'docentes', planejamento: 'docentes', pareceres: 'docentes', atividades: 'docentes',
+  auditoria: 'controle',
+};
+
+function toggleNavGrp(grp) {
+  const drop = document.getElementById('navdrop-' + grp);
+  const btn  = document.getElementById('navgrp-btn-' + grp);
+  const isOpen = drop?.classList.contains('open');
+  // Fecha todos primeiro
+  closeNavGrp();
+  // Abre o clicado (toggle)
+  if (!isOpen && drop) {
+    drop.classList.add('open');
+    btn?.classList.add('open');
+  }
+}
+
+function closeNavGrp() {
+  document.querySelectorAll('.nav-grp-drop').forEach(d => d.classList.remove('open'));
+  document.querySelectorAll('.nav-grp-btn').forEach(b => b.classList.remove('open'));
+}
+
+// Fecha dropdown ao clicar fora
+document.addEventListener('click', e => {
+  if (!e.target.closest('.nav-grp')) closeNavGrp();
+});
+
+// =====================================================================
 function showTab(tab) {
   if (tab !== 'hora-atividade' && _pontoInterval) { clearInterval(_pontoInterval); _pontoInterval = null; }
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -3777,6 +3938,10 @@ function showTab(tab) {
   document.querySelectorAll('.dnav-btn').forEach(b => b.classList.remove('active'));
   const dBtn = document.getElementById('dnav-' + tab);
   if (dBtn) dBtn.classList.add('active');
+  // Destaca grupo ativo no nav-dir
+  document.querySelectorAll('.nav-grp-btn').forEach(b => b.classList.remove('active'));
+  const grp = _TAB_GRUPOS[tab];
+  if (grp) document.getElementById('navgrp-btn-' + grp)?.classList.add('active');
   // Destaca ícone de engrenagem quando config ativo
   const cfgIcon = document.getElementById('btn-config-icon');
   if (cfgIcon) cfgIcon.classList.toggle('btn-icon-active', tab === 'config');
