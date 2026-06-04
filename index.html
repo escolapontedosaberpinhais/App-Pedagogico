@@ -577,7 +577,9 @@
   .dir-drawer-mode .dnav-btn { padding: 11px 20px 11px 30px; font-size: 14px; }
 
   /* ── Nav dropdowns para diretoria (desktop) ──────────── */
-  #nav-dir { position: relative; }
+  /* overflow: visible necessário — nav { overflow-x:auto } forçaria overflow-y:auto
+     que cortaria os dropdowns position:absolute antes de aparecerem */
+  #nav-dir { position: relative; overflow: visible; }
   .nav-grp { position: relative; display: inline-flex; }
   .nav-grp-btn {
     padding: 14px 16px; border: none; background: none; cursor: pointer;
@@ -3073,7 +3075,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.6.7';
+const APP_VERSION = 'v2.6.8';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
