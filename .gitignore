@@ -1,0 +1,48 @@
+# ── Scripts de desenvolvimento ──────────────────────────────────────
+*.py
+__pycache__/
+*.pyc
+
+# ── Scripts de debug/inspeção ────────────────────────────────────────
+_check.js
+_chk.cjs
+verify*.py
+inspect*.py
+jscheck.py
+normalize.py
+add_*.py
+fix_*.py
+gen_*.py
+get_*.py
+make_*.py
+config_*.py
+new_*.py
+read_*.py
+restrict_*.py
+
+# ── Logs de monitoramento ────────────────────────────────────────────
+_monitor_*.log
+*.log
+
+# ── APK e builds ────────────────────────────────────────────────────
+apk_v*/
+apk_output/
+apk_signed/
+*.apk
+*.zip
+
+# ── CHAVE DE ASSINATURA — NUNCA VERSIONAR ───────────────────────────
+*.keystore
+signing-key-info.txt
+Chave-Apk.png
+
+# ── Backups e arquivos temporários ──────────────────────────────────
+_backup_*.json
+index.html.bak
+_logo_datauri.txt
+logo_b64.txt
+logo_escola.png
+
+# ── Ferramentas locais ───────────────────────────────────────────────
+.rtk/
+CLAUDE.md
