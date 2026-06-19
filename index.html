@@ -1894,7 +1894,7 @@ function getFolder(path) {
       <!-- Busca livre -->
       <div class="pl-filtro-group pl-busca-wrap" style="flex:3;min-width:220px;">
         <label>Buscar</label>
-        <input type="text" id="pl-busca-texto" placeholder="Professora, conteúdo, desenvolvimento…"
+        <input type="text" id="pl-busca-texto" placeholder="Professora, turma, conteúdo…"
           oninput="renderPlanejamentos()" autocomplete="off">
       </div>
       <!-- Turma -->
@@ -2037,6 +2037,14 @@ function getFolder(path) {
 
   <div class="divider"></div>
   <div class="card-title" style="margin-bottom:12px;">📁 Pareceres Salvos</div>
+  <div style="position:relative;margin-bottom:14px;">
+    <input type="text" id="par-busca-nome" placeholder="🔍 Buscar parecer pelo nome do aluno…"
+      oninput="renderPareceres()"
+      style="width:100%;padding:11px 38px 11px 14px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:14px;" />
+    <button type="button" onclick="document.getElementById('par-busca-nome').value='';renderPareceres();"
+      title="Limpar busca"
+      style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--gray-400);">✕</button>
+  </div>
   <div id="alerta-pareceres-devolvidos"></div>
   <div id="pareceres-list" class="item-list"></div>
 
@@ -3076,7 +3084,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.7.0';
+const APP_VERSION = 'v2.7.1';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -5651,10 +5659,11 @@ function renderPlanejamentos() {
     list = list.filter(p => p.turmaId === filtroTurma);
   }
 
-  // Filtro de texto livre: busca em prof, conteudos, tema, desenvolvimento, metodologia
+  // Filtro de texto livre: busca em prof, turma, conteudos, tema, desenvolvimento, metodologia
   if (filtroTexto) {
     list = list.filter(p => {
-      const haystack = [p.prof, p.conteudos, p.tema, p.desenvolvimento, p.metodologia, p.bimestre]
+      const turmaNome = db.turmas.find(t => t.id === p.turmaId)?.nome || '';
+      const haystack = [p.prof, turmaNome, p.conteudos, p.tema, p.desenvolvimento, p.metodologia, p.bimestre]
         .filter(Boolean).join(' ').toLowerCase();
       return haystack.includes(filtroTexto);
     });
@@ -6309,9 +6318,11 @@ function selectTone(btn) {
   selectedTone = btn.dataset.tone;
 }
 
-function abrirModalVisualizar(titulo, conteudo, docUrl) {
+function abrirModalVisualizar(titulo, conteudo, docUrl, htmlBody) {
   document.getElementById('modal-visualizar-titulo').textContent = titulo;
-  document.getElementById('modal-visualizar-corpo').textContent = conteudo;
+  const corpo = document.getElementById('modal-visualizar-corpo');
+  if (htmlBody != null) { corpo.innerHTML = htmlBody; }
+  else { corpo.textContent = conteudo; }
   const actions = document.getElementById('modal-visualizar-actions');
   actions.innerHTML = docUrl
     ? `<a href="${docUrl}" target="_blank" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:5px 12px;font-size:13px;text-decoration:none;white-space:nowrap;">📄 Abrir no Docs</a>`
@@ -6326,9 +6337,10 @@ function escreverManualParecer() {
   const alunoId = document.getElementById('par-aluno').value;
   if (!alunoId) { alert('Selecione um aluno antes de continuar.'); return; }
   const output = document.getElementById('parecer-output');
-  output.innerText = '';
+  // Pré-preenche com o padrão de seções: título em uma linha, parágrafo abaixo
+  output.innerText = PARECER_SECOES.map(s => s + '\n').join('\n');
   document.getElementById('alert-parecer').innerHTML =
-    '<div class="alert alert-info">✏️ Digite o parecer abaixo e clique em <strong>Salvar parecer</strong> quando terminar.</div>';
+    '<div class="alert alert-info">✏️ Escreva o parágrafo abaixo de cada título e clique em <strong>Salvar parecer</strong> quando terminar.</div>';
   document.getElementById('card-resultado-titulo').textContent = '📝 Escrever Parecer';
   document.getElementById('card-resultado').style.display = 'block';
   document.getElementById('card-resultado').scrollIntoView({ behavior: 'smooth' });
@@ -6365,7 +6377,20 @@ async function gerarParecer() {
 
   const prompt = `Você é uma pedagoga especializada em educação infantil. Escreva um parecer descritivo sobre o aluno "${aluno.nome}" referente ao ${periodo}.
 
-Use tom ${toneTxt}. O parecer deve ter parágrafos fluidos e conectados (não use tópicos ou bullet points), no máximo 350 palavras, em linguagem acessível para as famílias, sem jargões excessivos.
+Use tom ${toneTxt}, em linguagem acessível para as famílias, sem jargões excessivos.
+
+FORMATO OBRIGATÓRIO: organize o parecer em seções. Escreva o TÍTULO de cada seção sozinho em uma linha e, na linha seguinte, um parágrafo descritivo (de 2 a 4 frases) sobre aquele aspecto. NÃO use bullet points, asteriscos, hífens, numeração ou qualquer marcador — apenas o título e, abaixo, o parágrafo.
+
+Crie uma seção para cada aspecto informado, usando EXATAMENTE estes títulos:
+Desenvolvimento Cognitivo
+Linguagem e Comunicação
+Desenvolvimento Motor
+Socialização
+Desenvolvimento Emocional
+
+E finalize SEMPRE com a seção:
+Considerações Finais
+(um fechamento acolhedor${atencao ? ', incorporando os pontos de atenção e sugestões para a família' : ''})
 
 Dados fornecidos pela professora:
 - Desenvolvimento cognitivo: ${cognitivo || 'não informado'}
@@ -6375,7 +6400,7 @@ Dados fornecidos pela professora:
 - Desenvolvimento emocional: ${emocional || 'não informado'}
 ${atencao ? `- Pontos de atenção / sugestões para a família: ${atencao}` : ''}
 
-Escreva o parecer completo, começando diretamente com o texto (sem título, sem "Parecer:", sem introdução sobre o que você vai fazer).`;
+Se um aspecto estiver "não informado", NÃO crie a seção correspondente. Comece diretamente pela primeira seção, sem título geral e sem introdução sobre o que você vai fazer.`;
 
   const btn = document.getElementById('btn-gerar');
   btn.disabled = true;
@@ -6395,7 +6420,7 @@ Escreva o parecer completo, começando diretamente com o texto (sem título, sem
         model: getModel(),
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.75,
-        max_tokens: 700,
+        max_tokens: 1000,
       }),
     });
 
@@ -6642,8 +6667,15 @@ function renderPareceres() {
     }
   }
 
+  // Filtro de busca pelo nome do aluno
+  const buscaParRaw = (document.getElementById('par-busca-nome')?.value || '').trim();
+  const buscaPar = buscaParRaw.toLowerCase();
+  if (buscaPar) list = list.filter(p => (p.alunoNome || '').toLowerCase().includes(buscaPar));
+
   if (list.length === 0) {
-    el.innerHTML = '<div class="empty"><div class="icon">✨</div><p>Nenhum parecer salvo.</p></div>';
+    el.innerHTML = buscaPar
+      ? `<div class="empty"><div class="icon">🔍</div><p>Nenhum parecer encontrado para "${escapeHtml(buscaParRaw)}".</p></div>`
+      : '<div class="empty"><div class="icon">✨</div><p>Nenhum parecer salvo.</p></div>';
     return;
   }
   el.innerHTML = list.map(p => {
@@ -6702,8 +6734,12 @@ function verParecer(id) {
   if (!p) return;
   // Exibe o conteúdo completo do banco local — evita truncamento do visualizador do Google Drive
   const turma = db.turmas.find(t => t.id === p.turmaId);
-  const cabecalho = `Aluno(a): ${p.alunoNome}\nTurma: ${turma ? turma.nome : '—'}\nPeríodo: ${p.periodo}\n\n`;
-  abrirModalVisualizar(`✨ Parecer — ${p.alunoNome}`, cabecalho + (p.texto || ''), p.docUrl);
+  const cabecalho = `<div style="margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#555;">`
+    + `<strong>Aluno(a):</strong> ${escapeHtml(p.alunoNome)}<br>`
+    + `<strong>Turma:</strong> ${escapeHtml(turma ? turma.nome : '—')}<br>`
+    + `<strong>Período:</strong> ${escapeHtml(p.periodo)}</div>`;
+  const corpoHtml = cabecalho + formatarParecerHtml(p.texto || '');
+  abrirModalVisualizar(`✨ Parecer — ${p.alunoNome}`, '', p.docUrl, corpoHtml);
 }
 
 // Le o conteudo ATUAL de um Google Doc — tenta 3 metodos em cascata
@@ -6856,9 +6892,9 @@ function montarHtmlParecer(p, __corpo) {
     font-size: 13.5px;
     line-height: 1.75;
     text-align: justify;
-    white-space: pre-wrap;
     margin-bottom: 60px;
   }
+  .corpo > div:first-child { margin-top: 0 !important; }
 
   .assinaturas {
     display: flex;
@@ -6931,7 +6967,7 @@ function montarHtmlParecer(p, __corpo) {
 
   <h1 class="titulo">PARECER DESCRITIVO — ${(p.periodo || '').toUpperCase()}</h1>
 
-  <div class="corpo">${escapeHtml(__corpo != null ? __corpo : (p.texto || ''))}</div>
+  <div class="corpo">${formatarParecerHtml(__corpo != null ? __corpo : (p.texto || ''))}</div>
 
   <div class="assinaturas">
     <div class="assina">
@@ -6958,6 +6994,38 @@ function abrirJanelaParecer(p, textoOverride) {
 
 function escapeHtml(str) {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Padrão de seções do parecer descritivo (título + parágrafo abaixo)
+const PARECER_SECOES = [
+  'Desenvolvimento Cognitivo',
+  'Linguagem e Comunicação',
+  'Desenvolvimento Motor',
+  'Socialização',
+  'Desenvolvimento Emocional',
+  'Considerações Finais',
+];
+
+// Converte o texto do parecer em HTML, destacando os títulos das seções (negrito)
+// e o conteúdo logo abaixo como parágrafo. Pareceres antigos (bloco único) são
+// exibidos como um parágrafo só — degrada de forma segura.
+function formatarParecerHtml(texto) {
+  if (!texto) return '';
+  const norm = s => s.toLowerCase().normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')   // remove acentos
+    .replace(/[:\s]+$/, '').trim();    // remove ": " final
+  const titulos = new Set(PARECER_SECOES.map(norm));
+  let html = '';
+  texto.split('\n').forEach(linha => {
+    const t = linha.trim();
+    if (!t) return;
+    if (titulos.has(norm(t))) {
+      html += `<div style="font-weight:bold;margin:14px 0 3px;">${escapeHtml(t.replace(/[:\s]+$/, ''))}</div>`;
+    } else {
+      html += `<div style="margin-bottom:3px;text-align:justify;">${escapeHtml(t)}</div>`;
+    }
+  });
+  return html;
 }
 
 function exportarPareceres() {
