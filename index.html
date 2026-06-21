@@ -3099,7 +3099,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.7.5';
+const APP_VERSION = 'v2.7.6';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -9553,14 +9553,19 @@ async function importarAlunosFinanceDesk(desde) {
     const alunos = Array.isArray(data) ? data : (data.alunos || []);
 
     const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+    const normTurma = s => norm(s)
+      .replace(/\bviii\b/g,'8').replace(/\bvii\b/g,'7').replace(/\bvi\b/g,'6')
+      .replace(/\biv\b/g,'4').replace(/\bix\b/g,'9').replace(/\biii\b/g,'3')
+      .replace(/\bii\b/g,'2').replace(/\bv\b/g,'5').replace(/\bi\b/g,'1')
+      .replace(/\bx\b/g,'10');
     let adicionados = 0, duplicados = 0, semTurma = 0;
 
     for (const a of alunos) {
       if (a.ativo === false) continue;
       const turmaNomeFD = a.turmas?.nome || a.turma || '';
-      const nFD = norm(turmaNomeFD);
-      const turma = db.turmas.find(t => norm(t.nome) === nFD)
-        || db.turmas.find(t => norm(t.nome).includes(nFD) || nFD.includes(norm(t.nome)));
+      const nFD = normTurma(turmaNomeFD);
+      const turma = db.turmas.find(t => normTurma(t.nome) === nFD)
+        || db.turmas.find(t => normTurma(t.nome).includes(nFD) || nFD.includes(normTurma(t.nome)));
       if (!turma) { semTurma++; continue; }
       const jaExiste = db.alunos.some(x => x.turmaId === turma.id && norm(x.nome) === norm(a.nome));
       if (jaExiste) { duplicados++; continue; }
