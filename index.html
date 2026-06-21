@@ -3099,7 +3099,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.7.4';
+const APP_VERSION = 'v2.7.5';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -9558,7 +9558,9 @@ async function importarAlunosFinanceDesk(desde) {
     for (const a of alunos) {
       if (a.ativo === false) continue;
       const turmaNomeFD = a.turmas?.nome || a.turma || '';
-      const turma = db.turmas.find(t => norm(t.nome) === norm(turmaNomeFD));
+      const nFD = norm(turmaNomeFD);
+      const turma = db.turmas.find(t => norm(t.nome) === nFD)
+        || db.turmas.find(t => norm(t.nome).includes(nFD) || nFD.includes(norm(t.nome)));
       if (!turma) { semTurma++; continue; }
       const jaExiste = db.alunos.some(x => x.turmaId === turma.id && norm(x.nome) === norm(a.nome));
       if (jaExiste) { duplicados++; continue; }
@@ -9603,12 +9605,12 @@ function atualizarStatusFdSync() {
 
 async function autoSyncFinanceDesk() {
   if (!financeDeskApiKey) return;
-  const INTERVAL_MS = 24 * 60 * 60 * 1000;
+  if (sessionStorage.getItem('ps_fd_sync_done')) return;
+  sessionStorage.setItem('ps_fd_sync_done', '1');
   const lastSync = parseInt(localStorage.getItem('ps_fd_last_sync') || '0', 10);
-  if (Date.now() - lastSync < INTERVAL_MS) return;
   const desde = lastSync
     ? new Date(lastSync).toISOString()
-    : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   await importarAlunosFinanceDesk(desde);
 }
 
