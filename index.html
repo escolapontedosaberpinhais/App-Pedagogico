@@ -3099,7 +3099,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.7.3';
+const APP_VERSION = 'v2.7.4';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -9491,7 +9491,7 @@ const OLD_APPS_SCRIPT_URL     = 'https://script.google.com/macros/s/AKfycbxFfHYV
 (function(){ const s = localStorage.getItem('ps_apps_script_url'); if (!s || s === OLD_APPS_SCRIPT_URL) localStorage.setItem('ps_apps_script_url', DEFAULT_APPS_SCRIPT_URL); })();
 let appsScriptUrl = localStorage.getItem('ps_apps_script_url') || DEFAULT_APPS_SCRIPT_URL;
 let financeDeskApiKey = localStorage.getItem('ps_financedesk_key') || '';
-const FINANCEDESK_BASE_URL = 'https://financedesk-tan.vercel.app';
+const FINANCEDESK_PROXY_URL = '/api/fd-proxy';
 
 function saveAppsScript() {
   const url = document.getElementById('apps-script-url').value.trim();
@@ -9545,8 +9545,8 @@ async function importarAlunosFinanceDesk(desde) {
   if (manual) showToast('📥 Buscando alunos do FinanceDesk…');
   try {
     const url = desde
-      ? `${FINANCEDESK_BASE_URL}/api/public/alunos?desde=${encodeURIComponent(desde)}`
-      : `${FINANCEDESK_BASE_URL}/api/public/alunos`;
+      ? `${FINANCEDESK_PROXY_URL}?desde=${encodeURIComponent(desde)}`
+      : FINANCEDESK_PROXY_URL;
     const resp = await fetch(url, { headers: { 'X-API-Key': financeDeskApiKey } });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
