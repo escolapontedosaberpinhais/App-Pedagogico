@@ -941,6 +941,10 @@
       <input type="text" id="edit-usr-login" placeholder="usuario" />
     </div>
     <div class="form-group" style="margin-bottom:12px;">
+      <label>E-mail Google (para compartilhar docs do Drive)</label>
+      <input type="email" id="edit-usr-email" placeholder="professora@gmail.com" />
+    </div>
+    <div class="form-group" style="margin-bottom:12px;">
       <label>Nova senha <span style="font-size:11px;color:var(--gray-400);">(deixe em branco para manter)</span></label>
       <input type="password" id="edit-usr-senha" placeholder="mínimo 4 caracteres" />
     </div>
@@ -1505,6 +1509,10 @@ function getFolder(path) {
       <div class="form-group">
         <label>Usuário (login)</label>
         <input type="text" id="usr-login" placeholder="ana.silva" />
+      </div>
+      <div class="form-group">
+        <label>E-mail Google (para compartilhar docs do Drive)</label>
+        <input type="email" id="usr-email" placeholder="professora@gmail.com" />
       </div>
       <div class="form-group">
         <label>Senha</label>
@@ -3099,7 +3107,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.7.6';
+const APP_VERSION = 'v2.7.7';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -3795,6 +3803,7 @@ function toggleUsrTurma() {
 function addUsuario() {
   const nome    = document.getElementById('usr-nome').value.trim();
   const login   = document.getElementById('usr-login').value.trim().toLowerCase();
+  const email   = (document.getElementById('usr-email')?.value || '').trim().toLowerCase();
   const senha   = document.getElementById('usr-senha').value;
   const papel   = document.getElementById('usr-papel').value;
   const turmaIds = papel === 'professora' ? getCheckedTurmas('usr-turmas-checks') : [];
@@ -3805,12 +3814,13 @@ function addUsuario() {
   if (db.usuarios.find(u => u.usuario === login)) {
     alert('Já existe um usuário com esse login.'); return;
   }
-  const novoUsuario = { id: uid(), nome, usuario: login, senha: hashPw(senha), papel, turmaIds };
+  const novoUsuario = { id: uid(), nome, usuario: login, email, senha: hashPw(senha), papel, turmaIds };
   db.usuarios.push(novoUsuario);
   save();
   logger.audit({ module: 'usuario', action: 'create', message: `Usuário criado: ${nome} (${papel})`, after: { nome, usuario: login, papel, turmaIds } });
   document.getElementById('usr-nome').value = '';
   document.getElementById('usr-login').value = '';
+  if (document.getElementById('usr-email')) document.getElementById('usr-email').value = '';
   document.getElementById('usr-senha').value = '';
   renderUsuarios();
   showToast('Usuário criado!');
@@ -3822,6 +3832,7 @@ function abrirEditarUsuario(id) {
   document.getElementById('edit-usr-id').value    = u.id;
   document.getElementById('edit-usr-nome').value  = u.nome;
   document.getElementById('edit-usr-login').value = u.usuario;
+  if (document.getElementById('edit-usr-email')) document.getElementById('edit-usr-email').value = u.email || '';
   document.getElementById('edit-usr-senha').value = '';
   document.getElementById('edit-usr-papel').value = u.papel;
   document.getElementById('modal-editar-usr-erro').style.display = 'none';
@@ -3854,9 +3865,11 @@ function salvarEdicaoUsuario() {
   const idx = db.usuarios.findIndex(u => u.id === id);
   if (idx === -1) return;
 
+  const emailEdit = (document.getElementById('edit-usr-email')?.value || '').trim().toLowerCase();
   const antes = { nome: db.usuarios[idx].nome, usuario: db.usuarios[idx].usuario, papel: db.usuarios[idx].papel, turmaIds: db.usuarios[idx].turmaIds };
   db.usuarios[idx].nome     = nome;
   db.usuarios[idx].usuario  = login;
+  db.usuarios[idx].email    = emailEdit;
   db.usuarios[idx].papel    = papel;
   db.usuarios[idx].turmaIds = turmaIds;
   delete db.usuarios[idx].turmaId;
@@ -4471,6 +4484,7 @@ function salvarPlanejamento() {
     const dataFmt = data ? data.replace(/-/g, '') : 'sem-data';
     const filename = sanitizeName(`${conteudos} - ${dataFmt}`) + '.txt';
     uploadToDrive(filename, buildPlanejamentoTxt(pl),
+      getEmailsParaTurma(turmaId),
       'Escola Ponte do Saber', turmaNome, bimestre, 'Planejamentos')
       .then(url => {
         if (url) { pl.docUrl = url; save(); renderPlanejamentos(); }
@@ -6522,6 +6536,7 @@ function salvarParecer() {
     const turmaNome = sanitizeName(turma ? turma.nome : 'Turma');
     const filename = sanitizeName(`${aluno.nome} - ${periodo}`) + '.txt';
     uploadToDrive(filename, buildParecerTxt(p),
+      getEmailsParaTurma(turmaId),
       'Escola Ponte do Saber', turmaNome, periodo, 'Pareceres')
       .then(url => {
         if (url) { p.docUrl = url; save(); renderPareceres(); }
@@ -6563,6 +6578,7 @@ async function reenviarParecerDrive(id) {
     const turmaNome = sanitizeName(turmaRef ? turmaRef.nome : 'Turma');
     const filename = sanitizeName(`${p.alunoNome} - ${p.periodo}`) + '.txt';
     const url = await uploadToDrive(filename, buildParecerTxt(p),
+      getEmailsParaTurma(p.turmaId),
       'Escola Ponte do Saber', turmaNome, p.periodo, 'Pareceres');
     if (url) {
       p.docUrl = url;
@@ -9622,7 +9638,7 @@ async function autoSyncFinanceDesk() {
 async function testarConexao() {
   try {
     await uploadToDrive('teste-conexao.txt', 'Conexão OK — Escola Ponte do Saber',
-      'Escola Ponte do Saber', '_teste');
+      [], 'Escola Ponte do Saber', '_teste');
     showToast('✅ Conexão funcionando! Verifique seu Drive.');
   } catch(e) {
     showToast('❌ Falha: ' + e.message);
@@ -9657,12 +9673,19 @@ function updateCloudStatus(connected, msg) {
   }
 }
 
-async function uploadToDrive(filename, content, ...folderPath) {
+function getEmailsParaTurma(turmaId) {
+  return db.usuarios
+    .filter(u => u.papel === 'professora' && (u.turmaIds || []).includes(turmaId) && u.email)
+    .map(u => u.email);
+}
+
+async function uploadToDrive(filename, content, shareWith, ...folderPath) {
   if (!appsScriptUrl) throw new Error('Apps Script não configurado.');
   const body = JSON.stringify({
     path: folderPath.map(sanitizeName),
     filename: sanitizeName(filename),
     content,
+    shareWith: Array.isArray(shareWith) ? shareWith : [],
   });
   try {
     // redirect:'follow' + verificação de URL detecta redirecionamento para auth do Google
