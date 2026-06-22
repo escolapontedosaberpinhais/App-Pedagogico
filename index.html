@@ -3107,7 +3107,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.7.7';
+const APP_VERSION = 'v2.7.8';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -9674,9 +9674,13 @@ function updateCloudStatus(connected, msg) {
 }
 
 function getEmailsParaTurma(turmaId) {
-  return db.usuarios
-    .filter(u => u.papel === 'professora' && (u.turmaIds || []).includes(turmaId) && u.email)
-    .map(u => u.email);
+  const emails = [];
+  for (const u of db.usuarios) {
+    if (!u.email) continue;
+    if (u.papel === 'professora' && (u.turmaIds || []).includes(turmaId)) emails.push(u.email);
+    if (u.papel === 'pedagoga' || u.papel === 'diretor') emails.push(u.email);
+  }
+  return [...new Set(emails)];
 }
 
 async function uploadToDrive(filename, content, shareWith, ...folderPath) {
