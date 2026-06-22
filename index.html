@@ -4995,7 +4995,7 @@ function renderDashboard() {
   // --- ÚLTIMAS ATIVIDADES ---
   const atividades = [
     ...db.pareceres.map(p => ({ tipo: 'parecer', label: `Parecer: ${p.alunoNome}`, sub: db.turmas.find(t=>t.id===p.turmaId)?.nome + ' · ' + p.periodo, ts: p.criadoEm })),
-    ...db.planejamentos.map(p => ({ tipo: 'plan', label: `Planej.: ${p.tema}`, sub: db.turmas.find(t=>t.id===p.turmaId)?.nome + (p.bimestre ? ' · ' + p.bimestre : ''), ts: p.criadoEm })),
+    ...db.planejamentos.map(p => ({ tipo: 'plan', label: `Planej.: ${p.conteudos || p.tema || '—'}`, sub: db.turmas.find(t=>t.id===p.turmaId)?.nome + (p.bimestre ? ' · ' + p.bimestre : ''), ts: p.criadoEm })),
   ].sort((a, b) => new Date(b.ts) - new Date(a.ts)).slice(0, 10);
 
   document.getElementById('dash-atividades').innerHTML = atividades.length === 0
