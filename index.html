@@ -3149,7 +3149,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.8.6';
+const APP_VERSION = 'v2.8.7';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -5257,6 +5257,7 @@ function renderCorrecoes() {
   };
 
   const porIdade = (a, b) => new Date(a.criadoEm) - new Date(b.criadoEm); // mais antigos primeiro
+  const porNome  = (a, b) => (a.alunoNome || '').localeCompare(b.alunoNome || '', 'pt-BR', { sensitivity: 'base' }); // ordem alfabética
 
   // ── Planejamentos: aguardando 1ª revisão da pedagoga (não devolvido, não corrigido)
   let plsPend = db.planejamentos.filter(p => !p.corrigido && p.revisao !== 'devolvido' && p.revisao !== 'revisado').sort(porIdade);
@@ -5266,14 +5267,14 @@ function renderCorrecoes() {
   if (turmaFiltro)  { plsPend = plsPend.filter(p => p.turmaId === turmaFiltro); plsRevisados = plsRevisados.filter(p => p.turmaId === turmaFiltro); }
   if (busca)        { plsPend = plsPend.filter(matchBusca); plsRevisados = plsRevisados.filter(matchBusca); }
 
-  // ── Pareceres: aguardando 1ª revisão
-  let parsPend = db.pareceres.filter(p => !p.corrigido && p.revisao !== 'devolvido' && p.revisao !== 'revisado').sort(porIdade);
+  // ── Pareceres: aguardando 1ª revisão (ordem alfabética por nome do aluno)
+  let parsPend = db.pareceres.filter(p => !p.corrigido && p.revisao !== 'devolvido' && p.revisao !== 'revisado').sort(porNome);
   // Pareceres devolvidos e re-corrigidos
-  let parsRevisados = db.pareceres.filter(p => p.revisao === 'revisado').sort(porIdade);
+  let parsRevisados = db.pareceres.filter(p => p.revisao === 'revisado').sort(porNome);
   // Pareceres aprovados aguardando liberação
-  let parsAprovados = db.pareceres.filter(p => p.corrigido && !p.prontoImpressao && p.revisao !== 'revisado').sort(porIdade);
+  let parsAprovados = db.pareceres.filter(p => p.corrigido && !p.prontoImpressao && p.revisao !== 'revisado').sort(porNome);
   // Pareceres liberados para impressão
-  let parsLiberados = db.pareceres.filter(p => p.prontoImpressao).sort(porIdade);
+  let parsLiberados = db.pareceres.filter(p => p.prontoImpressao).sort(porNome);
   if (bimFiltro) {
     parsPend      = parsPend.filter(p => p.periodo === bimFiltro);
     parsRevisados = parsRevisados.filter(p => p.periodo === bimFiltro);
