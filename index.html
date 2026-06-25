@@ -3149,7 +3149,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.8.7';
+const APP_VERSION = 'v2.8.8';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -5261,14 +5261,18 @@ function renderCorrecoes() {
 
   // ── Planejamentos: aguardando 1ª revisão da pedagoga (não devolvido, não corrigido)
   let plsPend = db.planejamentos.filter(p => !p.corrigido && p.revisao !== 'devolvido' && p.revisao !== 'revisado').sort(porIdade);
+  // Planejamentos devolvidos aguardando correção da professora
+  let plsDevolvidos = db.planejamentos.filter(p => p.revisao === 'devolvido').sort(porIdade);
   // Planejamentos devolvidos e já re-corrigidos pela professora
   let plsRevisados = db.planejamentos.filter(p => p.revisao === 'revisado').sort(porIdade);
-  if (bimFiltro)    { plsPend = plsPend.filter(p => p.bimestre === bimFiltro); plsRevisados = plsRevisados.filter(p => p.bimestre === bimFiltro); }
-  if (turmaFiltro)  { plsPend = plsPend.filter(p => p.turmaId === turmaFiltro); plsRevisados = plsRevisados.filter(p => p.turmaId === turmaFiltro); }
-  if (busca)        { plsPend = plsPend.filter(matchBusca); plsRevisados = plsRevisados.filter(matchBusca); }
+  if (bimFiltro)    { plsPend = plsPend.filter(p => p.bimestre === bimFiltro); plsDevolvidos = plsDevolvidos.filter(p => p.bimestre === bimFiltro); plsRevisados = plsRevisados.filter(p => p.bimestre === bimFiltro); }
+  if (turmaFiltro)  { plsPend = plsPend.filter(p => p.turmaId === turmaFiltro); plsDevolvidos = plsDevolvidos.filter(p => p.turmaId === turmaFiltro); plsRevisados = plsRevisados.filter(p => p.turmaId === turmaFiltro); }
+  if (busca)        { plsPend = plsPend.filter(matchBusca); plsDevolvidos = plsDevolvidos.filter(matchBusca); plsRevisados = plsRevisados.filter(matchBusca); }
 
   // ── Pareceres: aguardando 1ª revisão (ordem alfabética por nome do aluno)
   let parsPend = db.pareceres.filter(p => !p.corrigido && p.revisao !== 'devolvido' && p.revisao !== 'revisado').sort(porNome);
+  // Pareceres devolvidos aguardando correção da professora
+  let parsDevolvidos = db.pareceres.filter(p => p.revisao === 'devolvido').sort(porNome);
   // Pareceres devolvidos e re-corrigidos
   let parsRevisados = db.pareceres.filter(p => p.revisao === 'revisado').sort(porNome);
   // Pareceres aprovados aguardando liberação
@@ -5276,26 +5280,29 @@ function renderCorrecoes() {
   // Pareceres liberados para impressão
   let parsLiberados = db.pareceres.filter(p => p.prontoImpressao).sort(porNome);
   if (bimFiltro) {
-    parsPend      = parsPend.filter(p => p.periodo === bimFiltro);
-    parsRevisados = parsRevisados.filter(p => p.periodo === bimFiltro);
-    parsAprovados = parsAprovados.filter(p => p.periodo === bimFiltro);
-    parsLiberados = parsLiberados.filter(p => p.periodo === bimFiltro);
+    parsPend       = parsPend.filter(p => p.periodo === bimFiltro);
+    parsDevolvidos = parsDevolvidos.filter(p => p.periodo === bimFiltro);
+    parsRevisados  = parsRevisados.filter(p => p.periodo === bimFiltro);
+    parsAprovados  = parsAprovados.filter(p => p.periodo === bimFiltro);
+    parsLiberados  = parsLiberados.filter(p => p.periodo === bimFiltro);
   }
   if (turmaFiltro) {
-    parsPend      = parsPend.filter(p => p.turmaId === turmaFiltro);
-    parsRevisados = parsRevisados.filter(p => p.turmaId === turmaFiltro);
-    parsAprovados = parsAprovados.filter(p => p.turmaId === turmaFiltro);
-    parsLiberados = parsLiberados.filter(p => p.turmaId === turmaFiltro);
+    parsPend       = parsPend.filter(p => p.turmaId === turmaFiltro);
+    parsDevolvidos = parsDevolvidos.filter(p => p.turmaId === turmaFiltro);
+    parsRevisados  = parsRevisados.filter(p => p.turmaId === turmaFiltro);
+    parsAprovados  = parsAprovados.filter(p => p.turmaId === turmaFiltro);
+    parsLiberados  = parsLiberados.filter(p => p.turmaId === turmaFiltro);
   }
   if (busca) {
-    parsPend      = parsPend.filter(matchBusca);
-    parsRevisados = parsRevisados.filter(matchBusca);
-    parsAprovados = parsAprovados.filter(matchBusca);
-    parsLiberados = parsLiberados.filter(matchBusca);
+    parsPend       = parsPend.filter(matchBusca);
+    parsDevolvidos = parsDevolvidos.filter(matchBusca);
+    parsRevisados  = parsRevisados.filter(matchBusca);
+    parsAprovados  = parsAprovados.filter(matchBusca);
+    parsLiberados  = parsLiberados.filter(matchBusca);
   }
 
-  const tudoVazio = (!mostrarPl || (plsPend.length === 0 && plsRevisados.length === 0))
-                 && (!mostrarPar || (parsPend.length === 0 && parsRevisados.length === 0 && parsAprovados.length === 0 && parsLiberados.length === 0));
+  const tudoVazio = (!mostrarPl || (plsPend.length === 0 && plsDevolvidos.length === 0 && plsRevisados.length === 0))
+                 && (!mostrarPar || (parsPend.length === 0 && parsDevolvidos.length === 0 && parsRevisados.length === 0 && parsAprovados.length === 0 && parsLiberados.length === 0));
   if (tudoVazio) {
     el.innerHTML = '<div class="alert alert-info" style="margin:0;">🎉 Tudo em dia! Nenhum item pendente.</div>';
     return;
@@ -5331,6 +5338,39 @@ function renderCorrecoes() {
           <button class="btn btn-secondary btn-sm" onclick="verPlanejamento('${p.id}')">👁️</button>
           <button class="btn btn-sm btn-amber" onclick="devolverParaCorrecao('pl','${p.id}')">↩️ Devolver</button>
           <button class="btn btn-sm btn-success" onclick="toggleCorrigidoDash('pl','${p.id}')">✅ Aprovar</button>
+          ${isDiretorCorr ? `<button class="btn btn-danger btn-sm" onclick="deletePlanejamento('${p.id}')" title="Excluir">🗑️</button>` : ''}
+        </div>
+      </div>`;
+    });
+    html += '</div></div>';
+  }
+
+  // ── SEÇÃO 1B: Planejamentos devolvidos — aguardando correção da professora
+  if (mostrarPl && plsDevolvidos.length > 0) {
+    html += `<div style="margin-bottom:20px;">
+      <div style="font-size:13px;font-weight:700;color:#d97706;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+        ↩️ Planejamentos — devolvidos, aguardando correção da professora
+        <span style="background:#d97706;color:#fff;border-radius:20px;padding:1px 9px;font-size:12px;">${plsDevolvidos.length}</span>
+      </div>
+      <div class="item-list">`;
+    plsDevolvidos.forEach(p => {
+      const turma = db.turmas.find(t => t.id === p.turmaId);
+      const dataFmt = p.data ? new Date(p.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+      const devFmt = p.devolvidoEm ? fmtDateTime(p.devolvidoEm) : '—';
+      html += `<div class="item-card" style="border-left:3px solid #d97706;background:#fffbeb;">
+        <div class="info">
+          <strong>${p.conteudos || p.tema || '—'}</strong>
+          <span><span class="badge badge-green">${turma ? turma.nome : '—'}</span>
+            ${p.bimestre ? `<span class="badge badge-gray">${p.bimestre}</span>` : ''}
+            &nbsp;📅 ${dataFmt} &nbsp;|&nbsp; 👩‍🏫 ${p.prof}
+          </span>
+          <span style="font-size:12px;color:#d97706;font-weight:600;">↩️ Devolvido em ${devFmt} — aguardando a professora reenviar</span>
+          ${htmlHistorico(p)}
+        </div>
+        <div class="actions">
+          ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : ''}
+          <button class="btn btn-secondary btn-sm" onclick="verPlanejamento('${p.id}')">👁️</button>
+          <button class="btn btn-sm btn-success" onclick="aprovarRevisao('pl','${p.id}')" title="Aprovar diretamente (caso a professora já tenha corrigido)">✅ Aprovar</button>
           ${isDiretorCorr ? `<button class="btn btn-danger btn-sm" onclick="deletePlanejamento('${p.id}')" title="Excluir">🗑️</button>` : ''}
         </div>
       </div>`;
@@ -5397,6 +5437,36 @@ function renderCorrecoes() {
           <button class="btn btn-primary btn-sm" onclick="imprimirParecer('${p.id}')">🖨️ PDF</button>
           <button class="btn btn-sm btn-amber" onclick="devolverParaCorrecao('par','${p.id}')">↩️ Devolver</button>
           <button class="btn btn-sm btn-success" onclick="toggleCorrigidoDash('par','${p.id}')">✅ Aprovar</button>
+          ${isDiretorCorr ? `<button class="btn btn-danger btn-sm" onclick="deleteParecer('${p.id}')" title="Excluir">🗑️</button>` : ''}
+        </div>
+      </div>`;
+    });
+    html += '</div></div>';
+  }
+
+  // ── SEÇÃO 3B: Pareceres devolvidos — aguardando correção da professora
+  if (mostrarPar && parsDevolvidos.length > 0) {
+    html += `<div style="margin-bottom:20px;">
+      <div style="font-size:13px;font-weight:700;color:#d97706;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+        ↩️ Pareceres — devolvidos, aguardando correção da professora
+        <span style="background:#d97706;color:#fff;border-radius:20px;padding:1px 9px;font-size:12px;">${parsDevolvidos.length}</span>
+      </div>
+      <div class="item-list">`;
+    parsDevolvidos.forEach(p => {
+      const turma = db.turmas.find(t => t.id === p.turmaId);
+      const devFmt = p.devolvidoEm ? fmtDateTime(p.devolvidoEm) : '—';
+      html += `<div class="item-card" style="border-left:3px solid #d97706;background:#fffbeb;">
+        <div class="info">
+          <strong>${p.alunoNome}</strong>
+          <span><span class="badge badge-green">${turma ? turma.nome : '—'}</span> &nbsp;${p.periodo}</span>
+          <span style="font-size:12px;color:#d97706;font-weight:600;">↩️ Devolvido em ${devFmt} — aguardando a professora reenviar</span>
+          ${htmlHistorico(p)}
+        </div>
+        <div class="actions">
+          ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : ''}
+          <button class="btn btn-secondary btn-sm" onclick="verParecer('${p.id}')">👁️</button>
+          <button class="btn btn-primary btn-sm" onclick="imprimirParecer('${p.id}')">🖨️ PDF</button>
+          <button class="btn btn-sm btn-success" onclick="aprovarRevisao('par','${p.id}')" title="Aprovar diretamente (caso a professora já tenha corrigido)">✅ Aprovar</button>
           ${isDiretorCorr ? `<button class="btn btn-danger btn-sm" onclick="deleteParecer('${p.id}')" title="Excluir">🗑️</button>` : ''}
         </div>
       </div>`;
