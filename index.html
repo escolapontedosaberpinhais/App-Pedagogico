@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Escola Ponte do Saber — Gestão Pedagógica</title>
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#1D9E75">
@@ -3142,7 +3145,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.7.9';
+const APP_VERSION = 'v2.8.1';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -3177,7 +3180,8 @@ const APP_VERSION = 'v2.7.9';
       }
     } catch (_) {}
   }
-  setInterval(checkVersion, 60000);
+  setTimeout(checkVersion, 5000);   // checa 5s após carregar
+  setInterval(checkVersion, 60000); // e depois a cada 60s
 })();
 
 // =====================================================================
