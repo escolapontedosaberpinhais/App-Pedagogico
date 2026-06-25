@@ -902,10 +902,9 @@
 <body>
 
 <!-- BANNER NOVA VERSÃO -->
-<div id="version-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#1D9E75;color:#fff;text-align:center;padding:10px 16px;font-size:14px;font-weight:500;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:none;align-items:center;justify-content:center;gap:12px;">
-  <span>🚀 Nova versão disponível — Atualizar agora</span>
-  <button onclick="location.reload()" style="background:#fff;color:#1D9E75;border:none;border-radius:6px;padding:4px 14px;font-size:13px;font-weight:700;cursor:pointer;">Atualizar</button>
-  <button onclick="document.getElementById('version-banner').style.display='none'" style="background:transparent;color:rgba(255,255,255,0.7);border:none;font-size:18px;cursor:pointer;line-height:1;padding:0 4px;" title="Fechar">×</button>
+<div id="version-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#1D9E75;color:#fff;text-align:center;padding:10px 16px;font-size:14px;font-weight:500;box-shadow:0 2px 8px rgba(0,0,0,0.2);align-items:center;justify-content:center;gap:12px;">
+  <span>🚀 Nova versão disponível — atualizando em 10s</span>
+  <button onclick="location.reload()" style="background:#fff;color:#1D9E75;border:none;border-radius:6px;padding:4px 14px;font-size:13px;font-weight:700;cursor:pointer;">Atualizar agora</button>
 </div>
 
 <!-- MODAL TROCAR SENHA -->
@@ -3151,14 +3150,30 @@ const APP_VERSION = 'v2.7.9';
 })();
 
 (function startVersionWatch() {
+  let _reloadPending = false;
   async function checkVersion() {
+    if (_reloadPending) return;
     try {
       const res = await fetch('/?_v=' + Date.now(), { cache: 'no-store' });
       const html = await res.text();
       const m = html.match(/APP_VERSION\s*=\s*'(v[\d.]+)'/);
       if (m && m[1] !== APP_VERSION) {
+        _reloadPending = true;
         const banner = document.getElementById('version-banner');
-        if (banner) banner.style.display = 'flex';
+        if (banner) {
+          banner.style.display = 'flex';
+          // Conta regressiva e recarrega automaticamente em 10s
+          const span = banner.querySelector('span');
+          let secs = 10;
+          if (span) span.textContent = `🚀 Nova versão disponível — atualizando em ${secs}s`;
+          const tick = setInterval(() => {
+            secs--;
+            if (span) span.textContent = `🚀 Nova versão disponível — atualizando em ${secs}s`;
+            if (secs <= 0) { clearInterval(tick); location.reload(); }
+          }, 1000);
+        } else {
+          location.reload();
+        }
       }
     } catch (_) {}
   }
