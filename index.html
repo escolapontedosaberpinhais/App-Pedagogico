@@ -3146,7 +3146,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.8.1';
+const APP_VERSION = 'v2.8.3';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -3158,15 +3158,14 @@ const APP_VERSION = 'v2.8.1';
   async function checkVersion() {
     if (_reloadPending) return;
     try {
-      const res = await fetch('/?_v=' + Date.now(), { cache: 'no-store' });
-      const html = await res.text();
-      const m = html.match(/APP_VERSION\s*=\s*'(v[\d.]+)'/);
-      if (m && m[1] !== APP_VERSION) {
+      const res = await fetch('/api/version?_v=' + Date.now(), { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.version && data.version !== APP_VERSION) {
         _reloadPending = true;
         const banner = document.getElementById('version-banner');
         if (banner) {
           banner.style.display = 'flex';
-          // Conta regressiva e recarrega automaticamente em 10s
           const span = banner.querySelector('span');
           let secs = 10;
           if (span) span.textContent = `🚀 Nova versão disponível — atualizando em ${secs}s`;
@@ -3181,8 +3180,8 @@ const APP_VERSION = 'v2.8.1';
       }
     } catch (_) {}
   }
-  setTimeout(checkVersion, 5000);   // checa 5s após carregar
-  setInterval(checkVersion, 60000); // e depois a cada 60s
+  setTimeout(checkVersion, 5000);
+  setInterval(checkVersion, 60000);
 })();
 
 // =====================================================================
