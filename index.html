@@ -1628,6 +1628,35 @@ function getFolder(path) {
 
   <div id="alunos-list" class="item-list"></div>
 
+  <!-- CALENDÁRIO DE ENTREGAS DE PARECERES -->
+  <div id="cad-entregas-section">
+    <div class="card" style="margin-top:16px;">
+      <div class="card-title">📅 Calendário de Entregas de Pareceres</div>
+      <p style="font-size:13px;color:var(--gray-400);margin-bottom:12px;">Defina a data de entrega de cada bimestre. Ela aparecerá automaticamente na impressão dos pareceres.</p>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>1º Bimestre</label>
+          <input type="date" id="entrega-b1" />
+        </div>
+        <div class="form-group">
+          <label>2º Bimestre</label>
+          <input type="date" id="entrega-b2" />
+        </div>
+        <div class="form-group">
+          <label>3º Bimestre</label>
+          <input type="date" id="entrega-b3" />
+        </div>
+        <div class="form-group">
+          <label>4º Bimestre</label>
+          <input type="date" id="entrega-b4" />
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="salvarEntregasPareceres()">💾 Salvar datas</button>
+      </div>
+    </div>
+  </div>
+
   <!-- TURMAS: visível apenas para diretor, pedagoga e secretaria -->
   <div id="cad-turmas-section">
     <div class="card" style="margin-top:16px;">
@@ -3243,13 +3272,14 @@ async function migrarImagensPlanej() {
 async function loadFromFirestore() {
   const _t = logger.timer('firestore', 'load-initial');
   try {
-    const [rT, rA, rP, rPar, rAv, rU, rCfg, rNot, rHa, rRot, rAtiv, rDSA] = await Promise.all([
+    const [rT, rA, rP, rPar, rAv, rU, rCfg, rNot, rHa, rRot, rAtiv, rDSA, rEP] = await Promise.all([
       FSREF('turmas').get(), FSREF('alunos').get(),
       FSREF('planejamentos').get(), FSREF('pareceres').get(),
       FSREF('avaliacoes').get(), FSREF('usuarios').get(),
       FSREF('config').get(), FSREF('notificacoes').get(),
       FSREF('horaAtividade').get(), FSREF('rotinas').get(),
       FSREF('atividades').get(), FSREF('diasSemAula').get(),
+      FSREF('entregasPareceres').get(),
     ]);
     if (rT.exists)   db.turmas        = rT.data().data   ?? [];
     if (rA.exists)   db.alunos        = rA.data().data   ?? [];
@@ -3259,7 +3289,8 @@ async function loadFromFirestore() {
     if (rU.exists)   db.usuarios      = rU.data().data   ?? [];
     if (rNot.exists) db.notificacoes  = rNot.data().data ?? [];
     if (rHa.exists)  db.horaAtividade = rHa.data().data  ?? [];
-    if (rDSA.exists) db.diasSemAula   = rDSA.data().data ?? [];
+    if (rDSA.exists) db.diasSemAula        = rDSA.data().data ?? [];
+    if (rEP.exists)  db.entregasPareceres = rEP.data().data  ?? { b1: '', b2: '', b3: '', b4: '' };
     if (rRot.exists) {
       db.rotinas = rRot.data().data ?? [];
     } else {
@@ -3308,7 +3339,8 @@ async function loadFromFirestore() {
       db.horaAtividade = LS.get('ps_hora_atividade', []);
       db.rotinas       = LS.get('ps_rotinas', []);
       db.atividades    = LS.get('ps_atividades', []);
-      db.diasSemAula   = LS.get('ps_dias_sem_aula', []);
+      db.diasSemAula        = LS.get('ps_dias_sem_aula', []);
+      db.entregasPareceres  = LS.get('ps_entregas_pareceres', { b1: '', b2: '', b3: '', b4: '' });
       _rotinasCarregadas = true; _atividadesCarregadas = true;
       saveToFirestore();
     }
@@ -3325,7 +3357,8 @@ async function loadFromFirestore() {
     db.horaAtividade = LS.get('ps_hora_atividade', []);
     db.rotinas       = LS.get('ps_rotinas', []);
     db.atividades    = LS.get('ps_atividades', []);
-    db.diasSemAula   = LS.get('ps_dias_sem_aula', []);
+    db.diasSemAula        = LS.get('ps_dias_sem_aula', []);
+    db.entregasPareceres  = LS.get('ps_entregas_pareceres', { b1: '', b2: '', b3: '', b4: '' });
     _rotinasCarregadas = true; _atividadesCarregadas = true;
   }
 }
@@ -3395,6 +3428,7 @@ function saveToFirestore() {
   if (_rotinasCarregadas)    batch.set(FSREF('rotinas'),    { data: db.rotinas });
   if (_atividadesCarregadas) batch.set(FSREF('atividades'), { data: db.atividades });
   batch.set(FSREF('diasSemAula'), { data: db.diasSemAula });
+  batch.set(FSREF('entregasPareceres'), { data: db.entregasPareceres });
   batch.commit()
     .then(() => SyncStatus.saved())
     .catch(e => {
@@ -3449,6 +3483,12 @@ function setupSync() {
   FSREF('usuarios').onSnapshot(handle('usuarios', []));
   FSREF('horaAtividade').onSnapshot(handle('horaAtividade', []));
   FSREF('diasSemAula').onSnapshot(handle('diasSemAula', []));
+  FSREF('entregasPareceres').onSnapshot((doc) => {
+    if (!doc.exists || doc.metadata.hasPendingWrites) return;
+    db.entregasPareceres = doc.data().data ?? { b1: '', b2: '', b3: '', b4: '' };
+    LS.set('ps_entregas_pareceres', db.entregasPareceres);
+    renderEntregasPareceres();
+  });
   FSREF('rotinas').onSnapshot((doc) => {
     if (doc.exists && !doc.metadata.hasPendingWrites) {
       db.rotinas = doc.data().data ?? [];
@@ -3501,7 +3541,7 @@ function refreshCurrentView() {
   if (id === 'tab-pareceres')    { populateSelects(); renderPareceres(); }
   if (id === 'tab-avaliacoes')   { populateSelects(); renderTabelaAvaliacoes(); }
   if (id === 'tab-correcao')        { renderCorrecoes(); }
-  if (id === 'tab-cadastro')        { populateSelects(); populateFiltroTurmas(); renderTurmas(); renderAlunos(); }
+  if (id === 'tab-cadastro')        { populateSelects(); populateFiltroTurmas(); renderTurmas(); renderAlunos(); renderEntregasPareceres(); }
   if (id === 'tab-hora-atividade')  { renderHoraAtividade(); }
   if (id === 'tab-rotina')          { renderRotina(); }
   if (id === 'tab-atividades')      { renderAtividades(); }
@@ -3524,6 +3564,7 @@ let db = {
   rotinas: [],
   atividades: [],
   diasSemAula: [],
+  entregasPareceres: { b1: '', b2: '', b3: '', b4: '' },
 };
 // Guardas: evita sobrescrever dados no Firestore antes de carregá-los
 let _rotinasCarregadas    = false;
@@ -3541,6 +3582,7 @@ function save() {
   LS.set('ps_rotinas', db.rotinas);
   LS.set('ps_atividades', db.atividades);
   LS.set('ps_dias_sem_aula', db.diasSemAula);
+  LS.set('ps_entregas_pareceres', db.entregasPareceres);
   // Firestore
   saveToFirestore();
 }
@@ -4288,6 +4330,28 @@ function ordemTurma(nome) {
     if (n.includes('infantil') && new RegExp('\\b' + r + '\\b').test(n)) return v;
   }
   return 99;
+}
+
+function renderEntregasPareceres() {
+  const ep = db.entregasPareceres || {};
+  const sec = document.getElementById('cad-entregas-section');
+  const isGestao = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga' || currentUser?.papel === 'secretaria';
+  if (sec) sec.style.display = isGestao ? '' : 'none';
+  ['b1','b2','b3','b4'].forEach(k => {
+    const el = document.getElementById(`entrega-${k}`);
+    if (el && ep[k]) el.value = ep[k];
+  });
+}
+
+function salvarEntregasPareceres() {
+  db.entregasPareceres = {
+    b1: document.getElementById('entrega-b1')?.value || '',
+    b2: document.getElementById('entrega-b2')?.value || '',
+    b3: document.getElementById('entrega-b3')?.value || '',
+    b4: document.getElementById('entrega-b4')?.value || '',
+  };
+  save();
+  showToast('✅ Datas de entrega salvas!');
 }
 
 function renderTurmas() {
@@ -6910,7 +6974,12 @@ async function imprimirParecer(id) {
 
 function montarHtmlParecer(p, __corpo) {
   const turma = db.turmas.find(t => t.id === p.turmaId);
-  const dataImpressao = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const _entregaMap = { '1º bimestre': 'b1', '2º bimestre': 'b2', '3º bimestre': 'b3', '4º bimestre': 'b4' };
+  const _bKey = _entregaMap[(p.periodo || '').toLowerCase()];
+  const _entregaVal = _bKey && db.entregasPareceres?.[_bKey];
+  const dataImpressao = _entregaVal
+    ? new Date(_entregaVal + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+    : new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
   const dataRegistro = p.data
     ? new Date(p.data + 'T12:00:00').toLocaleDateString('pt-BR')
     : new Date(p.criadoEm).toLocaleDateString('pt-BR');
@@ -9754,9 +9823,14 @@ function sanitizeName(str) {
 
 function buildParecerTxt(p) {
   const turma = db.turmas.find(t => t.id === p.turmaId);
-  const dataDoc = p.data
-    ? new Date(p.data + 'T12:00:00').toLocaleDateString('pt-BR')
-    : new Date(p.criadoEm).toLocaleDateString('pt-BR');
+  const _entregaMap = { '1º bimestre': 'b1', '2º bimestre': 'b2', '3º bimestre': 'b3', '4º bimestre': 'b4' };
+  const _bKey = _entregaMap[(p.periodo || '').toLowerCase()];
+  const _entregaVal = _bKey && db.entregasPareceres?.[_bKey];
+  const dataDoc = _entregaVal
+    ? new Date(_entregaVal + 'T12:00:00').toLocaleDateString('pt-BR')
+    : p.data
+      ? new Date(p.data + 'T12:00:00').toLocaleDateString('pt-BR')
+      : new Date(p.criadoEm).toLocaleDateString('pt-BR');
   return `PARECER DESCRITIVO — ESCOLA PONTE DO SABER\n${'='.repeat(50)}\n`
     + `Aluno(a): ${p.alunoNome}\nTurma: ${turma ? turma.nome : '—'}\nPeríodo: ${p.periodo}\nData: ${dataDoc}\nTom: ${p.tom}\n\n`
     + p.texto + '\n';
