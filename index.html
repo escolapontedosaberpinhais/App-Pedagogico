@@ -3146,7 +3146,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.8.4';
+const APP_VERSION = 'v2.8.5';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -5259,19 +5259,23 @@ function renderCorrecoes() {
   let parsRevisados = db.pareceres.filter(p => p.revisao === 'revisado').sort(porIdade);
   // Pareceres aprovados aguardando liberação
   let parsAprovados = db.pareceres.filter(p => p.corrigido && !p.prontoImpressao && p.revisao !== 'revisado').sort(porIdade);
+  // Pareceres liberados para impressão
+  let parsLiberados = db.pareceres.filter(p => p.prontoImpressao).sort(porIdade);
   if (bimFiltro) {
     parsPend      = parsPend.filter(p => p.periodo === bimFiltro);
     parsRevisados = parsRevisados.filter(p => p.periodo === bimFiltro);
     parsAprovados = parsAprovados.filter(p => p.periodo === bimFiltro);
+    parsLiberados = parsLiberados.filter(p => p.periodo === bimFiltro);
   }
   if (busca) {
     parsPend      = parsPend.filter(matchBusca);
     parsRevisados = parsRevisados.filter(matchBusca);
     parsAprovados = parsAprovados.filter(matchBusca);
+    parsLiberados = parsLiberados.filter(matchBusca);
   }
 
   const tudoVazio = (!mostrarPl || (plsPend.length === 0 && plsRevisados.length === 0))
-                 && (!mostrarPar || (parsPend.length === 0 && parsRevisados.length === 0 && parsAprovados.length === 0));
+                 && (!mostrarPar || (parsPend.length === 0 && parsRevisados.length === 0 && parsAprovados.length === 0 && parsLiberados.length === 0));
   if (tudoVazio) {
     el.innerHTML = '<div class="alert alert-info" style="margin:0;">🎉 Tudo em dia! Nenhum item pendente.</div>';
     return;
@@ -5436,6 +5440,36 @@ function renderCorrecoes() {
       </div>`;
     });
     html += '</div></div>';
+  }
+
+  // ── SEÇÃO 6: Pareceres liberados para impressão (visibilidade total para pedagoga/diretor)
+  if (mostrarPar && parsLiberados.length > 0) {
+    html += `<details style="margin-top:12px;" open>
+      <summary style="cursor:pointer;font-size:13px;font-weight:700;color:#0369a1;display:flex;align-items:center;gap:6px;list-style:none;padding:8px 12px;background:#e0f2fe;border-radius:8px;border:1px solid #bae6fd;">
+        🖨️ Liberados para impressão
+        <span style="background:#0369a1;color:#fff;border-radius:20px;padding:1px 9px;font-size:12px;">${parsLiberados.length}</span>
+        <span style="margin-left:auto;font-size:11px;color:#0369a1;font-weight:400;">(clique para expandir/recolher)</span>
+      </summary>
+      <div class="item-list" style="margin-top:8px;">`;
+    parsLiberados.forEach(p => {
+      const turma = db.turmas.find(t => t.id === p.turmaId);
+      const impressoLabel = p.impresso
+        ? `<span class="badge" style="background:#e0e7ff;color:#3730a3;font-size:11px;">🖨️ Já impresso</span>`
+        : `<span class="badge" style="background:#d1fae5;color:#065f46;font-size:11px;">✅ Pronto p/ impressão</span>`;
+      html += `<div class="item-card" style="border-left:3px solid #0369a1;">
+        <div class="info">
+          <strong>${p.alunoNome}</strong>
+          <span><span class="badge badge-green">${turma ? turma.nome : '—'}</span> &nbsp;${p.periodo} &nbsp;${impressoLabel}</span>
+        </div>
+        <div class="actions">
+          ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : ''}
+          <button class="btn btn-primary btn-sm" onclick="imprimirParecer('${p.id}')">🖨️ PDF</button>
+          ${isDiretorCorr ? `<button class="btn btn-sm btn-amber" onclick="toggleProntoImpressao('${p.id}')">↩️ Desfazer liberação</button>` : ''}
+          ${isDiretorCorr ? `<button class="btn btn-danger btn-sm" onclick="deleteParecer('${p.id}')" title="Excluir">🗑️</button>` : ''}
+        </div>
+      </div>`;
+    });
+    html += '</div></details>';
   }
 
   el.innerHTML = html;
@@ -6714,6 +6748,7 @@ function toggleProntoImpressao(id) {
   save();
   renderPareceres();
   renderImpressao();
+  renderCorrecoes();
   showToast(p.prontoImpressao ? '🖨️ Parecer liberado para impressão!' : '↩️ Liberação retirada.');
 }
 
