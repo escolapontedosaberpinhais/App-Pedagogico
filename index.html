@@ -906,7 +906,7 @@
 
 <!-- BANNER NOVA VERSÃO -->
 <div id="version-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#1D9E75;color:#fff;text-align:center;padding:10px 16px;font-size:14px;font-weight:500;box-shadow:0 2px 8px rgba(0,0,0,0.2);align-items:center;justify-content:center;gap:12px;">
-  <span>🚀 Nova versão disponível — atualizando em 10s</span>
+  <span>🚀 Nova versão disponível</span>
   <button onclick="location.reload()" style="background:#fff;color:#1D9E75;border:none;border-radius:6px;padding:4px 14px;font-size:13px;font-weight:700;cursor:pointer;">Atualizar agora</button>
 </div>
 
@@ -3146,7 +3146,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.8.3';
+const APP_VERSION = 'v2.8.4';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -3164,19 +3164,7 @@ const APP_VERSION = 'v2.8.3';
       if (data.version && data.version !== APP_VERSION) {
         _reloadPending = true;
         const banner = document.getElementById('version-banner');
-        if (banner) {
-          banner.style.display = 'flex';
-          const span = banner.querySelector('span');
-          let secs = 10;
-          if (span) span.textContent = `🚀 Nova versão disponível — atualizando em ${secs}s`;
-          const tick = setInterval(() => {
-            secs--;
-            if (span) span.textContent = `🚀 Nova versão disponível — atualizando em ${secs}s`;
-            if (secs <= 0) { clearInterval(tick); location.reload(); }
-          }, 1000);
-        } else {
-          location.reload();
-        }
+        if (banner) banner.style.display = 'flex';
       }
     } catch (_) {}
   }
