@@ -1275,6 +1275,7 @@
     <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
       <span>📝 Pendentes de Correção</span>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input type="text" id="corr-busca" oninput="renderCorrecoes()" placeholder="🔍 Buscar aluno ou turma…" style="font-size:13px;padding:5px 10px;border:1px solid var(--gray-200);border-radius:6px;min-width:180px;" />
         <select id="corr-filtro" onchange="renderCorrecoes()" style="font-size:13px;padding:5px 10px;border:1px solid var(--gray-200);border-radius:6px;">
           <option value="">Todos os bimestres</option>
           <option>1º Bimestre</option>
@@ -5244,8 +5245,17 @@ function renderCorrecoes() {
   if (!el) return;
   const bimFiltro  = document.getElementById('corr-filtro')?.value || '';
   const tipoFiltro = document.getElementById('corr-tipo')?.value   || '';
+  const busca      = (document.getElementById('corr-busca')?.value || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
   const mostrarPl  = tipoFiltro === '' || tipoFiltro === 'planejamento';
   const mostrarPar = tipoFiltro === '' || tipoFiltro === 'parecer';
+
+  const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const matchBusca = item => {
+    if (!busca) return true;
+    const nomeTurma = norm(db.turmas.find(t => t.id === item.turmaId)?.nome || '');
+    const nomeAluno = norm(item.alunoNome || item.prof || item.conteudos || '');
+    return nomeTurma.includes(busca) || nomeAluno.includes(busca);
+  };
 
   const porIdade = (a, b) => new Date(a.criadoEm) - new Date(b.criadoEm); // mais antigos primeiro
 
@@ -5254,6 +5264,7 @@ function renderCorrecoes() {
   // Planejamentos devolvidos e já re-corrigidos pela professora
   let plsRevisados = db.planejamentos.filter(p => p.revisao === 'revisado').sort(porIdade);
   if (bimFiltro) { plsPend = plsPend.filter(p => p.bimestre === bimFiltro); plsRevisados = plsRevisados.filter(p => p.bimestre === bimFiltro); }
+  if (busca) { plsPend = plsPend.filter(matchBusca); plsRevisados = plsRevisados.filter(matchBusca); }
 
   // ── Pareceres: aguardando 1ª revisão
   let parsPend = db.pareceres.filter(p => !p.corrigido && p.revisao !== 'devolvido' && p.revisao !== 'revisado').sort(porIdade);
@@ -5265,6 +5276,11 @@ function renderCorrecoes() {
     parsPend      = parsPend.filter(p => p.periodo === bimFiltro);
     parsRevisados = parsRevisados.filter(p => p.periodo === bimFiltro);
     parsAprovados = parsAprovados.filter(p => p.periodo === bimFiltro);
+  }
+  if (busca) {
+    parsPend      = parsPend.filter(matchBusca);
+    parsRevisados = parsRevisados.filter(matchBusca);
+    parsAprovados = parsAprovados.filter(matchBusca);
   }
 
   const tudoVazio = (!mostrarPl || (plsPend.length === 0 && plsRevisados.length === 0))
