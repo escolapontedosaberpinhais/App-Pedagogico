@@ -3149,7 +3149,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.3';
+const APP_VERSION = 'v2.9.4';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -3403,6 +3403,67 @@ async function registrarDeletedIds(ids) {
   } catch(e) { ids.forEach(id => _planejDeletedIds.add(String(id))); }
 }
 
+// ── Pareceres: mesma proteção de exclusão dos planejamentos ────────────────
+let _parecerDeletedIds = new Set();
+
+async function carregarParecerDeletedIds() {
+  try {
+    const d = await fstore.collection('appdata').doc('pareceres_deleted').get();
+    if (d.exists) {
+      const ids = d.data().ids || [];
+      const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000; // 7 dias
+      ids.forEach(e => { if (e.ts > cutoff) _parecerDeletedIds.add(String(e.id)); });
+    }
+  } catch(e) { /* offline — ignora */ }
+}
+
+async function registrarParecerDeletedIds(ids) {
+  ids.forEach(id => _parecerDeletedIds.add(String(id))); // imediato: o merge já enxerga
+  try {
+    const d = await fstore.collection('appdata').doc('pareceres_deleted').get();
+    const existing = d.exists ? (d.data().ids || []) : [];
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const limpo = existing.filter(e => e.ts > cutoff);
+    const novos = ids.map(id => ({ id: String(id), ts: Date.now() }));
+    await fstore.collection('appdata').doc('pareceres_deleted').set({ ids: [...limpo, ...novos] });
+  } catch(e) { /* já adicionado ao Set em memória */ }
+}
+
+// Gravação transacional dos pareceres: faz MERGE por id com o servidor em vez
+// de sobrescrever o array inteiro. Assim, um parecer recém-criado por OUTRA
+// usuária (que ainda não chegou no nosso snapshot) não é apagado quando
+// salvamos. Itens excluídos (tombstone) nunca são ressuscitados.
+async function savePareceresMerged() {
+  if (!navigator.onLine) return;
+  try {
+    await fstore.runTransaction(async (tx) => {
+      const ref = FSREF('pareceres');
+      const snap = await tx.get(ref);
+      const server = snap.exists ? (snap.data().data || []) : [];
+      const seen = new Set();
+      const merged = [];
+      // Itens locais refletem as edições do usuário atual — têm prioridade
+      for (const p of db.pareceres) {
+        const id = String(p.id);
+        if (_parecerDeletedIds.has(id)) continue;
+        merged.push(p); seen.add(id);
+      }
+      // Itens que só existem no servidor = criações/edições recentes de outra
+      // usuária ainda não sincronizadas localmente → preserva
+      for (const p of server) {
+        const id = String(p.id);
+        if (seen.has(id) || _parecerDeletedIds.has(id)) continue;
+        merged.push(p); seen.add(id);
+      }
+      tx.set(ref, { data: merged });
+    });
+  } catch(e) {
+    // fallback: gravação simples (comportamento antigo) para não perder o save
+    try { await FSREF('pareceres').set({ data: db.pareceres }); } catch(_) {}
+    logger.warn({ module: 'firestore', action: 'save-pareceres-merge', message: 'Merge transacional de pareceres falhou; usado overwrite', error: e });
+  }
+}
+
 function resubscribePlanejamentos() {
   if (_unsubPlanejamentos) { _unsubPlanejamentos(); _unsubPlanejamentos = null; }
   _unsubPlanejamentos = FSREF('planejamentos').onSnapshot(doc => {
@@ -3430,7 +3491,9 @@ function saveToFirestore() {
   batch.set(FSREF('turmas'),        { data: db.turmas });
   batch.set(FSREF('alunos'),        { data: db.alunos });
   batch.set(FSREF('planejamentos'), { data: db.planejamentos });
-  batch.set(FSREF('pareceres'),     { data: db.pareceres });
+  // pareceres: gravados via merge transacional (fora do batch) p/ não apagar
+  // criações concorrentes de outras usuárias — ver savePareceresMerged()
+  savePareceresMerged();
   batch.set(FSREF('avaliacoes'),    { data: db.avaliacoes });
   batch.set(FSREF('usuarios'),      { data: db.usuarios });
   batch.set(FSREF('notificacoes'),  { data: db.notificacoes });
@@ -3488,7 +3551,19 @@ function setupSync() {
   FSREF('turmas').onSnapshot(handle('turmas', []));
   FSREF('alunos').onSnapshot(handle('alunos', []));
   resubscribePlanejamentos(); // listener gerenciável — pode ser desligado durante exclusão
-  FSREF('pareceres').onSnapshot(handle('pareceres', []));
+  FSREF('pareceres').onSnapshot(doc => {
+    if (!doc.exists || doc.metadata.hasPendingWrites) return;
+    let data = doc.data().data ?? [];
+    // Filtra IDs excluídos — protege contra dispositivos que tentem restaurá-los
+    if (_parecerDeletedIds.size > 0) {
+      const antes = data.length;
+      data = data.filter(p => !_parecerDeletedIds.has(String(p.id)));
+      if (data.length < antes) FSREF('pareceres').set({ data }).catch(() => {});
+    }
+    db.pareceres = data;
+    LS.set('ps_pareceres', data);
+    refreshCurrentView();
+  });
   FSREF('avaliacoes').onSnapshot(handle('avaliacoes', {}));
   FSREF('usuarios').onSnapshot(handle('usuarios', []));
   FSREF('horaAtividade').onSnapshot(handle('horaAtividade', []));
@@ -4256,6 +4331,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   await loadFromFirestore();
   await migrarImagensPlanej();   // move fotos antigas para fora do doc principal (idempotente)
   await carregarDeletedIds();    // carrega IDs excluídos — proteção contra dispositivos antigos
+  await carregarParecerDeletedIds(); // idem para pareceres
   setupSync();
   document.getElementById('loading-screen').style.display = 'none';
 
@@ -6793,6 +6869,7 @@ function deleteParecer(id) {
   if (currentUser?.papel !== 'diretor' && currentUser?.papel !== 'pedagoga') { showToast('⚠️ Sem permissão para excluir pareceres.'); return; }
   if (!confirm('Excluir parecer?')) return;
   db.pareceres = db.pareceres.filter(p => p.id !== id);
+  registrarParecerDeletedIds([id]); // tombstone: evita ressurreição pelo merge/sync
   save();
   logger.audit({ module: 'parecer', action: 'delete', message: `Parecer excluído: ${par.alunoNome}`, before: { alunoNome: par.alunoNome, periodo: par.periodo, turmaId: par.turmaId } });
   renderPareceres();
