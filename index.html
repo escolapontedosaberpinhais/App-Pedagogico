@@ -3157,7 +3157,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.8';
+const APP_VERSION = 'v2.9.9';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -7046,9 +7046,9 @@ function imprimirListaComparecimento() {
       .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
     if (alunos.length === 0) return;
 
-    // Professoras vinculadas à turma (por turmaIds) + nome no cadastro da turma como fallback
+    // Professoras vinculadas à turma + nome no cadastro da turma como fallback
     const profsVinc = db.usuarios
-      .filter(u => u.papel === 'professora' && (u.turmaIds || []).includes(turma.id))
+      .filter(u => u.papel === 'professora' && getUsrTurmaIds(u).includes(turma.id))
       .map(u => u.nome);
     const profNomesStr = profsVinc.length > 0
       ? profsVinc.join(' e ')
@@ -7110,7 +7110,7 @@ function imprimirListaComparecimento() {
     page-break-after: always;
   }
   .logo-topo { text-align: center; margin-bottom: 12px; }
-  .logo-topo img { height: 72px; width: auto; }
+  .logo-topo img { height: 100px; width: auto; }
   .escola-nome { text-align: center; font-size: 22px; font-weight: 700; margin-bottom: 16px; }
   .subtitulo { text-align: center; font-size: 14px; margin-bottom: 16px; line-height: 1.6; }
   .info-turma { font-size: 14px; margin-bottom: 18px; line-height: 1.7; }
