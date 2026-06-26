@@ -3149,7 +3149,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.8.9';
+const APP_VERSION = 'v2.9.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -4580,7 +4580,7 @@ function salvarPlanejamento() {
     const dataFmt = data ? data.replace(/-/g, '') : 'sem-data';
     const filename = sanitizeName(`${conteudos} - ${dataFmt}`) + '.txt';
     uploadToDrive(filename, buildPlanejamentoTxt(pl),
-      getEmailsParaTurma(turmaId),
+      [],
       'Escola Ponte do Saber', turmaNome, bimestre, 'Planejamentos')
       .then(url => {
         if (url) { pl.docUrl = url; save(); renderPlanejamentos(); }
@@ -6768,9 +6768,8 @@ function salvarParecer() {
     const turma = db.turmas.find(t => t.id === turmaId);
     const turmaNome = sanitizeName(turma ? turma.nome : 'Turma');
     const filename = sanitizeName(`${aluno.nome} - ${periodo}`) + '.txt';
-    const emailsCriacao = [...new Set([...getEmailsParaTurma(turmaId), p.profEmail || ''].filter(Boolean))];
     uploadToDrive(filename, buildParecerTxt(p),
-      emailsCriacao,
+      [],
       'Escola Ponte do Saber', turmaNome, periodo, 'Pareceres')
       .then(url => {
         if (url) { p.docUrl = url; save(); renderPareceres(); }
@@ -6811,9 +6810,8 @@ async function reenviarParecerDrive(id) {
     const turmaRef = db.turmas.find(t => t.id === p.turmaId);
     const turmaNome = sanitizeName(turmaRef ? turmaRef.nome : 'Turma');
     const filename = sanitizeName(`${p.alunoNome} - ${p.periodo}`) + '.txt';
-    const emailsReenvio = [...new Set([...getEmailsParaTurma(p.turmaId), p.profEmail || ''].filter(Boolean))];
     const url = await uploadToDrive(filename, buildParecerTxt(p),
-      emailsReenvio,
+      [],
       'Escola Ponte do Saber', turmaNome, p.periodo, 'Pareceres');
     if (url) {
       p.docUrl = url;
