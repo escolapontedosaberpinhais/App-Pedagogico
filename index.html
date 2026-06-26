@@ -3149,7 +3149,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.4';
+const APP_VERSION = 'v2.9.5';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -4144,7 +4144,7 @@ function showTab(tab) {
   if (tab === 'pareceres')    { populateSelects(); renderPareceres(); }
   if (tab === 'avaliacoes')   { populateSelects(); renderTabelaAvaliacoes(); }
   if (tab === 'correcao')       { renderCorrecoes(); }
-  if (tab === 'cadastro')       { populateSelects(); populateFiltroTurmas(); renderTurmas(); renderAlunos(); }
+  if (tab === 'cadastro')       { populateSelects(); populateFiltroTurmas(); renderTurmas(); renderAlunos(); renderEntregasPareceres(); }
   if (tab === 'hora-atividade') { renderHoraAtividade(); }
   if (tab === 'rotina')         { renderRotina(); }
   if (tab === 'atividades')     { renderAtividades(); }
@@ -4552,10 +4552,10 @@ function renderAlunos() {
     byTurma[a.turmaId].push(a);
   });
 
-  // Pode editar: diretores, pedagogas e a professora da própria turma
+  // Pode excluir alunos: diretor e secretaria
   const canDelete = (turmaId) => {
     if (!currentUser) return false;
-    return currentUser.papel === 'diretor';
+    return currentUser.papel === 'diretor' || currentUser.papel === 'secretaria';
   };
 
   let html = '';
