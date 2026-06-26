@@ -1334,6 +1334,14 @@
 
   <div id="impressao-list"></div>
 
+  <div class="card" style="margin-top:16px;">
+    <div class="card-title">📝 Lista de Comparecimento dos Responsáveis</div>
+    <p style="font-size:13px;color:var(--gray-400);margin-bottom:12px;">Gera uma lista por turma com espaço para assinatura do responsável na entrega do parecer. Use os filtros de turma e bimestre acima para selecionar.</p>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="imprimirListaComparecimento()">🖨️ Imprimir Lista de Comparecimento</button>
+    </div>
+  </div>
+
 </div>
 
 <!-- ===================== CONFIGURAÇÃO ===================== -->
@@ -3149,7 +3157,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.6';
+const APP_VERSION = 'v2.9.7';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -7001,6 +7009,147 @@ function renderImpressao() {
       }).join('')}
     </div>
   `).join('');
+}
+
+function imprimirListaComparecimento() {
+  const bimFiltro   = document.getElementById('imp-filtro-bimestre')?.value || '';
+  const turmaFiltro = document.getElementById('imp-filtro-turma')?.value || '';
+
+  // Determina quais turmas exibir
+  const turmasAlvo = turmaFiltro
+    ? db.turmas.filter(t => t.id === turmaFiltro)
+    : [...db.turmas].sort((a, b) => ordemTurma(a.nome) - ordemTurma(b.nome));
+
+  if (turmasAlvo.length === 0) {
+    showToast('⚠️ Nenhuma turma encontrada.');
+    return;
+  }
+
+  // Logo da escola (mesmo mecanismo do montarHtmlParecer)
+  const logoData = localStorage.getItem('ps_logo');
+  const logoSrc  = logoData || '';
+
+  const dataHoje = new Date().toLocaleDateString('pt-BR');
+  const bimLabel = bimFiltro || '—';
+
+  let pagesHtml = '';
+  turmasAlvo.forEach(turma => {
+    // Alunos da turma em ordem alfabética
+    const alunos = db.alunos
+      .filter(a => a.turmaId === turma.id)
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
+    if (alunos.length === 0) return;
+
+    // Professoras vinculadas à turma (por turmaIds) + nome no cadastro da turma como fallback
+    const profsVinc = db.usuarios
+      .filter(u => u.papel === 'professora' && (u.turmaIds || []).includes(turma.id))
+      .map(u => u.nome);
+    const profNomesStr = profsVinc.length > 0
+      ? profsVinc.join(' e ')
+      : (turma.prof || '—');
+
+    const linhas = alunos.map((a, idx) => `
+      <tr>
+        <td style="text-align:center;">${String(idx + 1).padStart(2, '0')}</td>
+        <td>${escapeHtml(a.nome)}</td>
+        <td></td>
+      </tr>`).join('');
+
+    pagesHtml += `
+    <div class="pagina">
+      ${logoSrc ? `<div class="logo-topo"><img src="${logoSrc}" alt="Logo"></div>` : ''}
+      <h1 class="escola-nome">Escola Ponte do Saber</h1>
+      <div class="subtitulo">
+        <strong>Entrega de Parecer Descritivo</strong><br>
+        DATA: ${dataHoje}
+      </div>
+      <div class="info-turma">
+        <strong>TURMA: ${escapeHtml(turma.nome.toUpperCase())}</strong><br>
+        Professoras: ${escapeHtml(profNomesStr)}
+      </div>
+      <table class="lista">
+        <thead>
+          <tr>
+            <th style="width:48px;">Nº</th>
+            <th>Nome do Aluno</th>
+            <th style="width:38%;">Responsável</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${linhas}
+        </tbody>
+      </table>
+    </div>`;
+  });
+
+  if (!pagesHtml) {
+    showToast('⚠️ Nenhum aluno encontrado nas turmas selecionadas.');
+    return;
+  }
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Lista de Comparecimento — Entrega de Pareceres</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #e9e9e9; color: #000; padding: 24px 16px 60px; }
+  .pagina {
+    background: #fff;
+    max-width: 760px;
+    margin: 0 auto 32px;
+    padding: 40px 50px 48px;
+    box-shadow: 0 3px 18px rgba(0,0,0,.15);
+    page-break-after: always;
+  }
+  .logo-topo { text-align: center; margin-bottom: 12px; }
+  .logo-topo img { height: 72px; width: auto; }
+  .escola-nome { text-align: center; font-size: 22px; font-weight: 700; margin-bottom: 16px; }
+  .subtitulo { text-align: center; font-size: 14px; margin-bottom: 16px; line-height: 1.6; }
+  .info-turma { font-size: 14px; margin-bottom: 18px; line-height: 1.7; }
+  .lista { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .lista th {
+    background: #6fa8dc; color: #fff; font-weight: 700;
+    padding: 10px 8px; text-align: left; border: 1px solid #4a86c8;
+  }
+  .lista th:first-child { text-align: center; }
+  .lista td {
+    padding: 10px 8px; border: 1px solid #c9c9c9; vertical-align: middle;
+    height: 36px;
+  }
+  .toolbar {
+    max-width: 760px; margin: 0 auto 16px;
+    display: flex; gap: 10px; flex-wrap: wrap;
+  }
+  .btn-print {
+    padding: 9px 20px; background: #1D9E75; color: #fff; border: none;
+    border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer;
+  }
+  .btn-close {
+    padding: 9px 20px; background: #fff; color: #555; border: 1.5px solid #ddd;
+    border-radius: 6px; font-size: 14px; cursor: pointer;
+  }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .toolbar { display: none; }
+    .pagina { box-shadow: none; padding: 16mm 18mm; margin: 0; max-width: 100%; }
+    @page { size: A4; margin: 10mm; }
+  }
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+  <button class="btn-close" onclick="window.close()">✕ Fechar</button>
+</div>
+${pagesHtml}
+</body>
+</html>`;
+
+  const win = window.open('', '_blank', 'width=820,height=760');
+  if (win) { win.document.write(html); win.document.close(); }
+  else showToast('⚠️ Permita pop-ups para abrir a lista.');
 }
 
 function renderPareceres() {
