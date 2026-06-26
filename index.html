@@ -3157,7 +3157,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.7';
+const APP_VERSION = 'v2.9.8';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -7025,11 +7025,17 @@ function imprimirListaComparecimento() {
     return;
   }
 
-  // Logo da escola (mesmo mecanismo do montarHtmlParecer)
-  const logoData = localStorage.getItem('ps_logo');
-  const logoSrc  = logoData || '';
+  // Logo da escola
+  const logoEl  = document.querySelector('header img');
+  const logoSrc = logoEl ? logoEl.src : '';
 
-  const dataHoje = new Date().toLocaleDateString('pt-BR');
+  // Data de entrega do bimestre selecionado (fallback: hoje)
+  const _bimMap = { '1º bimestre': 'b1', '2º bimestre': 'b2', '3º bimestre': 'b3', '4º bimestre': 'b4' };
+  const _bKey   = _bimMap[(bimFiltro || '').toLowerCase()];
+  const _entVal = _bKey && db.entregasPareceres?.[_bKey];
+  const dataHoje = _entVal
+    ? new Date(_entVal + 'T12:00:00').toLocaleDateString('pt-BR')
+    : new Date().toLocaleDateString('pt-BR');
   const bimLabel = bimFiltro || '—';
 
   let pagesHtml = '';
