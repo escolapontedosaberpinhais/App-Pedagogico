@@ -3149,7 +3149,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.1';
+const APP_VERSION = 'v2.9.2';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -6996,7 +6996,7 @@ function renderPareceres() {
       </div>
       <div class="actions" style="flex-direction:column; gap:5px;">
         ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')" title="Abrir no Google Docs">📄 Docs</button>` : ''}
-        ${(canCorrect || (isProf && p.criadoPor === (currentUser?.login || currentUser?.nome))) && appsScriptUrl ? `<button class="btn btn-secondary btn-sm" onclick="reenviarParecerDrive('${p.id}')" title="${p.docUrl ? 'Reenviar ao Drive (corrige problema de acesso)' : 'Enviar ao Google Drive'}">📤 Salvar no Drive</button>` : ''}
+        ${appsScriptUrl ? `<button class="btn btn-secondary btn-sm" onclick="reenviarParecerDrive('${p.id}')" title="${p.docUrl ? 'Reenviar ao Drive (corrige problema de acesso)' : 'Enviar ao Google Drive'}">📤 Salvar no Drive</button>` : ''}
         ${isProf && devolvido ? `<button class="btn btn-success btn-sm" onclick="profEnviarCorrecao('par','${p.id}')" title="Avisar a pedagoga que você corrigiu">📤 Enviei a correção</button>` : ''}
         ${canCorrect ? `<button class="btn btn-sm btn-amber" onclick="devolverParaCorrecao('par','${p.id}')">↩️ Devolver</button>` : ''}
         ${canCorrect ? `<button class="btn btn-sm btn-success" onclick="${revisado ? `aprovarRevisao('par','${p.id}')` : `toggleParecerCorrigido('${p.id}')`}">✅ Aprovar</button>` : ''}
