@@ -3149,7 +3149,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.8.8';
+const APP_VERSION = 'v2.8.9';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -6749,6 +6749,7 @@ function salvarParecer() {
     tom: selectedTone,
     criadoEm: new Date().toISOString(),
     criadoPor: currentUser?.login || currentUser?.usuario || currentUser?.nome || '',
+    profEmail: currentUser?.email || '',
     historico: [{ acao: 'criado', por: currentUser?.nome || 'Professora', em: new Date().toISOString() }],
   };
   db.pareceres.unshift(p);
@@ -6767,8 +6768,9 @@ function salvarParecer() {
     const turma = db.turmas.find(t => t.id === turmaId);
     const turmaNome = sanitizeName(turma ? turma.nome : 'Turma');
     const filename = sanitizeName(`${aluno.nome} - ${periodo}`) + '.txt';
+    const emailsCriacao = [...new Set([...getEmailsParaTurma(turmaId), p.profEmail || ''].filter(Boolean))];
     uploadToDrive(filename, buildParecerTxt(p),
-      getEmailsParaTurma(turmaId),
+      emailsCriacao,
       'Escola Ponte do Saber', turmaNome, periodo, 'Pareceres')
       .then(url => {
         if (url) { p.docUrl = url; save(); renderPareceres(); }
@@ -6809,8 +6811,9 @@ async function reenviarParecerDrive(id) {
     const turmaRef = db.turmas.find(t => t.id === p.turmaId);
     const turmaNome = sanitizeName(turmaRef ? turmaRef.nome : 'Turma');
     const filename = sanitizeName(`${p.alunoNome} - ${p.periodo}`) + '.txt';
+    const emailsReenvio = [...new Set([...getEmailsParaTurma(p.turmaId), p.profEmail || ''].filter(Boolean))];
     const url = await uploadToDrive(filename, buildParecerTxt(p),
-      getEmailsParaTurma(p.turmaId),
+      emailsReenvio,
       'Escola Ponte do Saber', turmaNome, p.periodo, 'Pareceres');
     if (url) {
       p.docUrl = url;
@@ -6995,7 +6998,7 @@ function renderPareceres() {
       </div>
       <div class="actions" style="flex-direction:column; gap:5px;">
         ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')" title="Abrir no Google Docs">📄 Docs</button>` : ''}
-        ${canCorrect && appsScriptUrl ? `<button class="btn btn-secondary btn-sm" onclick="reenviarParecerDrive('${p.id}')" title="${p.docUrl ? 'Reenviar ao Drive (corrige problema de acesso)' : 'Enviar ao Google Drive'}">↺ Drive</button>` : ''}
+        ${(canCorrect || (isProf && p.criadoPor === (currentUser?.login || currentUser?.nome))) && appsScriptUrl ? `<button class="btn btn-secondary btn-sm" onclick="reenviarParecerDrive('${p.id}')" title="${p.docUrl ? 'Reenviar ao Drive (corrige problema de acesso)' : 'Enviar ao Google Drive'}">↺ Drive</button>` : ''}
         ${isProf && devolvido ? `<button class="btn btn-success btn-sm" onclick="profEnviarCorrecao('par','${p.id}')" title="Avisar a pedagoga que você corrigiu">📤 Enviei a correção</button>` : ''}
         ${canCorrect ? `<button class="btn btn-sm btn-amber" onclick="devolverParaCorrecao('par','${p.id}')">↩️ Devolver</button>` : ''}
         ${canCorrect ? `<button class="btn btn-sm btn-success" onclick="${revisado ? `aprovarRevisao('par','${p.id}')` : `toggleParecerCorrigido('${p.id}')`}">✅ Aprovar</button>` : ''}
