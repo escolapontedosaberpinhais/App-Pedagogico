@@ -3149,7 +3149,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.5';
+const APP_VERSION = 'v2.9.6';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -7149,7 +7149,26 @@ async function lerDocConteudo(docUrl) {
 // Remove o cabecalho de metadados que buildParecerTxt prefixou, deixando so o corpo.
 // Também remove comentários do Google Docs (marcadores [a], [b]… no corpo e linhas de comentário no final).
 function limparHeaderDoc(txt) {
-  const lines = String(txt).replace(/\r/g, '').split('\n');
+  const s = String(txt).replace(/\r/g, '');
+
+  // Estratégia principal: localiza "Tom:" (sempre o último campo do cabeçalho
+  // gerado por buildParecerTxt) e retorna tudo depois da linha que o contém.
+  // Funciona mesmo se houver caracteres extras antes do cabeçalho (marcadores
+  // do Google Docs, BOM, linha "x" solta) e ignora variações de encoding no
+  // "Período" (acento NFC/NFD pode variar dependendo da origem do texto).
+  const tomMatch = s.match(/\nTom\s*:[^\n]*/i);
+  if (tomMatch) {
+    const afterTom = s.slice(s.indexOf(tomMatch[0]) + tomMatch[0].length);
+    return afterTom
+      .split('\n')
+      .filter(l => !/^\[[a-z]+\]/i.test(l.trim()))
+      .map(l => l.replace(/\[[a-z]+\]/gi, ''))
+      .join('\n')
+      .trim();
+  }
+
+  // Fallback: remove linha a linha desde o início
+  const lines = s.split('\n');
   let i = 0;
   const skip = (l) => {
     const t = l.trim();
@@ -7157,13 +7176,12 @@ function limparHeaderDoc(txt) {
       || /^=+$/.test(t)
       || /^-+$/.test(t)
       || /ESCOLA PONTE DO SABER/i.test(t)
-      || /^(Aluno\(a\)|Turma|Per[íi]odo|Data|Tom|Professora?\(?o?\)?|Professor\(a\))\s*:/i.test(t);
+      || /^PARECER DESCRITIVO/i.test(t)
+      || /^(Aluno\(a\)|Turma|Per.odo|Data|Tom|Professora?\(?o?\)?|Professor\(a\))\s*:/i.test(t);
   };
   while (i < lines.length && skip(lines[i])) i++;
   return lines.slice(i)
-    // Remove linhas que são comentários do Google Docs: "[a]texto do comentário"
     .filter(l => !/^\[[a-z]+\]/i.test(l.trim()))
-    // Remove marcadores de comentário embutidos no texto: "palavra[a][b]" → "palavra"
     .map(l => l.replace(/\[[a-z]+\]/gi, ''))
     .join('\n')
     .trim();
