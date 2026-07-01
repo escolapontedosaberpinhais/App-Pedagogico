@@ -3157,7 +3157,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.9';
+const APP_VERSION = 'v2.9.10';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -4667,7 +4667,12 @@ function salvarPlanejamento() {
       [],
       'Escola Ponte do Saber', turmaNome, bimestre, 'Planejamentos')
       .then(url => {
-        if (url) { pl.docUrl = url; save(); renderPlanejamentos(); }
+        if (url) {
+          // Busca pelo ID no array atual (que pode ter sido substituído pelo onSnapshot)
+          const atual = db.planejamentos.find(x => x.id === pl.id);
+          if (atual) atual.docUrl = url; else pl.docUrl = url;
+          save(); renderPlanejamentos();
+        }
         showToast('✅ Planejamento salvo no Drive!');
       })
       .catch(e => showToast('⚠️ Salvo localmente. Drive: ' + e.message));
