@@ -1097,6 +1097,9 @@
     <button class="dnav-btn" id="dnav-auditoria" onclick="drawerNav('auditoria')" style="display:none;">
       <span class="di">&#x1F4DC;</span> Auditoria
     </button>
+    <button class="dnav-btn" id="dnav-ocorrencias" onclick="drawerNav('ocorrencias')" style="display:none;">
+      <span class="di">&#x1F4CB;</span> Ocorr&ecirc;ncias
+    </button>
   </div>
   <div class="drawer-footer">
     <button class="drawer-key" onclick="fecharDrawer();abrirTrocarSenha();">&#x1F511; Trocar senha</button>
@@ -1118,6 +1121,7 @@
   <button id="nav-rotina" onclick="showTab('rotina')" data-tab="rotina" style="display:none;">📅 Rotina</button>
   <button id="nav-atividades" onclick="showTab('atividades')" data-tab="atividades" style="display:none;">🎯 Atividades</button>
   <button id="nav-auditoria" onclick="showTab('auditoria')" data-tab="auditoria" style="display:none;">📜 Auditoria</button>
+  <button id="nav-ocorrencias" onclick="showTab('ocorrencias')" data-tab="ocorrencias" style="display:none;">📋 Ocorrências</button>
 </nav>
 
 <!-- ── Nav agrupada para diretoria ── -->
@@ -1171,6 +1175,7 @@
     </button>
     <div class="nav-grp-drop" id="navdrop-controle">
       <button data-tab="auditoria" onclick="showTab('auditoria');closeNavGrp()">📜 Auditoria</button>
+      <button data-tab="ocorrencias" onclick="showTab('ocorrencias');closeNavGrp()">📋 Ocorrências</button>
     </div>
   </div>
 </nav>
@@ -2596,6 +2601,94 @@ function getFolder(path) {
   </div>
 </div>
 
+<!-- ===================== OCORRÊNCIAS ===================== -->
+<div id="tab-ocorrencias" class="section">
+  <div class="section-header">
+    <h2>📋 Registrador de Ocorrências</h2>
+  </div>
+
+  <!-- Formulário de registro -->
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-title">➕ Nova Ocorrência</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div>
+        <label style="font-size:13px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px;">Aluno(a) <span style="font-weight:400;color:var(--gray-400);">(opcional)</span></label>
+        <input type="text" id="oc-aluno" placeholder="Nome do(a) aluno(a)"
+          style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:14px;" autocomplete="off">
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px;">Turma <span style="font-weight:400;color:var(--gray-400);">(opcional)</span></label>
+        <select id="oc-turma" style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:14px;background:#fff;">
+          <option value="">— Todas / não informada —</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div>
+        <label style="font-size:13px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px;">Tipo</label>
+        <select id="oc-tipo" style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:14px;background:#fff;">
+          <option value="comportamento">🔴 Comportamento</option>
+          <option value="academico">📚 Acadêmico</option>
+          <option value="saude">🏥 Saúde</option>
+          <option value="familiar">👨‍👩‍👧 Familiar</option>
+          <option value="comunicado">📢 Comunicado</option>
+          <option value="outro">📝 Outro</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px;">Data e hora</label>
+        <input type="datetime-local" id="oc-dataHora"
+          style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:14px;">
+      </div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:13px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px;">Descrição <span style="color:#ef4444;">*</span></label>
+      <textarea id="oc-descricao" rows="4" placeholder="Descreva a ocorrência com detalhes…"
+        style="width:100%;padding:10px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:14px;resize:vertical;font-family:inherit;"></textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="salvarOcorrencia()">💾 Registrar Ocorrência</button>
+      <button class="btn btn-secondary" onclick="limparFormOcorrencia()">✕ Limpar</button>
+    </div>
+  </div>
+
+  <!-- Filtros e busca -->
+  <div class="card" style="margin-bottom:16px;padding:14px 18px;">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div style="flex:1;min-width:180px;">
+        <label style="font-size:12px;font-weight:600;color:var(--gray-500);display:block;margin-bottom:4px;">🔍 Buscar</label>
+        <input type="text" id="oc-busca" placeholder="Aluno, descrição, tipo…"
+          oninput="renderOcorrencias()"
+          style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;" autocomplete="off">
+      </div>
+      <div style="min-width:140px;">
+        <label style="font-size:12px;font-weight:600;color:var(--gray-500);display:block;margin-bottom:4px;">Tipo</label>
+        <select id="oc-filtro-tipo" onchange="renderOcorrencias()"
+          style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;background:#fff;">
+          <option value="">Todos os tipos</option>
+          <option value="comportamento">🔴 Comportamento</option>
+          <option value="academico">📚 Acadêmico</option>
+          <option value="saude">🏥 Saúde</option>
+          <option value="familiar">👨‍👩‍👧 Familiar</option>
+          <option value="comunicado">📢 Comunicado</option>
+          <option value="outro">📝 Outro</option>
+        </select>
+      </div>
+      <div style="min-width:140px;">
+        <label style="font-size:12px;font-weight:600;color:var(--gray-500);display:block;margin-bottom:4px;">Turma</label>
+        <select id="oc-filtro-turma" onchange="renderOcorrencias()"
+          style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;background:#fff;">
+          <option value="">Todas as turmas</option>
+        </select>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('oc-busca').value='';document.getElementById('oc-filtro-tipo').value='';document.getElementById('oc-filtro-turma').value='';renderOcorrencias();" style="height:36px;">✕ Limpar</button>
+    </div>
+  </div>
+
+  <!-- Lista de ocorrências -->
+  <div id="ocorrencias-list"></div>
+</div>
+
 <!-- ===================== AUDITORIA ===================== -->
 <div id="tab-auditoria" class="section">
   <div class="section-header">
@@ -3157,7 +3250,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.12';
+const APP_VERSION = 'v2.9.13';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -3290,14 +3383,14 @@ async function migrarImagensPlanej() {
 async function loadFromFirestore() {
   const _t = logger.timer('firestore', 'load-initial');
   try {
-    const [rT, rA, rP, rPar, rAv, rU, rCfg, rNot, rHa, rRot, rAtiv, rDSA, rEP] = await Promise.all([
+    const [rT, rA, rP, rPar, rAv, rU, rCfg, rNot, rHa, rRot, rAtiv, rDSA, rEP, rOc] = await Promise.all([
       FSREF('turmas').get(), FSREF('alunos').get(),
       FSREF('planejamentos').get(), FSREF('pareceres').get(),
       FSREF('avaliacoes').get(), FSREF('usuarios').get(),
       FSREF('config').get(), FSREF('notificacoes').get(),
       FSREF('horaAtividade').get(), FSREF('rotinas').get(),
       FSREF('atividades').get(), FSREF('diasSemAula').get(),
-      FSREF('entregasPareceres').get(),
+      FSREF('entregasPareceres').get(), FSREF('ocorrencias').get(),
     ]);
     if (rT.exists)   db.turmas        = rT.data().data   ?? [];
     if (rA.exists)   db.alunos        = rA.data().data   ?? [];
@@ -3332,6 +3425,17 @@ async function loadFromFirestore() {
       }
     }
     _atividadesCarregadas = true;
+    if (rOc.exists) {
+      db.ocorrencias = rOc.data().data ?? [];
+    } else {
+      const lsOc = LS.get('ps_ocorrencias', []);
+      if (lsOc.length > 0) {
+        db.ocorrencias = lsOc;
+        FSREF('ocorrencias').set({ data: db.ocorrencias })
+          .catch(e => logger.warn({ module: 'sync', action: 'restore-ocorrencias', message: 'Erro ao restaurar ocorrências', error: e }));
+      }
+    }
+    _ocorrenciasCarregadas = true;
     if (rCfg.exists) {
       db.apiKey = rCfg.data().apiKey ?? '';
       if (rCfg.data().model) localStorage.setItem('ps_gemini_model', rCfg.data().model);
@@ -3506,8 +3610,9 @@ function saveToFirestore() {
   batch.set(FSREF('usuarios'),      { data: db.usuarios });
   batch.set(FSREF('notificacoes'),  { data: db.notificacoes });
   batch.set(FSREF('horaAtividade'), { data: db.horaAtividade });
-  if (_rotinasCarregadas)    batch.set(FSREF('rotinas'),    { data: db.rotinas });
-  if (_atividadesCarregadas) batch.set(FSREF('atividades'), { data: db.atividades });
+  if (_rotinasCarregadas)     batch.set(FSREF('rotinas'),     { data: db.rotinas });
+  if (_atividadesCarregadas)  batch.set(FSREF('atividades'),  { data: db.atividades });
+  if (_ocorrenciasCarregadas) batch.set(FSREF('ocorrencias'), { data: db.ocorrencias });
   batch.set(FSREF('diasSemAula'), { data: db.diasSemAula });
   batch.set(FSREF('entregasPareceres'), { data: db.entregasPareceres });
   batch.commit()
@@ -3598,6 +3703,14 @@ function setupSync() {
       refreshCurrentView();
     }
   });
+  FSREF('ocorrencias').onSnapshot((doc) => {
+    if (doc.exists && !doc.metadata.hasPendingWrites) {
+      db.ocorrencias = doc.data().data ?? [];
+      _ocorrenciasCarregadas = true;
+      LS.set('ps_ocorrencias', db.ocorrencias);
+      refreshCurrentView();
+    }
+  });
   FSREF('notificacoes').onSnapshot((doc) => {
     if (doc.exists && !doc.metadata.hasPendingWrites) {
       const novas = doc.data().data ?? [];
@@ -3658,10 +3771,12 @@ let db = {
   atividades: [],
   diasSemAula: [],
   entregasPareceres: { b1: '', b2: '', b3: '', b4: '' },
+  ocorrencias: [],
 };
 // Guardas: evita sobrescrever dados no Firestore antes de carregá-los
-let _rotinasCarregadas    = false;
-let _atividadesCarregadas = false;
+let _rotinasCarregadas      = false;
+let _atividadesCarregadas   = false;
+let _ocorrenciasCarregadas  = false;
 
 function save() {
   // Backup local
@@ -3676,6 +3791,7 @@ function save() {
   LS.set('ps_atividades', db.atividades);
   LS.set('ps_dias_sem_aula', db.diasSemAula);
   LS.set('ps_entregas_pareceres', db.entregasPareceres);
+  LS.set('ps_ocorrencias', db.ocorrencias);
   // Firestore
   saveToFirestore();
 }
@@ -3841,6 +3957,10 @@ function aplicarPapel() {
   nav('nav-auditoria',  isDiretor);
   nav('dnav-auditoria', isDiretor);
 
+  // Ocorrências: gestão (diretor + pedagoga)
+  nav('nav-ocorrencias',  isGestao);
+  nav('dnav-ocorrencias', isGestao);
+
   // Diagnóstico de sincronização: apenas diretor
   nav('btn-diagnostico-sync', isDiretor);
 
@@ -3913,6 +4033,7 @@ function aplicarPapel() {
   renderUsuarios();
   renderImpressao();
   renderHoraAtividade();
+  renderOcorrencias();
   setTimeout(autoSyncFinanceDesk, 3000);
 }
 
@@ -4101,7 +4222,7 @@ const _TAB_GRUPOS = {
   cadastro: 'gestao', impressao: 'gestao',
   rotina: 'pedagogico', avaliacoes: 'pedagogico', correcao: 'pedagogico',
   'hora-atividade': 'docentes', planejamento: 'docentes', pareceres: 'docentes', atividades: 'docentes',
-  auditoria: 'controle',
+  auditoria: 'controle', ocorrencias: 'controle',
 };
 
 function toggleNavGrp(grp) {
@@ -4157,6 +4278,7 @@ function showTab(tab) {
   if (tab === 'rotina')         { renderRotina(); }
   if (tab === 'atividades')     { renderAtividades(); }
   if (tab === 'config')         { renderUsuarios(); atualizarStatusFdSync(); }
+  if (tab === 'ocorrencias')    { renderOcorrencias(); }
 }
 
 // --- DRAWER functions ---
@@ -6945,6 +7067,133 @@ async function reenviarParecerDrive(id) {
   } catch(e) {
     showToast('⚠️ Erro ao reenviar: ' + e.message);
   }
+}
+
+// =====================================================================
+// OCORRÊNCIAS
+// =====================================================================
+const OC_TIPOS = {
+  comportamento: { label: 'Comportamento', emoji: '🔴', cor: '#fee2e2', borda: '#fca5a5', texto: '#991b1b' },
+  academico:     { label: 'Acadêmico',     emoji: '📚', cor: '#eff6ff', borda: '#93c5fd', texto: '#1e40af' },
+  saude:         { label: 'Saúde',         emoji: '🏥', cor: '#f0fdf4', borda: '#86efac', texto: '#166534' },
+  familiar:      { label: 'Familiar',      emoji: '👨‍👩‍👧', cor: '#fefce8', borda: '#fde047', texto: '#854d0e' },
+  comunicado:    { label: 'Comunicado',    emoji: '📢', cor: '#f0f9ff', borda: '#7dd3fc', texto: '#075985' },
+  outro:         { label: 'Outro',         emoji: '📝', cor: '#f9fafb', borda: '#d1d5db', texto: '#374151' },
+};
+
+function _ocDataHoraAgora() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+
+function limparFormOcorrencia() {
+  ['oc-aluno','oc-descricao'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const turmaEl = document.getElementById('oc-turma'); if (turmaEl) turmaEl.value = '';
+  const tipoEl  = document.getElementById('oc-tipo');  if (tipoEl)  tipoEl.value  = 'comportamento';
+  const dhEl    = document.getElementById('oc-dataHora'); if (dhEl) dhEl.value = _ocDataHoraAgora();
+}
+
+function salvarOcorrencia() {
+  const descricao = (document.getElementById('oc-descricao')?.value || '').trim();
+  if (!descricao) { showToast('⚠️ Preencha a descrição da ocorrência.'); return; }
+
+  const dhVal = document.getElementById('oc-dataHora')?.value || _ocDataHoraAgora();
+  const oc = {
+    id:           uid(),
+    dataHora:     dhVal ? new Date(dhVal).toISOString() : new Date().toISOString(),
+    alunoNome:    (document.getElementById('oc-aluno')?.value  || '').trim(),
+    turmaId:      document.getElementById('oc-turma')?.value   || '',
+    tipo:         document.getElementById('oc-tipo')?.value    || 'outro',
+    descricao,
+    registradoPor: currentUser?.nome || currentUser?.login || '—',
+    registradoEm:  new Date().toISOString(),
+  };
+
+  db.ocorrencias.unshift(oc);
+  save();
+  limparFormOcorrencia();
+  renderOcorrencias();
+  showToast('✅ Ocorrência registrada!');
+}
+
+function deleteOcorrencia(id) {
+  if (currentUser?.papel !== 'diretor' && currentUser?.papel !== 'pedagoga') return;
+  showConfirmModal('Excluir esta ocorrência?<br><small style="color:#888;font-weight:400;">Esta ação não pode ser desfeita.</small>', () => {
+    db.ocorrencias = db.ocorrencias.filter(o => o.id !== id);
+    save();
+    renderOcorrencias();
+    showToast('🗑️ Ocorrência excluída.');
+  });
+}
+
+function renderOcorrencias() {
+  const el = document.getElementById('ocorrencias-list');
+  if (!el) return;
+
+  // Preenche select de turma no filtro
+  const ftEl = document.getElementById('oc-filtro-turma');
+  if (ftEl && ftEl.options.length <= 1) {
+    db.turmas.slice().sort((a,b) => ordemTurma(a.nome)-ordemTurma(b.nome)).forEach(t => {
+      const o = document.createElement('option');
+      o.value = t.id; o.textContent = t.nome;
+      ftEl.appendChild(o);
+    });
+  }
+  // Preenche select de turma no formulário
+  const fmEl = document.getElementById('oc-turma');
+  if (fmEl && fmEl.options.length <= 1) {
+    db.turmas.slice().sort((a,b) => ordemTurma(a.nome)-ordemTurma(b.nome)).forEach(t => {
+      const o = document.createElement('option');
+      o.value = t.id; o.textContent = t.nome;
+      fmEl.appendChild(o);
+    });
+  }
+  // Inicializa data/hora se vazio
+  const dhEl = document.getElementById('oc-dataHora');
+  if (dhEl && !dhEl.value) dhEl.value = _ocDataHoraAgora();
+
+  const busca      = (document.getElementById('oc-busca')?.value        || '').toLowerCase().trim();
+  const filtroTipo = document.getElementById('oc-filtro-tipo')?.value   || '';
+  const filtroTurma= document.getElementById('oc-filtro-turma')?.value  || '';
+
+  let lista = [...db.ocorrencias].sort((a, b) => (b.dataHora || b.registradoEm) > (a.dataHora || a.registradoEm) ? 1 : -1);
+
+  if (busca)       lista = lista.filter(o => [o.alunoNome, o.descricao, OC_TIPOS[o.tipo]?.label || o.tipo, o.registradoPor].join(' ').toLowerCase().includes(busca));
+  if (filtroTipo)  lista = lista.filter(o => o.tipo === filtroTipo);
+  if (filtroTurma) lista = lista.filter(o => o.turmaId === filtroTurma);
+
+  const isGestao = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
+
+  if (lista.length === 0) {
+    el.innerHTML = `<div class="empty"><div class="icon">📋</div><p>${busca || filtroTipo || filtroTurma ? 'Nenhuma ocorrência encontrada para os filtros aplicados.' : 'Nenhuma ocorrência registrada.'}</p></div>`;
+    return;
+  }
+
+  el.innerHTML = lista.map(o => {
+    const tipo   = OC_TIPOS[o.tipo] || OC_TIPOS.outro;
+    const turma  = db.turmas.find(t => t.id === o.turmaId);
+    const dtFmt  = o.dataHora ? new Date(o.dataHora).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
+    const regFmt = o.registradoEm ? new Date(o.registradoEm).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+    const alunoStr = o.alunoNome ? `<strong>${escapeHtml(o.alunoNome)}</strong>` : '<span style="color:var(--gray-400);">Aluno não informado</span>';
+    const turmaStr = turma ? `<span class="badge badge-green">${escapeHtml(turma.nome)}</span>` : '';
+    return `<div class="item-card" style="border-left:4px solid ${tipo.borda};background:${tipo.cor};">
+      <div class="info" style="width:100%;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+          <span style="font-size:18px;">${tipo.emoji}</span>
+          ${alunoStr}
+          ${turmaStr}
+          <span class="badge" style="background:${tipo.cor};color:${tipo.texto};border:1px solid ${tipo.borda};font-size:11px;">${tipo.label}</span>
+          <span style="font-size:12px;color:var(--gray-500);">📅 ${dtFmt}</span>
+        </div>
+        <div style="font-size:14px;color:#1a1a1a;line-height:1.7;white-space:pre-wrap;margin-bottom:6px;">${escapeHtml(o.descricao)}</div>
+        <div style="font-size:11.5px;color:var(--gray-400);">Registrado por <strong>${escapeHtml(o.registradoPor)}</strong>${regFmt ? ` em ${regFmt}` : ''}</div>
+      </div>
+      <div class="actions" style="align-self:flex-start;">
+        ${isGestao ? `<button class="btn btn-danger btn-sm" onclick="deleteOcorrencia('${o.id}')" title="Excluir">🗑️</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function toggleProntoImpressao(id) {
