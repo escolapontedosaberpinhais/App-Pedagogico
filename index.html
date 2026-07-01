@@ -3157,7 +3157,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.11';
+const APP_VERSION = 'v2.9.12';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -5521,7 +5521,7 @@ function renderCorrecoes() {
           ${htmlHistorico(p)}
         </div>
         <div class="actions">
-          ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : ''}
+          ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : (appsScriptUrl ? `<button class="btn btn-secondary btn-sm" onclick="reenviarParecerDrive('${p.id}')">📤 Drive</button>` : '')}
           <button class="btn btn-secondary btn-sm" onclick="verParecer('${p.id}')">👁️</button>
           <button class="btn btn-primary btn-sm" onclick="imprimirParecer('${p.id}')">🖨️ PDF</button>
           <button class="btn btn-sm btn-amber" onclick="devolverParaCorrecao('par','${p.id}')">↩️ Devolver</button>
@@ -5552,7 +5552,7 @@ function renderCorrecoes() {
           ${htmlHistorico(p)}
         </div>
         <div class="actions">
-          ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : ''}
+          ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : (appsScriptUrl ? `<button class="btn btn-secondary btn-sm" onclick="reenviarParecerDrive('${p.id}')">📤 Drive</button>` : '')}
           <button class="btn btn-secondary btn-sm" onclick="verParecer('${p.id}')">👁️</button>
           <button class="btn btn-primary btn-sm" onclick="imprimirParecer('${p.id}')">🖨️ PDF</button>
           <button class="btn btn-sm btn-success" onclick="aprovarRevisao('par','${p.id}')" title="Aprovar diretamente (caso a professora já tenha corrigido)">✅ Aprovar</button>
@@ -5582,7 +5582,7 @@ function renderCorrecoes() {
           <span style="font-size:12px;color:#7c3aed;font-weight:600;">🔄 Corrigido pela professora em ${fmtDateTime(p.revisadoEm)}</span>
         </div>
         <div class="actions">
-          ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : ''}
+          ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : (appsScriptUrl ? `<button class="btn btn-secondary btn-sm" onclick="reenviarParecerDrive('${p.id}')">📤 Drive</button>` : '')}
           <button class="btn btn-secondary btn-sm" onclick="verParecer('${p.id}')">👁️</button>
           <button class="btn btn-primary btn-sm" onclick="imprimirParecer('${p.id}')">🖨️ PDF</button>
           <button class="btn btn-sm btn-amber" onclick="devolverParaCorrecao('par','${p.id}')">↩️ Devolver novamente</button>
@@ -5611,7 +5611,7 @@ function renderCorrecoes() {
           <span style="font-size:12px;color:#059669;font-weight:600;">✅ Aprovado</span>
         </div>
         <div class="actions">
-          ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : ''}
+          ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : (appsScriptUrl ? `<button class="btn btn-secondary btn-sm" onclick="reenviarParecerDrive('${p.id}')">📤 Drive</button>` : '')}
           <button class="btn btn-primary btn-sm" onclick="imprimirParecer('${p.id}')">🖨️ PDF</button>
           <button class="btn btn-success btn-sm" onclick="toggleProntoImpressao('${p.id}')">🖨️ Liberar p/ impressão</button>
           ${isDiretorCorr ? `<button class="btn btn-danger btn-sm" onclick="deleteParecer('${p.id}')" title="Excluir">🗑️</button>` : ''}
@@ -5641,7 +5641,7 @@ function renderCorrecoes() {
           <span><span class="badge badge-green">${turma ? turma.nome : '—'}</span> &nbsp;${p.periodo} &nbsp;${impressoLabel}</span>
         </div>
         <div class="actions">
-          ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : ''}
+          ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : (appsScriptUrl ? `<button class="btn btn-secondary btn-sm" onclick="reenviarParecerDrive('${p.id}')">📤 Drive</button>` : '')}
           <button class="btn btn-primary btn-sm" onclick="imprimirParecer('${p.id}')">🖨️ PDF</button>
           ${isDiretorCorr ? `<button class="btn btn-sm btn-amber" onclick="toggleProntoImpressao('${p.id}')">↩️ Desfazer liberação</button>` : ''}
           ${isDiretorCorr ? `<button class="btn btn-danger btn-sm" onclick="deleteParecer('${p.id}')" title="Excluir">🗑️</button>` : ''}
@@ -6933,7 +6933,8 @@ async function reenviarParecerDrive(id) {
       emailsReenvio,
       'Escola Ponte do Saber', turmaNome, p.periodo, 'Pareceres');
     if (url) {
-      p.docUrl = url;
+      const atual = db.pareceres.find(x => x.id === id);
+      if (atual) atual.docUrl = url; else p.docUrl = url;
       save();
       renderPareceres();
       logger.audit({ module: 'parecer', action: 'reenviar-drive', message: `Parecer reenviado ao Drive: ${p.alunoNome}`, after: { docUrl: url } });
