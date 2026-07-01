@@ -3157,7 +3157,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.10';
+const APP_VERSION = 'v2.9.11';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -5423,7 +5423,7 @@ function renderCorrecoes() {
           ${htmlHistorico(p)}
         </div>
         <div class="actions">
-          ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : ''}
+          ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : (appsScriptUrl ? `<button class="btn btn-secondary btn-sm" onclick="reenviarPlanejamentoDrive('${p.id}')">📤 Drive</button>` : '')}
           <button class="btn btn-secondary btn-sm" onclick="verPlanejamento('${p.id}')">👁️</button>
           <button class="btn btn-sm btn-amber" onclick="devolverParaCorrecao('pl','${p.id}')">↩️ Devolver</button>
           <button class="btn btn-sm btn-success" onclick="toggleCorrigidoDash('pl','${p.id}')">✅ Aprovar</button>
@@ -5457,7 +5457,7 @@ function renderCorrecoes() {
           ${htmlHistorico(p)}
         </div>
         <div class="actions">
-          ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : ''}
+          ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : (appsScriptUrl ? `<button class="btn btn-secondary btn-sm" onclick="reenviarPlanejamentoDrive('${p.id}')">📤 Drive</button>` : '')}
           <button class="btn btn-secondary btn-sm" onclick="verPlanejamento('${p.id}')">👁️</button>
           <button class="btn btn-sm btn-success" onclick="aprovarRevisao('pl','${p.id}')" title="Aprovar diretamente (caso a professora já tenha corrigido)">✅ Aprovar</button>
           ${isDiretorCorr ? `<button class="btn btn-danger btn-sm" onclick="deletePlanejamento('${p.id}')" title="Excluir">🗑️</button>` : ''}
@@ -5488,7 +5488,7 @@ function renderCorrecoes() {
           <span style="font-size:12px;color:#7c3aed;font-weight:600;">🔄 Corrigido pela professora em ${fmtDateTime(p.revisadoEm)}</span>
         </div>
         <div class="actions">
-          ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : ''}
+          ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : (appsScriptUrl ? `<button class="btn btn-secondary btn-sm" onclick="reenviarPlanejamentoDrive('${p.id}')">📤 Drive</button>` : '')}
           <button class="btn btn-secondary btn-sm" onclick="verPlanejamento('${p.id}')">👁️</button>
           <button class="btn btn-sm btn-amber" onclick="devolverParaCorrecao('pl','${p.id}')">↩️ Devolver novamente</button>
           <button class="btn btn-sm btn-success" onclick="aprovarRevisao('pl','${p.id}')">✅ Aprovar</button>
@@ -6181,7 +6181,7 @@ function renderPlanejamentos() {
         ${htmlHistorico(p)}
       </div>
       <div class="actions">
-        ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : ''}
+        ${p.docUrl ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${p.docUrl}','_blank')">📄 Docs</button>` : (appsScriptUrl ? `<button class="btn btn-secondary btn-sm" onclick="reenviarPlanejamentoDrive('${p.id}')">📤 Drive</button>` : '')}
         ${isProf && devolvido ? `<button class="btn btn-success btn-sm" onclick="profEnviarCorrecao('pl','${p.id}')">📤 Enviei a correção</button>` : ''}
         ${canCorrect ? `<button class="btn btn-sm btn-amber" onclick="devolverParaCorrecao('pl','${p.id}')">↩️ Devolver</button>` : ''}
         ${canCorrect ? `<button class="btn btn-sm btn-success" onclick="${revisado ? `aprovarRevisao('pl','${p.id}')` : `toggleCorrigido('${p.id}')`}">✅ Aprovar</button>` : ''}
@@ -6886,6 +6886,33 @@ function deleteParecer(id) {
   save();
   logger.audit({ module: 'parecer', action: 'delete', message: `Parecer excluído: ${par.alunoNome}`, before: { alunoNome: par.alunoNome, periodo: par.periodo, turmaId: par.turmaId } });
   renderPareceres();
+}
+
+async function reenviarPlanejamentoDrive(id) {
+  const p = db.planejamentos.find(x => x.id === id);
+  if (!p) return;
+  if (!appsScriptUrl) { showToast('⚠️ Configure o Google Drive em Configurações.'); return; }
+  const rotulo = p.conteudos || p.tema || 'planejamento';
+  if (!confirm(`Enviar o planejamento "${rotulo}" ao Google Drive?\n\nUm novo arquivo será criado e o link salvo.`)) return;
+  showToast('📤 Enviando ao Drive…');
+  try {
+    const turma = db.turmas.find(t => t.id === p.turmaId);
+    const turmaNome = sanitizeName(turma ? turma.nome : 'Turma');
+    const dataFmt = p.data ? p.data.replace(/-/g, '') : 'sem-data';
+    const filename = sanitizeName(`${rotulo} - ${dataFmt}`) + '.txt';
+    const url = await uploadToDrive(filename, buildPlanejamentoTxt(p),
+      [], 'Escola Ponte do Saber', turmaNome, p.bimestre || '', 'Planejamentos');
+    if (url) {
+      const atual = db.planejamentos.find(x => x.id === id);
+      if (atual) atual.docUrl = url; else p.docUrl = url;
+      save(); renderPlanejamentos();
+      showToast('✅ Planejamento enviado! Link do Drive salvo.');
+    } else {
+      showToast('⚠️ Não foi possível enviar ao Drive. Verifique o Apps Script.');
+    }
+  } catch(e) {
+    showToast('⚠️ Erro ao enviar: ' + e.message);
+  }
 }
 
 async function reenviarParecerDrive(id) {
