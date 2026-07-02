@@ -3250,7 +3250,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.13';
+const APP_VERSION = 'v2.9.14';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -3752,6 +3752,7 @@ function refreshCurrentView() {
   if (id === 'tab-rotina')          { renderRotina(); }
   if (id === 'tab-atividades')      { renderAtividades(); }
   if (id === 'tab-auditoria')       { carregarAuditoria(); }
+  if (id === 'tab-ocorrencias')     { renderOcorrencias(); }
 }
 
 // =====================================================================
