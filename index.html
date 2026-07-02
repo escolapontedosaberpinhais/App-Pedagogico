@@ -3259,7 +3259,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.15';
+const APP_VERSION = 'v2.9.16';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -3787,6 +3787,7 @@ let db = {
 let _rotinasCarregadas      = false;
 let _atividadesCarregadas   = false;
 let _ocorrenciasCarregadas  = false;
+let _ocEditandoId           = null;
 
 function save() {
   // Backup local
@@ -7131,9 +7132,15 @@ function limparFormOcorrencia() {
   const alunoEl    = document.getElementById('oc-aluno');
   if (profEl)  { profEl.value = '';  profEl.style.display  = 'none'; }
   if (alunoEl) { alunoEl.style.display = ''; }
+  _ocEditandoId = null;
+  const tituloEl = document.querySelector('#tab-ocorrencias .card-title');
+  if (tituloEl) tituloEl.textContent = '➕ Nova Ocorrência';
+  const btnEl = document.querySelector('#tab-ocorrencias .btn-primary');
+  if (btnEl) btnEl.textContent = '💾 Registrar Ocorrência';
 }
 
 function salvarOcorrencia() {
+  if (_ocEditandoId) { atualizarOcorrencia(_ocEditandoId); return; }
   const descricao = (document.getElementById('oc-descricao')?.value || '').trim();
   if (!descricao) { showToast('⚠️ Preencha a descrição da ocorrência.'); return; }
 
@@ -7160,6 +7167,62 @@ function salvarOcorrencia() {
   limparFormOcorrencia();
   renderOcorrencias();
   showToast('✅ Ocorrência registrada!');
+}
+
+function editarOcorrencia(id) {
+  const o = db.ocorrencias.find(x => x.id === id);
+  if (!o) return;
+  _ocEditandoId = id;
+  const pad = n => String(n).padStart(2, '0');
+  const descEl = document.getElementById('oc-descricao'); if (descEl) descEl.value = o.descricao || '';
+  const turmaEl = document.getElementById('oc-turma');   if (turmaEl) turmaEl.value = o.turmaId || '';
+  const tipoEl  = document.getElementById('oc-tipo');    if (tipoEl)  tipoEl.value  = o.tipo || 'comportamento';
+  const dhEl    = document.getElementById('oc-dataHora');
+  if (dhEl && o.dataHora) {
+    const d = new Date(o.dataHora);
+    dhEl.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  const envTipo = o.envolvidoTipo || 'aluno';
+  const envNome = o.envolvidoNome || o.alunoNome || '';
+  const envTipoEl = document.getElementById('oc-envolvido-tipo');
+  if (envTipoEl) { envTipoEl.value = envTipo; toggleEnvolvido(); }
+  if (envTipo === 'professora') {
+    const profEl = document.getElementById('oc-professora'); if (profEl) profEl.value = envNome;
+  } else {
+    const alunoEl = document.getElementById('oc-aluno'); if (alunoEl) alunoEl.value = envNome;
+  }
+  const tituloEl = document.querySelector('#tab-ocorrencias .card-title');
+  if (tituloEl) tituloEl.textContent = '✏️ Editando Ocorrência';
+  const btnEl = document.querySelector('#tab-ocorrencias .btn-primary');
+  if (btnEl) btnEl.textContent = '💾 Salvar Alterações';
+  document.getElementById('tab-ocorrencias')?.querySelector('.card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  renderOcorrencias();
+}
+
+function atualizarOcorrencia(id) {
+  const descricao = (document.getElementById('oc-descricao')?.value || '').trim();
+  if (!descricao) { showToast('⚠️ Preencha a descrição da ocorrência.'); return; }
+  const idx = db.ocorrencias.findIndex(x => x.id === id);
+  if (idx === -1) return;
+  const dhVal = document.getElementById('oc-dataHora')?.value || _ocDataHoraAgora();
+  const envolvidoTipo = document.getElementById('oc-envolvido-tipo')?.value || 'aluno';
+  const envolvidoNome = envolvidoTipo === 'professora'
+    ? (document.getElementById('oc-professora')?.value || '').trim()
+    : (document.getElementById('oc-aluno')?.value || '').trim();
+  db.ocorrencias[idx] = {
+    ...db.ocorrencias[idx],
+    dataHora:     dhVal ? new Date(dhVal).toISOString() : db.ocorrencias[idx].dataHora,
+    envolvidoTipo, envolvidoNome, alunoNome: envolvidoNome,
+    turmaId:      document.getElementById('oc-turma')?.value || '',
+    tipo:         document.getElementById('oc-tipo')?.value  || 'outro',
+    descricao,
+    editadoEm:    new Date().toISOString(),
+    editadoPor:   currentUser?.nome || currentUser?.login || '—',
+  };
+  save();
+  limparFormOcorrencia();
+  renderOcorrencias();
+  showToast('✅ Ocorrência atualizada!');
 }
 
 function deleteOcorrencia(id) {
@@ -7219,13 +7282,15 @@ function renderOcorrencias() {
     const tipo   = OC_TIPOS[o.tipo] || OC_TIPOS.outro;
     const turma  = db.turmas.find(t => t.id === o.turmaId);
     const dtFmt  = o.dataHora ? new Date(o.dataHora).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
-    const regFmt = o.registradoEm ? new Date(o.registradoEm).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+    const regFmt  = o.registradoEm ? new Date(o.registradoEm).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+    const editFmt = o.editadoEm    ? new Date(o.editadoEm).toLocaleString('pt-BR',    { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
     const envNome  = o.envolvidoNome || o.alunoNome;
     const envTipo  = o.envolvidoTipo || 'aluno';
     const envBadge = envTipo === 'professora' ? `<span style="background:#eff6ff;color:#1e40af;border:1px solid #93c5fd;border-radius:4px;padding:2px 6px;font-size:11px;font-weight:600;">👩‍🏫 Professora</span>` : '';
     const alunoStr = envNome ? `<strong>${escapeHtml(envNome)}</strong>${envBadge ? ' '+envBadge : ''}` : '<span style="color:var(--gray-400);">Não informado</span>';
     const turmaStr = turma ? `<span class="badge badge-green">${escapeHtml(turma.nome)}</span>` : '';
-    return `<div class="item-card" style="border-left:4px solid ${tipo.borda};background:${tipo.cor};">
+    const isEditing = _ocEditandoId === o.id;
+    return `<div class="item-card" style="border-left:4px solid ${tipo.borda};background:${tipo.cor};${isEditing ? 'outline:2px solid #f59e0b;outline-offset:2px;' : ''}">
       <div class="info" style="width:100%;">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
           <span style="font-size:18px;">${tipo.emoji}</span>
@@ -7235,9 +7300,10 @@ function renderOcorrencias() {
           <span style="font-size:12px;color:var(--gray-500);">📅 ${dtFmt}</span>
         </div>
         <div style="font-size:14px;color:#1a1a1a;line-height:1.7;white-space:pre-wrap;margin-bottom:6px;">${escapeHtml(o.descricao)}</div>
-        <div style="font-size:11.5px;color:var(--gray-400);">Registrado por <strong>${escapeHtml(o.registradoPor)}</strong>${regFmt ? ` em ${regFmt}` : ''}</div>
+        <div style="font-size:11.5px;color:var(--gray-400);">Registrado por <strong>${escapeHtml(o.registradoPor)}</strong>${regFmt ? ` em ${regFmt}` : ''}${editFmt ? ` · <em>editado por ${escapeHtml(o.editadoPor)} em ${editFmt}</em>` : ''}</div>
       </div>
-      <div class="actions" style="align-self:flex-start;">
+      <div class="actions" style="align-self:flex-start;display:flex;gap:4px;">
+        ${isGestao ? `<button class="btn btn-secondary btn-sm" onclick="editarOcorrencia('${o.id}')" title="Editar">✏️</button>` : ''}
         ${isGestao ? `<button class="btn btn-danger btn-sm" onclick="deleteOcorrencia('${o.id}')" title="Excluir">🗑️</button>` : ''}
       </div>
     </div>`;
