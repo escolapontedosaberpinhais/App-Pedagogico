@@ -2612,9 +2612,18 @@ function getFolder(path) {
     <div class="card-title">➕ Nova Ocorrência</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
       <div>
-        <label style="font-size:13px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px;">Aluno(a) <span style="font-weight:400;color:var(--gray-400);">(opcional)</span></label>
-        <input type="text" id="oc-aluno" placeholder="Nome do(a) aluno(a)"
-          style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:14px;" autocomplete="off">
+        <label style="font-size:13px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px;">Envolvido(a) <span style="font-weight:400;color:var(--gray-400);">(opcional)</span></label>
+        <div style="display:flex;gap:6px;">
+          <select id="oc-envolvido-tipo" onchange="toggleEnvolvido()" style="padding:9px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;background:#fff;flex-shrink:0;">
+            <option value="aluno">👤 Aluno(a)</option>
+            <option value="professora">👩‍🏫 Professora</option>
+          </select>
+          <input type="text" id="oc-aluno" placeholder="Nome do(a) aluno(a)"
+            style="flex:1;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:14px;" autocomplete="off">
+          <select id="oc-professora" style="flex:1;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:14px;background:#fff;display:none;">
+            <option value="">— Selecionar professora —</option>
+          </select>
+        </div>
       </div>
       <div>
         <label style="font-size:13px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px;">Turma <span style="font-weight:400;color:var(--gray-400);">(opcional)</span></label>
@@ -3250,7 +3259,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.14';
+const APP_VERSION = 'v2.9.15';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -7088,24 +7097,59 @@ function _ocDataHoraAgora() {
   return `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
 }
 
+function toggleEnvolvido() {
+  const tipo    = document.getElementById('oc-envolvido-tipo')?.value;
+  const alunoEl = document.getElementById('oc-aluno');
+  const profEl  = document.getElementById('oc-professora');
+  if (!alunoEl || !profEl) return;
+  if (tipo === 'professora') {
+    alunoEl.style.display = 'none';
+    profEl.style.display  = '';
+    if (profEl.options.length <= 1) {
+      db.usuarios
+        .filter(u => u.papel === 'professora')
+        .sort((a, b) => (a.nome || '').localeCompare(b.nome || ''))
+        .forEach(u => {
+          const o = document.createElement('option');
+          o.value = u.nome; o.textContent = u.nome;
+          profEl.appendChild(o);
+        });
+    }
+  } else {
+    alunoEl.style.display = '';
+    profEl.style.display  = 'none';
+  }
+}
+
 function limparFormOcorrencia() {
   ['oc-aluno','oc-descricao'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  const turmaEl = document.getElementById('oc-turma'); if (turmaEl) turmaEl.value = '';
-  const tipoEl  = document.getElementById('oc-tipo');  if (tipoEl)  tipoEl.value  = 'comportamento';
-  const dhEl    = document.getElementById('oc-dataHora'); if (dhEl) dhEl.value = _ocDataHoraAgora();
+  const turmaEl    = document.getElementById('oc-turma');         if (turmaEl)    turmaEl.value    = '';
+  const tipoEl     = document.getElementById('oc-tipo');          if (tipoEl)     tipoEl.value     = 'comportamento';
+  const dhEl       = document.getElementById('oc-dataHora');      if (dhEl)       dhEl.value       = _ocDataHoraAgora();
+  const envTipoEl  = document.getElementById('oc-envolvido-tipo'); if (envTipoEl)  envTipoEl.value  = 'aluno';
+  const profEl     = document.getElementById('oc-professora');
+  const alunoEl    = document.getElementById('oc-aluno');
+  if (profEl)  { profEl.value = '';  profEl.style.display  = 'none'; }
+  if (alunoEl) { alunoEl.style.display = ''; }
 }
 
 function salvarOcorrencia() {
   const descricao = (document.getElementById('oc-descricao')?.value || '').trim();
   if (!descricao) { showToast('⚠️ Preencha a descrição da ocorrência.'); return; }
 
-  const dhVal = document.getElementById('oc-dataHora')?.value || _ocDataHoraAgora();
+  const dhVal        = document.getElementById('oc-dataHora')?.value || _ocDataHoraAgora();
+  const envolvidoTipo = document.getElementById('oc-envolvido-tipo')?.value || 'aluno';
+  const envolvidoNome = envolvidoTipo === 'professora'
+    ? (document.getElementById('oc-professora')?.value || '').trim()
+    : (document.getElementById('oc-aluno')?.value || '').trim();
   const oc = {
-    id:           uid(),
-    dataHora:     dhVal ? new Date(dhVal).toISOString() : new Date().toISOString(),
-    alunoNome:    (document.getElementById('oc-aluno')?.value  || '').trim(),
-    turmaId:      document.getElementById('oc-turma')?.value   || '',
-    tipo:         document.getElementById('oc-tipo')?.value    || 'outro',
+    id:            uid(),
+    dataHora:      dhVal ? new Date(dhVal).toISOString() : new Date().toISOString(),
+    envolvidoTipo,
+    envolvidoNome,
+    alunoNome:     envolvidoNome,
+    turmaId:       document.getElementById('oc-turma')?.value   || '',
+    tipo:          document.getElementById('oc-tipo')?.value    || 'outro',
     descricao,
     registradoPor: currentUser?.nome || currentUser?.login || '—',
     registradoEm:  new Date().toISOString(),
@@ -7160,7 +7204,7 @@ function renderOcorrencias() {
 
   let lista = [...db.ocorrencias].sort((a, b) => (b.dataHora || b.registradoEm) > (a.dataHora || a.registradoEm) ? 1 : -1);
 
-  if (busca)       lista = lista.filter(o => [o.alunoNome, o.descricao, OC_TIPOS[o.tipo]?.label || o.tipo, o.registradoPor].join(' ').toLowerCase().includes(busca));
+  if (busca)       lista = lista.filter(o => [(o.envolvidoNome || o.alunoNome), o.descricao, OC_TIPOS[o.tipo]?.label || o.tipo, o.registradoPor].join(' ').toLowerCase().includes(busca));
   if (filtroTipo)  lista = lista.filter(o => o.tipo === filtroTipo);
   if (filtroTurma) lista = lista.filter(o => o.turmaId === filtroTurma);
 
@@ -7176,7 +7220,10 @@ function renderOcorrencias() {
     const turma  = db.turmas.find(t => t.id === o.turmaId);
     const dtFmt  = o.dataHora ? new Date(o.dataHora).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
     const regFmt = o.registradoEm ? new Date(o.registradoEm).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
-    const alunoStr = o.alunoNome ? `<strong>${escapeHtml(o.alunoNome)}</strong>` : '<span style="color:var(--gray-400);">Aluno não informado</span>';
+    const envNome  = o.envolvidoNome || o.alunoNome;
+    const envTipo  = o.envolvidoTipo || 'aluno';
+    const envBadge = envTipo === 'professora' ? `<span style="background:#eff6ff;color:#1e40af;border:1px solid #93c5fd;border-radius:4px;padding:2px 6px;font-size:11px;font-weight:600;">👩‍🏫 Professora</span>` : '';
+    const alunoStr = envNome ? `<strong>${escapeHtml(envNome)}</strong>${envBadge ? ' '+envBadge : ''}` : '<span style="color:var(--gray-400);">Não informado</span>';
     const turmaStr = turma ? `<span class="badge badge-green">${escapeHtml(turma.nome)}</span>` : '';
     return `<div class="item-card" style="border-left:4px solid ${tipo.borda};background:${tipo.cor};">
       <div class="info" style="width:100%;">
