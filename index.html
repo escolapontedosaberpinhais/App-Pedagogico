@@ -900,6 +900,50 @@
   .bncc-option-desc { font-size: 12px; color: var(--gray-600); line-height: 1.4; }
   .bncc-empty { padding: 14px 12px; text-align: center; color: var(--gray-400); font-size: 12.5px; }
   .bncc-hint { font-size: 11px; color: var(--gray-400); margin-top: 4px; }
+
+  /* CALENDÁRIO ESCOLAR */
+  .cal-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
+  @media (max-width: 900px) { .cal-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 580px) { .cal-grid { grid-template-columns: 1fr; } }
+  .cal-mes { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  .cal-mes-header { background: var(--green); color: var(--white); padding: 8px 10px; text-align: center; font-weight: 700; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; }
+  .cal-mes-grid { padding: 6px; }
+  .cal-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; margin-bottom: 2px; }
+  .cal-dow span { text-align: center; font-size: 10px; font-weight: 700; color: var(--gray-400); padding: 3px 0; }
+  .cal-dias { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; }
+  .cal-dia { text-align: center; font-size: 11px; padding: 3px 1px; border-radius: 4px; cursor: default; position: relative; min-height: 22px; display: flex; align-items: center; justify-content: center; }
+  .cal-dia.vazio { background: transparent; }
+  .cal-dia.fds { color: var(--gray-400); }
+  .cal-dia.letivo { background: #f0fdf4; color: #166534; font-weight: 500; }
+  .cal-dia.fora-bimestre { color: var(--gray-400); }
+  .cal-dia[title] { cursor: help; }
+  .cal-legenda { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cal-legenda-item { display: flex; align-items: center; gap: 5px; font-size: 12px; }
+  .cal-legenda-cor { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+  .cal-bim-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .cal-bim-table th { background: var(--green-light); color: var(--green-dark); padding: 8px 10px; text-align: left; font-weight: 600; border-bottom: 2px solid var(--green-mid); }
+  .cal-bim-table td { padding: 8px 10px; border-bottom: 1px solid var(--gray-200); }
+  .cal-bim-table tr:last-child td { border-bottom: none; font-weight: 700; background: var(--gray-100); }
+  .cal-evento-lista { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+  .cal-evento-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: var(--gray-100); border-radius: 6px; font-size: 13px; }
+  .cal-evento-cor { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+  .cal-evento-nome { flex: 1; }
+  .cal-evento-data { font-size: 11px; color: var(--gray-400); white-space: nowrap; }
+  @media print {
+    .cal-no-print { display: none !important; }
+    .cal-grid { grid-template-columns: repeat(3, 1fr) !important; gap: 10px !important; }
+    .cal-mes { box-shadow: none; border: 1px solid #ccc; }
+    header, nav, #nav-dir, #ha-topbar, .drawer, .drawer-overlay { display: none !important; }
+    main { padding: 0 !important; }
+    .section { display: block !important; }
+    .section:not(#tab-calendario) { display: none !important; }
+    #cal-print-header { display: flex !important; }
+    body { background: #fff !important; }
+    @page { size: A4 portrait; margin: 10mm; }
+  }
+  #cal-print-header { display: none; flex-direction: column; align-items: center; margin-bottom: 16px; }
+  #cal-print-header h2 { font-size: 16px; font-weight: 700; text-transform: uppercase; margin: 4px 0; }
+  #cal-print-header p { font-size: 12px; color: #555; }
 </style>
 </head>
 <body>
@@ -1100,6 +1144,9 @@
     <button class="dnav-btn" id="dnav-ocorrencias" onclick="drawerNav('ocorrencias')" style="display:none;">
       <span class="di">&#x1F4CB;</span> Ocorr&ecirc;ncias
     </button>
+    <button class="dnav-btn" id="dnav-calendario" onclick="drawerNav('calendario')" style="display:none;">
+      <span class="di">&#x1F4C5;</span> Calend&aacute;rio
+    </button>
   </div>
   <div class="drawer-footer">
     <button class="drawer-key" onclick="fecharDrawer();abrirTrocarSenha();">&#x1F511; Trocar senha</button>
@@ -1122,6 +1169,7 @@
   <button id="nav-atividades" onclick="showTab('atividades')" data-tab="atividades" style="display:none;">🎯 Atividades</button>
   <button id="nav-auditoria" onclick="showTab('auditoria')" data-tab="auditoria" style="display:none;">📜 Auditoria</button>
   <button id="nav-ocorrencias" onclick="showTab('ocorrencias')" data-tab="ocorrencias" style="display:none;">📋 Ocorrências</button>
+  <button id="nav-calendario" onclick="showTab('calendario')" data-tab="calendario" style="display:none;">📅 Calendário</button>
 </nav>
 
 <!-- ── Nav agrupada para diretoria ── -->
@@ -1176,6 +1224,7 @@
     <div class="nav-grp-drop" id="navdrop-controle">
       <button data-tab="auditoria" onclick="showTab('auditoria');closeNavGrp()">📜 Auditoria</button>
       <button data-tab="ocorrencias" onclick="showTab('ocorrencias');closeNavGrp()">📋 Ocorrências</button>
+      <button data-tab="calendario" id="navdir-calendario" onclick="showTab('calendario');closeNavGrp()" style="display:none;">📅 Calendário</button>
     </div>
   </div>
 </nav>
@@ -2760,6 +2809,130 @@ function getFolder(path) {
   <div id="aud-rodape" style="text-align:center;margin-top:14px;font-size:12px;color:var(--gray-400);"></div>
 </div>
 
+<!-- ===================== CALENDÁRIO ESCOLAR ===================== -->
+<div id="tab-calendario" class="section">
+  <!-- Cabeçalho de impressão (oculto na tela) -->
+  <div id="cal-print-header">
+    <img src="/icon-192.png" style="height:60px;margin-bottom:6px;" alt="Logo">
+    <h2>Escola Ponte do Saber — Calendário Escolar</h2>
+    <p id="cal-print-subtitulo"></p>
+  </div>
+
+  <div class="section-header cal-no-print">
+    <h2>📅 Calendário Escolar</h2>
+    <p>Planejamento anual com dias letivos, eventos e bimestres</p>
+  </div>
+
+  <!-- Controles -->
+  <div class="card cal-no-print" style="margin-bottom:14px;">
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label style="font-weight:600;font-size:14px;">Ano:</label>
+        <select id="cal-ano" onchange="renderCalendario()" style="padding:7px 12px;border:1.5px solid var(--gray-200);border-radius:6px;font-size:15px;font-weight:700;color:var(--green-dark);">
+          <option value="2026">2026</option>
+          <option value="2027">2027</option>
+          <option value="2028">2028</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" onclick="calAbrirFormEvento(null)">➕ Novo Evento</button>
+        <button class="btn btn-secondary btn-sm" onclick="calAbrirBimestres()">📊 Bimestres</button>
+        <button class="btn btn-primary btn-sm" onclick="imprimirCalendario()">🖨️ Imprimir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Form: Novo / Editar Evento -->
+  <div id="cal-form-evento" class="card cal-no-print" style="display:none;margin-bottom:14px;border:2px solid var(--green);">
+    <div class="card-title" id="cal-form-titulo">➕ Novo Evento</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;" class="cal-form-grid">
+      <div class="form-group" style="margin:0;">
+        <label>Tipo</label>
+        <select id="cal-ev-tipo" style="width:100%;">
+          <option value="feriado">🔴 Feriado</option>
+          <option value="recesso">🟠 Recesso Escolar</option>
+          <option value="formacao">🟣 Formação</option>
+          <option value="colonia">🔵 Colônia de Férias</option>
+          <option value="vox_dei">🌊 Vox Dei</option>
+          <option value="inicio_bimestre">🟢 Início de Bimestre</option>
+          <option value="fim_bimestre">🟤 Fim de Bimestre</option>
+          <option value="entrega_parecer">🟡 Entrega de Pareceres</option>
+          <option value="reuniao_pais">💜 Reunião de Pais</option>
+          <option value="comemoracao">🩵 Comemoração</option>
+          <option value="simulado">☕ Simulado</option>
+          <option value="evento">✅ Evento Escolar</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Descrição</label>
+        <input type="text" id="cal-ev-descricao" placeholder="Ex: Tiradentes" style="width:100%;">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>
+          <input type="checkbox" id="cal-ev-range" onchange="calToggleRange()" style="margin-right:5px;">
+          Período (intervalo de datas)
+        </label>
+        <div id="cal-ev-data-simples">
+          <input type="date" id="cal-ev-data" style="width:100%;">
+        </div>
+        <div id="cal-ev-data-range" style="display:none;gap:6px;">
+          <input type="date" id="cal-ev-inicio" placeholder="Início" style="flex:1;">
+          <span style="align-self:center;">até</span>
+          <input type="date" id="cal-ev-fim" placeholder="Fim" style="flex:1;">
+        </div>
+      </div>
+    </div>
+    <input type="hidden" id="cal-ev-id">
+    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">
+      <button class="btn btn-secondary btn-sm" onclick="calFecharFormEvento()">Cancelar</button>
+      <button class="btn btn-primary btn-sm" onclick="calSalvarEvento()">💾 Salvar</button>
+    </div>
+  </div>
+
+  <!-- Form: Configurar Bimestres -->
+  <div id="cal-form-bimestres" class="card cal-no-print" style="display:none;margin-bottom:14px;border:2px solid var(--green);">
+    <div class="card-title">📊 Configurar Bimestres</div>
+    <div style="overflow-x:auto;margin-top:10px;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;" id="cal-bim-form-table">
+        <thead>
+          <tr>
+            <th style="padding:8px;background:var(--green-light);color:var(--green-dark);text-align:left;">Bimestre</th>
+            <th style="padding:8px;background:var(--green-light);color:var(--green-dark);">Início</th>
+            <th style="padding:8px;background:var(--green-light);color:var(--green-dark);">Fim</th>
+          </tr>
+        </thead>
+        <tbody id="cal-bim-tbody"></tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">
+      <button class="btn btn-secondary btn-sm" onclick="calFecharBimestres()">Cancelar</button>
+      <button class="btn btn-primary btn-sm" onclick="calSalvarBimestres()">💾 Salvar Bimestres</button>
+    </div>
+  </div>
+
+  <!-- Grade 12 meses -->
+  <div class="cal-grid" id="cal-grid"></div>
+
+  <!-- Legenda -->
+  <div class="card" style="margin-bottom:14px;">
+    <div style="font-weight:600;margin-bottom:8px;font-size:13px;">Legenda</div>
+    <div class="cal-legenda" id="cal-legenda"></div>
+  </div>
+
+  <!-- Tabela de bimestres -->
+  <div class="card" id="cal-bim-resumo"></div>
+
+  <!-- Lista de eventos do ano -->
+  <div class="card cal-no-print" style="margin-top:14px;" id="cal-eventos-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+      <div class="card-title" style="margin:0;">📋 Eventos do Ano</div>
+      <input type="text" id="cal-eventos-busca" placeholder="Filtrar eventos..." oninput="renderCalEventosList()"
+        style="padding:6px 10px;border:1.5px solid var(--gray-200);border-radius:6px;font-size:12px;width:180px;">
+    </div>
+    <div id="cal-eventos-lista" class="cal-evento-lista"></div>
+  </div>
+</div>
+
 </main>
 
 <script>
@@ -3259,7 +3432,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.16';
+const APP_VERSION = 'v2.9.17';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -3392,7 +3565,7 @@ async function migrarImagensPlanej() {
 async function loadFromFirestore() {
   const _t = logger.timer('firestore', 'load-initial');
   try {
-    const [rT, rA, rP, rPar, rAv, rU, rCfg, rNot, rHa, rRot, rAtiv, rDSA, rEP, rOc] = await Promise.all([
+    const [rT, rA, rP, rPar, rAv, rU, rCfg, rNot, rHa, rRot, rAtiv, rDSA, rEP, rOc, rCal] = await Promise.all([
       FSREF('turmas').get(), FSREF('alunos').get(),
       FSREF('planejamentos').get(), FSREF('pareceres').get(),
       FSREF('avaliacoes').get(), FSREF('usuarios').get(),
@@ -3400,6 +3573,7 @@ async function loadFromFirestore() {
       FSREF('horaAtividade').get(), FSREF('rotinas').get(),
       FSREF('atividades').get(), FSREF('diasSemAula').get(),
       FSREF('entregasPareceres').get(), FSREF('ocorrencias').get(),
+      FSREF('calendarioEscolar').get(),
     ]);
     if (rT.exists)   db.turmas        = rT.data().data   ?? [];
     if (rA.exists)   db.alunos        = rA.data().data   ?? [];
@@ -3445,6 +3619,17 @@ async function loadFromFirestore() {
       }
     }
     _ocorrenciasCarregadas = true;
+    if (rCal.exists) {
+      db.calendarioEscolar = rCal.data().data ?? null;
+    } else {
+      const lsCal = LS.get('ps_calendario_escolar', null);
+      if (lsCal) {
+        db.calendarioEscolar = lsCal;
+        FSREF('calendarioEscolar').set({ data: db.calendarioEscolar })
+          .catch(e => logger.warn({ module: 'sync', action: 'restore-calendario', message: 'Erro ao restaurar calendário', error: e }));
+      }
+    }
+    _calendarioEscolarCarregado = true;
     if (rCfg.exists) {
       db.apiKey = rCfg.data().apiKey ?? '';
       if (rCfg.data().model) localStorage.setItem('ps_gemini_model', rCfg.data().model);
@@ -3622,6 +3807,7 @@ function saveToFirestore() {
   if (_rotinasCarregadas)     batch.set(FSREF('rotinas'),     { data: db.rotinas });
   if (_atividadesCarregadas)  batch.set(FSREF('atividades'),  { data: db.atividades });
   if (_ocorrenciasCarregadas) batch.set(FSREF('ocorrencias'), { data: db.ocorrencias });
+  if (_calendarioEscolarCarregado && db.calendarioEscolar) batch.set(FSREF('calendarioEscolar'), { data: db.calendarioEscolar });
   batch.set(FSREF('diasSemAula'), { data: db.diasSemAula });
   batch.set(FSREF('entregasPareceres'), { data: db.entregasPareceres });
   batch.commit()
@@ -3720,6 +3906,14 @@ function setupSync() {
       refreshCurrentView();
     }
   });
+  FSREF('calendarioEscolar').onSnapshot((doc) => {
+    if (doc.exists && !doc.metadata.hasPendingWrites) {
+      db.calendarioEscolar = doc.data().data ?? null;
+      _calendarioEscolarCarregado = true;
+      if (db.calendarioEscolar) LS.set('ps_calendario_escolar', db.calendarioEscolar);
+      refreshCurrentView();
+    }
+  });
   FSREF('notificacoes').onSnapshot((doc) => {
     if (doc.exists && !doc.metadata.hasPendingWrites) {
       const novas = doc.data().data ?? [];
@@ -3762,6 +3956,7 @@ function refreshCurrentView() {
   if (id === 'tab-atividades')      { renderAtividades(); }
   if (id === 'tab-auditoria')       { carregarAuditoria(); }
   if (id === 'tab-ocorrencias')     { renderOcorrencias(); }
+  if (id === 'tab-calendario')      { renderCalendario(); }
 }
 
 // =====================================================================
@@ -3782,12 +3977,14 @@ let db = {
   diasSemAula: [],
   entregasPareceres: { b1: '', b2: '', b3: '', b4: '' },
   ocorrencias: [],
+  calendarioEscolar: null,
 };
 // Guardas: evita sobrescrever dados no Firestore antes de carregá-los
-let _rotinasCarregadas      = false;
-let _atividadesCarregadas   = false;
-let _ocorrenciasCarregadas  = false;
-let _ocEditandoId           = null;
+let _rotinasCarregadas            = false;
+let _atividadesCarregadas         = false;
+let _ocorrenciasCarregadas        = false;
+let _calendarioEscolarCarregado   = false;
+let _ocEditandoId                 = null;
 
 function save() {
   // Backup local
@@ -3803,6 +4000,7 @@ function save() {
   LS.set('ps_dias_sem_aula', db.diasSemAula);
   LS.set('ps_entregas_pareceres', db.entregasPareceres);
   LS.set('ps_ocorrencias', db.ocorrencias);
+  if (db.calendarioEscolar) LS.set('ps_calendario_escolar', db.calendarioEscolar);
   // Firestore
   saveToFirestore();
 }
@@ -3971,6 +4169,11 @@ function aplicarPapel() {
   // Ocorrências: gestão (diretor + pedagoga)
   nav('nav-ocorrencias',  isGestao);
   nav('dnav-ocorrencias', isGestao);
+
+  // Calendário: gestão (diretor + pedagoga)
+  nav('nav-calendario',    isGestao);
+  nav('dnav-calendario',   isGestao);
+  nav('navdir-calendario', isGestao);
 
   // Diagnóstico de sincronização: apenas diretor
   nav('btn-diagnostico-sync', isDiretor);
@@ -4233,7 +4436,7 @@ const _TAB_GRUPOS = {
   cadastro: 'gestao', impressao: 'gestao',
   rotina: 'pedagogico', avaliacoes: 'pedagogico', correcao: 'pedagogico',
   'hora-atividade': 'docentes', planejamento: 'docentes', pareceres: 'docentes', atividades: 'docentes',
-  auditoria: 'controle', ocorrencias: 'controle',
+  auditoria: 'controle', ocorrencias: 'controle', calendario: 'controle',
 };
 
 function toggleNavGrp(grp) {
@@ -4290,6 +4493,7 @@ function showTab(tab) {
   if (tab === 'atividades')     { renderAtividades(); }
   if (tab === 'config')         { renderUsuarios(); atualizarStatusFdSync(); }
   if (tab === 'ocorrencias')    { renderOcorrencias(); }
+  if (tab === 'calendario')     { renderCalendario(); }
 }
 
 // --- DRAWER functions ---
@@ -11017,6 +11221,461 @@ async function abrirDiagnosticoSync() {
 
 function fecharDiagnosticoSync() {
   document.getElementById('modal-diag-overlay').style.display = 'none';
+}
+
+// =====================================================================
+// CALENDÁRIO ESCOLAR
+// =====================================================================
+
+const CAL_TIPOS = {
+  feriado:         { label: 'Feriado',             cor: '#dc2626', prioridade: 1 },
+  recesso:         { label: 'Recesso Escolar',     cor: '#ea580c', prioridade: 2 },
+  colonia:         { label: 'Colônia de Férias',   cor: '#0891b2', prioridade: 3 },
+  formacao:        { label: 'Formação',             cor: '#7c3aed', prioridade: 4 },
+  vox_dei:         { label: 'Vox Dei',             cor: '#1e3a8a', prioridade: 5 },
+  inicio_bimestre: { label: 'Início de Bimestre',  cor: '#16a34a', prioridade: 6 },
+  fim_bimestre:    { label: 'Fim de Bimestre',     cor: '#991b1b', prioridade: 7 },
+  entrega_parecer: { label: 'Entrega de Pareceres',cor: '#d97706', prioridade: 8 },
+  reuniao_pais:    { label: 'Reunião de Pais',     cor: '#9333ea', prioridade: 9 },
+  comemoracao:     { label: 'Comemoração',         cor: '#0d9488', prioridade: 10 },
+  simulado:        { label: 'Simulado',            cor: '#92400e', prioridade: 11 },
+  evento:          { label: 'Evento Escolar',      cor: '#059669', prioridade: 12 },
+};
+
+function _calDefaultData(ano) {
+  const a = String(ano);
+  return {
+    ano,
+    bimestres: [
+      { num: 1, label: '1º Bimestre', inicio: `${a}-02-04`, fim: `${a}-04-17` },
+      { num: 2, label: '2º Bimestre', inicio: `${a}-04-22`, fim: `${a}-07-03` },
+      { num: 3, label: '3º Bimestre', inicio: `${a}-07-07`, fim: `${a}-10-01` },
+      { num: 4, label: '4º Bimestre', inicio: `${a}-10-02`, fim: `${a}-12-18` },
+    ],
+    eventos: ano === 2026 ? _calEventos2026() : [],
+    _nextId: 100,
+  };
+}
+
+function _calEventos2026() {
+  return [
+    // Feriados Nacionais
+    { id: 'e1',  tipo: 'feriado',         descricao: 'Confraternização Universal',   data: '2026-01-01' },
+    { id: 'e2',  tipo: 'feriado',         descricao: 'Carnaval',                     dataInicio: '2026-02-16', dataFim: '2026-02-17' },
+    { id: 'e3',  tipo: 'feriado',         descricao: 'Sexta-Feira Santa',            data: '2026-04-03' },
+    { id: 'e4',  tipo: 'feriado',         descricao: 'Tiradentes',                   data: '2026-04-21' },
+    { id: 'e5',  tipo: 'feriado',         descricao: 'Dia do Trabalho',              data: '2026-05-01' },
+    { id: 'e6',  tipo: 'feriado',         descricao: 'Corpus Christi',               data: '2026-06-04' },
+    { id: 'e7',  tipo: 'feriado',         descricao: 'Independência do Brasil',      data: '2026-09-07' },
+    { id: 'e8',  tipo: 'feriado',         descricao: 'Nossa Sra. Aparecida',         data: '2026-10-12' },
+    { id: 'e9',  tipo: 'feriado',         descricao: 'Finados',                      data: '2026-11-02' },
+    { id: 'e10', tipo: 'feriado',         descricao: 'Proclamação da República',     data: '2026-11-15' },
+    { id: 'e11', tipo: 'feriado',         descricao: 'Consciência Negra',            data: '2026-11-20' },
+    { id: 'e12', tipo: 'feriado',         descricao: 'Natal',                        data: '2026-12-25' },
+    // Feriados Estaduais/Municipais
+    { id: 'e13', tipo: 'feriado',         descricao: 'Nossa Sra. do Carmo (Pinhais)',data: '2026-07-16' },
+    // Recessos
+    { id: 'e14', tipo: 'recesso',         descricao: 'Recesso de Carnaval',          dataInicio: '2026-02-14', dataFim: '2026-02-18' },
+    { id: 'e15', tipo: 'recesso',         descricao: 'Recesso de Julho',             dataInicio: '2026-07-04', dataFim: '2026-07-06' },
+    { id: 'e16', tipo: 'recesso',         descricao: 'Recesso de Final de Ano',      dataInicio: '2026-12-19', dataFim: '2026-12-31' },
+    // Início/Fim de Bimestres
+    { id: 'e17', tipo: 'inicio_bimestre', descricao: 'Início do 1º Bimestre',        data: '2026-02-04' },
+    { id: 'e18', tipo: 'fim_bimestre',    descricao: 'Fim do 1º Bimestre',           data: '2026-04-17' },
+    { id: 'e19', tipo: 'inicio_bimestre', descricao: 'Início do 2º Bimestre',        data: '2026-04-22' },
+    { id: 'e20', tipo: 'fim_bimestre',    descricao: 'Fim do 2º Bimestre',           data: '2026-07-03' },
+    { id: 'e21', tipo: 'inicio_bimestre', descricao: 'Início do 3º Bimestre',        data: '2026-07-07' },
+    { id: 'e22', tipo: 'fim_bimestre',    descricao: 'Fim do 3º Bimestre',           data: '2026-10-01' },
+    { id: 'e23', tipo: 'inicio_bimestre', descricao: 'Início do 4º Bimestre',        data: '2026-10-02' },
+    { id: 'e24', tipo: 'fim_bimestre',    descricao: 'Fim do 4º Bimestre',           data: '2026-12-18' },
+    // Entregas de Pareceres
+    { id: 'e25', tipo: 'entrega_parecer', descricao: 'Entrega de Pareceres — 1º Bimestre', data: '2026-05-08' },
+    { id: 'e26', tipo: 'entrega_parecer', descricao: 'Entrega de Pareceres — 2º Bimestre', data: '2026-07-17' },
+    { id: 'e27', tipo: 'entrega_parecer', descricao: 'Entrega de Pareceres — 3º Bimestre', data: '2026-10-16' },
+    { id: 'e28', tipo: 'entrega_parecer', descricao: 'Entrega de Pareceres — 4º Bimestre', data: '2026-12-18' },
+  ];
+}
+
+function _calInicializarSeLazio(ano) {
+  if (!db.calendarioEscolar || db.calendarioEscolar.ano !== ano) {
+    db.calendarioEscolar = _calDefaultData(ano);
+    _calendarioEscolarCarregado = true;
+    save();
+  }
+}
+
+function _calDatasDoEvento(ev) {
+  const datas = [];
+  if (ev.data) {
+    datas.push(ev.data);
+  } else if (ev.dataInicio && ev.dataFim) {
+    const cur = new Date(ev.dataInicio + 'T12:00:00');
+    const fim = new Date(ev.dataFim + 'T12:00:00');
+    while (cur <= fim) {
+      const y = cur.getFullYear();
+      const m = String(cur.getMonth() + 1).padStart(2, '0');
+      const d = String(cur.getDate()).padStart(2, '0');
+      datas.push(`${y}-${m}-${d}`);
+      cur.setDate(cur.getDate() + 1);
+    }
+  }
+  return datas;
+}
+
+function _calEventosDaData(dataStr) {
+  if (!db.calendarioEscolar) return [];
+  return db.calendarioEscolar.eventos.filter(ev => _calDatasDoEvento(ev).includes(dataStr));
+}
+
+function _calCorDaData(dataStr) {
+  const evs = _calEventosDaData(dataStr);
+  if (!evs.length) return null;
+  evs.sort((a, b) => (CAL_TIPOS[a.tipo]?.prioridade ?? 99) - (CAL_TIPOS[b.tipo]?.prioridade ?? 99));
+  return CAL_TIPOS[evs[0].tipo]?.cor ?? null;
+}
+
+function _calNoBimestre(dataStr) {
+  if (!db.calendarioEscolar) return false;
+  return db.calendarioEscolar.bimestres.some(b => dataStr >= b.inicio && dataStr <= b.fim);
+}
+
+function _calDiasLetivosCount(bimestre) {
+  if (!db.calendarioEscolar) return 0;
+  const eventos = db.calendarioEscolar.eventos;
+  const inicio = new Date(bimestre.inicio + 'T12:00:00');
+  const fim = new Date(bimestre.fim + 'T12:00:00');
+  let count = 0;
+  const cur = new Date(inicio);
+  while (cur <= fim) {
+    const dow = cur.getDay();
+    if (dow !== 0 && dow !== 6) {
+      const y = cur.getFullYear();
+      const m = String(cur.getMonth() + 1).padStart(2, '0');
+      const d = String(cur.getDate()).padStart(2, '0');
+      const ds = `${y}-${m}-${d}`;
+      const evs = eventos.filter(ev => _calDatasDoEvento(ev).includes(ds));
+      const semAula = evs.some(ev => ['feriado', 'recesso', 'colonia', 'formacao'].includes(ev.tipo));
+      if (!semAula) count++;
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+  return count;
+}
+
+function _calFmtData(str) {
+  if (!str) return '';
+  const [y, m, d] = str.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function _calNextId() {
+  if (!db.calendarioEscolar) return 'e' + Date.now();
+  const n = (db.calendarioEscolar._nextId || 100);
+  db.calendarioEscolar._nextId = n + 1;
+  return 'e' + n;
+}
+
+const CAL_MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const CAL_DOW   = ['D','S','T','Q','Q','S','S'];
+
+function renderMesCalendario(ano, mes) {
+  const diasNoMes = new Date(ano, mes, 0).getDate();
+  const primeiroDia = new Date(ano, mes - 1, 1).getDay();
+
+  let cells = '';
+  for (let i = 0; i < primeiroDia; i++) cells += '<div class="cal-dia vazio"></div>';
+
+  for (let d = 1; d <= diasNoMes; d++) {
+    const m2 = String(mes).padStart(2, '0');
+    const d2 = String(d).padStart(2, '0');
+    const ds = `${ano}-${m2}-${d2}`;
+    const dow = new Date(ano, mes - 1, d).getDay();
+    const isFds = dow === 0 || dow === 6;
+    const cor = _calCorDaData(ds);
+    const noBim = _calNoBimestre(ds);
+    const evs = _calEventosDaData(ds);
+
+    let cls = 'cal-dia';
+    if (isFds && !cor) cls += ' fds';
+    if (!isFds && noBim && !cor) cls += ' letivo';
+    if (!noBim && !cor) cls += ' fora-bimestre';
+
+    let style = '';
+    if (cor) style = `background:${cor};color:#fff;font-weight:700;border-radius:4px;`;
+
+    const tooltip = evs.map(ev => ev.descricao).join(' | ');
+    const titleAttr = tooltip ? ` title="${escapeHtml(tooltip)}"` : '';
+
+    cells += `<div class="${cls}" style="${style}"${titleAttr}>${d}</div>`;
+  }
+
+  const dowHeaders = CAL_DOW.map(h => `<span>${h}</span>`).join('');
+
+  return `
+    <div class="cal-mes">
+      <div class="cal-mes-header">${CAL_MESES[mes - 1]}</div>
+      <div class="cal-mes-grid">
+        <div class="cal-dow">${dowHeaders}</div>
+        <div class="cal-dias">${cells}</div>
+      </div>
+    </div>`;
+}
+
+function renderCalendario() {
+  const anoEl = document.getElementById('cal-ano');
+  if (!anoEl) return;
+  const ano = parseInt(anoEl.value) || 2026;
+
+  _calInicializarSeLazio(ano);
+
+  // Grade de meses
+  const grid = document.getElementById('cal-grid');
+  if (grid) {
+    let html = '';
+    for (let m = 1; m <= 12; m++) html += renderMesCalendario(ano, m);
+    grid.innerHTML = html;
+  }
+
+  // Legenda
+  const leg = document.getElementById('cal-legenda');
+  if (leg) {
+    leg.innerHTML = Object.entries(CAL_TIPOS).map(([k, t]) =>
+      `<div class="cal-legenda-item"><div class="cal-legenda-cor" style="background:${t.cor};"></div><span>${t.label}</span></div>`
+    ).join('') +
+    `<div class="cal-legenda-item"><div class="cal-legenda-cor" style="background:#f0fdf4;border:1px solid #86efac;"></div><span>Dia Letivo</span></div>`;
+  }
+
+  // Tabela de bimestres
+  const bimDiv = document.getElementById('cal-bim-resumo');
+  if (bimDiv && db.calendarioEscolar) {
+    const bims = db.calendarioEscolar.bimestres;
+    let totalLetivos = 0;
+    let rows = bims.map(b => {
+      const dl = _calDiasLetivosCount(b);
+      totalLetivos += dl;
+      return `<tr>
+        <td>${b.label}</td>
+        <td>${_calFmtData(b.inicio)}</td>
+        <td>${_calFmtData(b.fim)}</td>
+        <td style="text-align:center;font-weight:600;">${dl}</td>
+      </tr>`;
+    }).join('');
+    bimDiv.innerHTML = `
+      <div class="card-title" style="margin-bottom:10px;">📊 Resumo dos Bimestres — ${ano}</div>
+      <div style="overflow-x:auto;">
+        <table class="cal-bim-table">
+          <thead>
+            <tr>
+              <th>Bimestre</th><th>Início</th><th>Fim</th><th style="text-align:center;">Dias Letivos</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+            <tr>
+              <td colspan="3">Total de Dias Letivos</td>
+              <td style="text-align:center;">${totalLetivos}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  // Print subtitle
+  const sub = document.getElementById('cal-print-subtitulo');
+  if (sub) sub.textContent = `Ano Letivo ${ano}`;
+
+  // Lista de eventos
+  renderCalEventosList();
+}
+
+function renderCalEventosList() {
+  const listEl = document.getElementById('cal-eventos-lista');
+  if (!listEl || !db.calendarioEscolar) return;
+  const busca = (document.getElementById('cal-eventos-busca')?.value || '').toLowerCase();
+  const isGestao = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
+
+  const evs = [...db.calendarioEscolar.eventos]
+    .filter(ev => !busca || ev.descricao.toLowerCase().includes(busca))
+    .sort((a, b) => {
+      const da = a.data || a.dataInicio || '';
+      const db2 = b.data || b.dataInicio || '';
+      return da < db2 ? -1 : da > db2 ? 1 : 0;
+    });
+
+  if (!evs.length) {
+    listEl.innerHTML = '<div class="empty" style="padding:16px;"><div class="icon">📅</div><p>Nenhum evento cadastrado.</p></div>';
+    return;
+  }
+
+  listEl.innerHTML = evs.map(ev => {
+    const tipo = CAL_TIPOS[ev.tipo] || { label: ev.tipo, cor: '#888' };
+    const dataStr = ev.data ? _calFmtData(ev.data)
+      : (ev.dataInicio && ev.dataFim ? `${_calFmtData(ev.dataInicio)} a ${_calFmtData(ev.dataFim)}` : '');
+    return `<div class="cal-evento-item">
+      <div class="cal-evento-cor" style="background:${tipo.cor};"></div>
+      <div class="cal-evento-nome">${escapeHtml(ev.descricao)}</div>
+      <div class="cal-evento-data">${tipo.label} · ${dataStr}</div>
+      ${isGestao ? `
+        <button class="btn btn-secondary btn-sm" onclick="calAbrirFormEvento('${ev.id}')" title="Editar">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="calExcluirEvento('${ev.id}')" title="Excluir">🗑️</button>
+      ` : ''}
+    </div>`;
+  }).join('');
+}
+
+function calToggleRange() {
+  const isRange = document.getElementById('cal-ev-range')?.checked;
+  const simples = document.getElementById('cal-ev-data-simples');
+  const range   = document.getElementById('cal-ev-data-range');
+  if (simples) simples.style.display = isRange ? 'none' : '';
+  if (range)   range.style.display   = isRange ? 'flex' : 'none';
+}
+
+function calAbrirFormEvento(id) {
+  const form = document.getElementById('cal-form-evento');
+  const titulo = document.getElementById('cal-form-titulo');
+  if (!form) return;
+
+  // Reset
+  document.getElementById('cal-ev-tipo').value = 'feriado';
+  document.getElementById('cal-ev-descricao').value = '';
+  document.getElementById('cal-ev-data').value = '';
+  document.getElementById('cal-ev-inicio').value = '';
+  document.getElementById('cal-ev-fim').value = '';
+  document.getElementById('cal-ev-range').checked = false;
+  document.getElementById('cal-ev-id').value = '';
+  calToggleRange();
+
+  if (id && db.calendarioEscolar) {
+    const ev = db.calendarioEscolar.eventos.find(e => e.id === id);
+    if (ev) {
+      titulo.textContent = '✏️ Editar Evento';
+      document.getElementById('cal-ev-tipo').value = ev.tipo;
+      document.getElementById('cal-ev-descricao').value = ev.descricao;
+      document.getElementById('cal-ev-id').value = ev.id;
+      if (ev.data) {
+        document.getElementById('cal-ev-data').value = ev.data;
+      } else if (ev.dataInicio) {
+        document.getElementById('cal-ev-range').checked = true;
+        calToggleRange();
+        document.getElementById('cal-ev-inicio').value = ev.dataInicio;
+        document.getElementById('cal-ev-fim').value = ev.dataFim;
+      }
+    }
+  } else {
+    titulo.textContent = '➕ Novo Evento';
+  }
+
+  form.style.display = '';
+  form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.getElementById('cal-form-bimestres').style.display = 'none';
+}
+
+function calFecharFormEvento() {
+  const form = document.getElementById('cal-form-evento');
+  if (form) form.style.display = 'none';
+}
+
+function calSalvarEvento() {
+  const tipo      = document.getElementById('cal-ev-tipo').value;
+  const descricao = document.getElementById('cal-ev-descricao').value.trim();
+  const isRange   = document.getElementById('cal-ev-range').checked;
+  const data      = document.getElementById('cal-ev-data').value;
+  const inicio    = document.getElementById('cal-ev-inicio').value;
+  const fim       = document.getElementById('cal-ev-fim').value;
+  const evId      = document.getElementById('cal-ev-id').value;
+
+  if (!descricao) { showToast('❗ Informe a descrição do evento.'); return; }
+  if (!isRange && !data) { showToast('❗ Informe a data do evento.'); return; }
+  if (isRange && (!inicio || !fim)) { showToast('❗ Informe o período (início e fim).'); return; }
+  if (isRange && inicio > fim) { showToast('❗ A data de início deve ser anterior ao fim.'); return; }
+
+  const anoEl = document.getElementById('cal-ano');
+  const ano = parseInt(anoEl?.value || 2026);
+  _calInicializarSeLazio(ano);
+
+  const ev = { tipo, descricao };
+  if (isRange) { ev.dataInicio = inicio; ev.dataFim = fim; }
+  else         { ev.data = data; }
+
+  if (evId) {
+    const idx = db.calendarioEscolar.eventos.findIndex(e => e.id === evId);
+    if (idx >= 0) db.calendarioEscolar.eventos[idx] = { ...db.calendarioEscolar.eventos[idx], ...ev };
+  } else {
+    ev.id = _calNextId();
+    db.calendarioEscolar.eventos.push(ev);
+  }
+
+  _calendarioEscolarCarregado = true;
+  save();
+  calFecharFormEvento();
+  renderCalendario();
+  showToast('✅ Evento salvo!');
+}
+
+function calExcluirEvento(id) {
+  if (!confirm('Excluir este evento?')) return;
+  if (!db.calendarioEscolar) return;
+  db.calendarioEscolar.eventos = db.calendarioEscolar.eventos.filter(e => e.id !== id);
+  _calendarioEscolarCarregado = true;
+  save();
+  renderCalendario();
+  showToast('🗑️ Evento excluído.');
+}
+
+function calAbrirBimestres() {
+  const form = document.getElementById('cal-form-bimestres');
+  if (!form) return;
+  const anoEl = document.getElementById('cal-ano');
+  const ano = parseInt(anoEl?.value || 2026);
+  _calInicializarSeLazio(ano);
+
+  const tbody = document.getElementById('cal-bim-tbody');
+  if (tbody) {
+    tbody.innerHTML = db.calendarioEscolar.bimestres.map((b, i) => `
+      <tr>
+        <td style="padding:8px;font-weight:500;">${b.label}</td>
+        <td style="padding:8px;"><input type="date" id="cal-bim-ini-${i}" value="${b.inicio}" style="width:100%;padding:5px 8px;border:1.5px solid var(--gray-200);border-radius:6px;font-size:13px;"></td>
+        <td style="padding:8px;"><input type="date" id="cal-bim-fim-${i}" value="${b.fim}" style="width:100%;padding:5px 8px;border:1.5px solid var(--gray-200);border-radius:6px;font-size:13px;"></td>
+      </tr>
+    `).join('');
+  }
+
+  form.style.display = '';
+  form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.getElementById('cal-form-evento').style.display = 'none';
+}
+
+function calFecharBimestres() {
+  const form = document.getElementById('cal-form-bimestres');
+  if (form) form.style.display = 'none';
+}
+
+function calSalvarBimestres() {
+  const anoEl = document.getElementById('cal-ano');
+  const ano = parseInt(anoEl?.value || 2026);
+  _calInicializarSeLazio(ano);
+
+  const bims = db.calendarioEscolar.bimestres;
+  let ok = true;
+  bims.forEach((b, i) => {
+    const ini = document.getElementById(`cal-bim-ini-${i}`)?.value;
+    const fim = document.getElementById(`cal-bim-fim-${i}`)?.value;
+    if (!ini || !fim) { ok = false; return; }
+    if (ini > fim) { ok = false; showToast(`❗ ${b.label}: início deve ser antes do fim.`); return; }
+    b.inicio = ini;
+    b.fim = fim;
+  });
+
+  if (!ok) return;
+  _calendarioEscolarCarregado = true;
+  save();
+  calFecharBimestres();
+  renderCalendario();
+  showToast('✅ Bimestres salvos!');
+}
+
+function imprimirCalendario() {
+  window.print();
 }
 
 async function diagForceSyncAll() {
