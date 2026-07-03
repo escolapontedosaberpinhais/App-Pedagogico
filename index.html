@@ -3432,7 +3432,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.21';
+const APP_VERSION = 'v2.9.22';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -11749,10 +11749,9 @@ function imprimirCalendario() {
   }
 
   function fmtDias(datasNoMes) {
-    const dias = datasNoMes.map(dt => parseInt(dt.split('-')[2]));
-    if (dias.length === 1) return String(dias[0]);
-    if (dias.length === 2) return `${dias[0]} e ${dias[1]}`;
-    return dias.slice(0, -1).join(', ') + ' e ' + dias[dias.length - 1];
+    const fmt = ds => { const [y,m,d] = ds.split('-'); return `${d}/${m}/${y}`; };
+    if (datasNoMes.length === 1) return fmt(datasNoMes[0]);
+    return `${fmt(datasNoMes[0])} à ${fmt(datasNoMes[datasNoMes.length - 1])}`;
   }
 
   // ── Cabeçalho ──────────────────────────────────────────────────────────
