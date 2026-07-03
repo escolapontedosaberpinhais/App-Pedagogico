@@ -3432,7 +3432,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.20';
+const APP_VERSION = 'v2.9.21';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -11759,7 +11759,7 @@ function imprimirCalendario() {
   const headerHtml = `
     <div class="print-header">
       <div class="header-stripe"></div>
-      <img src="/icon-192.png" alt="Logo">
+      <img src="/icon-nobg.png" alt="Logo">
       <div class="escola-nome">ESCOLA PONTE DO SABER</div>
       <div class="escola-end">Rua Rio Paraná nº 124 - Weissópolis - Pinhais - PR</div>
       <div class="cal-titulo">CALENDÁRIO ESCOLAR ${ano}</div>
@@ -11874,7 +11874,7 @@ function imprimirCalendario() {
     .header-stripe { height: 5px; background-color: #1D9E75;
       background-image: linear-gradient(to right,#c0392b,#e67e22,#27ae60,#2980b9,#8e44ad,#1D9E75,#e74c3c,#1abc9c);
       border-radius: 3px; margin-bottom: 6px; }
-    .print-header img { height: 50px; width: auto; display: block; margin: 0 auto 3px; }
+    .print-header img { height: 68px; width: 68px; object-fit: contain; display: block; margin: 0 auto 3px; }
     .escola-nome { font-size: 14px; font-weight: 700; color: #1D9E75; text-transform: uppercase; letter-spacing: .06em; }
     .escola-end { font-size: 8px; color: #666; margin: 1px 0 2px; }
     .cal-titulo { font-size: 17px; font-weight: 900; color: #1a1a1a; text-transform: uppercase; letter-spacing: .08em; }
