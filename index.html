@@ -3432,7 +3432,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.17';
+const APP_VERSION = 'v2.9.18';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -11296,11 +11296,24 @@ function _calEventos2026() {
 }
 
 function _calInicializarSeLazio(ano) {
-  if (!db.calendarioEscolar || db.calendarioEscolar.ano !== ano) {
+  // Só inicializa se não há NENHUM dado — nunca sobrescreve dados existentes
+  if (!db.calendarioEscolar) {
     db.calendarioEscolar = _calDefaultData(ano);
     _calendarioEscolarCarregado = true;
     save();
   }
+}
+
+function calCriarParaAno(ano) {
+  const anual = ano || parseInt(document.getElementById('cal-ano')?.value || 2026);
+  if (db.calendarioEscolar && db.calendarioEscolar.ano !== anual) {
+    if (!confirm(`Isso vai substituir o calendário atual (${db.calendarioEscolar.ano}) pelo padrão de ${anual}. Continuar?`)) return;
+  }
+  db.calendarioEscolar = _calDefaultData(anual);
+  _calendarioEscolarCarregado = true;
+  save();
+  renderCalendario();
+  showToast(`✅ Calendário ${anual} criado!`);
 }
 
 function _calDatasDoEvento(ev) {
@@ -11425,10 +11438,38 @@ function renderCalendario() {
   if (!anoEl) return;
   const ano = parseInt(anoEl.value) || 2026;
 
-  _calInicializarSeLazio(ano);
+  // Se não há dados, mostra placeholder — NÃO inicializa automaticamente
+  const grid = document.getElementById('cal-grid');
+  if (!db.calendarioEscolar) {
+    if (grid) grid.innerHTML = `
+      <div style="grid-column:1/-1;text-align:center;padding:40px 20px;">
+        <div style="font-size:48px;margin-bottom:12px;">📅</div>
+        <p style="color:var(--gray-600);margin-bottom:16px;">Nenhum calendário criado ainda.</p>
+        <button class="btn btn-primary" onclick="calCriarParaAno(${ano})">✨ Criar Calendário ${ano}</button>
+      </div>`;
+    const bimDiv = document.getElementById('cal-bim-resumo');
+    if (bimDiv) bimDiv.innerHTML = '';
+    renderCalEventosList();
+    return;
+  }
+
+  // Aviso discreto se o ano do calendário difere do selecionado
+  const anoSalvo = db.calendarioEscolar.ano;
+  if (anoSalvo !== ano) {
+    if (grid) grid.innerHTML = `
+      <div style="grid-column:1/-1;text-align:center;padding:40px 20px;">
+        <div style="font-size:36px;margin-bottom:12px;">📅</div>
+        <p style="color:var(--gray-600);margin-bottom:6px;">O calendário salvo é de <strong>${anoSalvo}</strong>.</p>
+        <p style="color:var(--gray-400);font-size:13px;margin-bottom:16px;">Para criar um novo calendário de ${ano}, use o botão abaixo.</p>
+        <button class="btn btn-secondary" onclick="calCriarParaAno(${ano})">Criar Calendário ${ano}</button>
+        <button class="btn btn-primary" style="margin-left:8px;" onclick="document.getElementById('cal-ano').value='${anoSalvo}';renderCalendario();">Ver Calendário ${anoSalvo}</button>
+      </div>`;
+    const bimDiv = document.getElementById('cal-bim-resumo');
+    if (bimDiv) bimDiv.innerHTML = '';
+    return;
+  }
 
   // Grade de meses
-  const grid = document.getElementById('cal-grid');
   if (grid) {
     let html = '';
     for (let m = 1; m <= 12; m++) html += renderMesCalendario(ano, m);
@@ -11438,15 +11479,15 @@ function renderCalendario() {
   // Legenda
   const leg = document.getElementById('cal-legenda');
   if (leg) {
-    leg.innerHTML = Object.entries(CAL_TIPOS).map(([k, t]) =>
+    leg.innerHTML = Object.entries(CAL_TIPOS).map(([, t]) =>
       `<div class="cal-legenda-item"><div class="cal-legenda-cor" style="background:${t.cor};"></div><span>${t.label}</span></div>`
     ).join('') +
-    `<div class="cal-legenda-item"><div class="cal-legenda-cor" style="background:#f0fdf4;border:1px solid #86efac;"></div><span>Dia Letivo</span></div>`;
+    `<div class="cal-legenda-item"><div class="cal-legenda-cor" style="background:#dcfce7;border:1px solid #86efac;"></div><span>Dia Letivo</span></div>`;
   }
 
   // Tabela de bimestres
   const bimDiv = document.getElementById('cal-bim-resumo');
-  if (bimDiv && db.calendarioEscolar) {
+  if (bimDiv) {
     const bims = db.calendarioEscolar.bimestres;
     let totalLetivos = 0;
     let rows = bims.map(b => {
@@ -11464,24 +11505,16 @@ function renderCalendario() {
       <div style="overflow-x:auto;">
         <table class="cal-bim-table">
           <thead>
-            <tr>
-              <th>Bimestre</th><th>Início</th><th>Fim</th><th style="text-align:center;">Dias Letivos</th>
-            </tr>
+            <tr><th>Bimestre</th><th>Início</th><th>Fim</th><th style="text-align:center;">Dias Letivos</th></tr>
           </thead>
           <tbody>
             ${rows}
-            <tr>
-              <td colspan="3">Total de Dias Letivos</td>
-              <td style="text-align:center;">${totalLetivos}</td>
-            </tr>
+            <tr><td colspan="3" style="font-weight:700;">Total de Dias Letivos</td>
+              <td style="text-align:center;font-weight:700;">${totalLetivos}</td></tr>
           </tbody>
         </table>
       </div>`;
   }
-
-  // Print subtitle
-  const sub = document.getElementById('cal-print-subtitulo');
-  if (sub) sub.textContent = `Ano Letivo ${ano}`;
 
   // Lista de eventos
   renderCalEventosList();
@@ -11589,9 +11622,7 @@ function calSalvarEvento() {
   if (isRange && (!inicio || !fim)) { showToast('❗ Informe o período (início e fim).'); return; }
   if (isRange && inicio > fim) { showToast('❗ A data de início deve ser anterior ao fim.'); return; }
 
-  const anoEl = document.getElementById('cal-ano');
-  const ano = parseInt(anoEl?.value || 2026);
-  _calInicializarSeLazio(ano);
+  if (!db.calendarioEscolar) { showToast('❗ Crie o calendário primeiro.'); return; }
 
   const ev = { tipo, descricao };
   if (isRange) { ev.dataInicio = inicio; ev.dataFim = fim; }
@@ -11625,9 +11656,7 @@ function calExcluirEvento(id) {
 function calAbrirBimestres() {
   const form = document.getElementById('cal-form-bimestres');
   if (!form) return;
-  const anoEl = document.getElementById('cal-ano');
-  const ano = parseInt(anoEl?.value || 2026);
-  _calInicializarSeLazio(ano);
+  if (!db.calendarioEscolar) { showToast('❗ Crie o calendário primeiro.'); return; }
 
   const tbody = document.getElementById('cal-bim-tbody');
   if (tbody) {
@@ -11651,9 +11680,7 @@ function calFecharBimestres() {
 }
 
 function calSalvarBimestres() {
-  const anoEl = document.getElementById('cal-ano');
-  const ano = parseInt(anoEl?.value || 2026);
-  _calInicializarSeLazio(ano);
+  if (!db.calendarioEscolar) return;
 
   const bims = db.calendarioEscolar.bimestres;
   let ok = true;
@@ -11675,7 +11702,142 @@ function calSalvarBimestres() {
 }
 
 function imprimirCalendario() {
-  window.print();
+  if (!db.calendarioEscolar) { showToast('❗ Nenhum calendário para imprimir.'); return; }
+  const cal = db.calendarioEscolar;
+  const ano = cal.ano;
+
+  // ── Cabeçalho ──────────────────────────────────────────────────────────
+  const headerHtml = `
+    <div class="print-header">
+      <img src="/icon-192.png" alt="Logo">
+      <div>
+        <h1>Escola Ponte do Saber</h1>
+        <h2>CALENDÁRIO ESCOLAR ${ano}</h2>
+        <p>Pinhais — PR</p>
+      </div>
+    </div>`;
+
+  // ── 12 meses ───────────────────────────────────────────────────────────
+  function buildMes(mesNum) {
+    const diasNoMes = new Date(ano, mesNum, 0).getDate();
+    const primeiroDia = new Date(ano, mesNum - 1, 1).getDay();
+    const nomeMes = CAL_MESES[mesNum - 1].toUpperCase();
+
+    let cells = '';
+    for (let i = 0; i < primeiroDia; i++) cells += '<td></td>';
+    let col = primeiroDia;
+    for (let d = 1; d <= diasNoMes; d++) {
+      const m2 = String(mesNum).padStart(2, '0');
+      const d2 = String(d).padStart(2, '0');
+      const ds = `${ano}-${m2}-${d2}`;
+      const dow = new Date(ano, mesNum - 1, d).getDay();
+      const isFds = dow === 0 || dow === 6;
+      const cor = _calCorDaData(ds);
+      const noBim = _calNoBimestre(ds);
+      const evDescricao = _calEventosDaData(ds).map(e => e.descricao).join(', ');
+
+      let bg = '';
+      let textColor = '#222';
+      let fw = 'normal';
+      if (cor) { bg = `background:${cor};`; textColor = '#fff'; fw = 'bold'; }
+      else if (!isFds && noBim) { bg = 'background:#dcfce7;'; textColor = '#166534'; }
+      else if (isFds) { textColor = '#aaa'; }
+
+      cells += `<td title="${evDescricao}" style="${bg}color:${textColor};font-weight:${fw};">${d}</td>`;
+      col++;
+      if (col === 7 && d < diasNoMes) { cells += '</tr><tr>'; col = 0; }
+    }
+
+    return `
+      <div class="mes-box">
+        <div class="mes-nome">${nomeMes}</div>
+        <table class="mes-table">
+          <thead><tr><th>D</th><th>S</th><th>T</th><th>Q</th><th>Q</th><th>S</th><th>S</th></tr></thead>
+          <tbody><tr>${cells}</tr></tbody>
+        </table>
+      </div>`;
+  }
+
+  let mesesHtml = '<div class="meses-grid">';
+  for (let m = 1; m <= 12; m++) mesesHtml += buildMes(m);
+  mesesHtml += '</div>';
+
+  // ── Legenda ────────────────────────────────────────────────────────────
+  const legendaHtml = `
+    <div class="legenda-section">
+      <div class="legenda-titulo">LEGENDA</div>
+      <div class="legenda-grid">
+        ${Object.entries(CAL_TIPOS).map(([, t]) =>
+          `<div class="legenda-item"><span class="legenda-cor" style="background:${t.cor};"></span>${t.label}</div>`
+        ).join('')}
+        <div class="legenda-item"><span class="legenda-cor" style="background:#dcfce7;border:1px solid #86efac;"></span>Dia Letivo</div>
+        <div class="legenda-item"><span class="legenda-cor" style="background:#fff;border:1px solid #ccc;color:#aaa;"></span>Final de Semana</div>
+      </div>
+    </div>`;
+
+  // ── Tabela bimestres ───────────────────────────────────────────────────
+  let totalLetivos = 0;
+  const bimRows = cal.bimestres.map(b => {
+    const dl = _calDiasLetivosCount(b);
+    totalLetivos += dl;
+    return `<tr><td>${b.label}</td><td>${_calFmtData(b.inicio)}</td><td>${_calFmtData(b.fim)}</td><td>${dl}</td></tr>`;
+  }).join('');
+
+  const bimHtml = `
+    <div class="bim-section">
+      <table class="bim-table">
+        <thead>
+          <tr><th>Bimestre</th><th>Início</th><th>Fim</th><th>Dias Letivos</th></tr>
+        </thead>
+        <tbody>
+          ${bimRows}
+          <tr class="total-row"><td colspan="3">TOTAL DE DIAS LETIVOS</td><td>${totalLetivos}</td></tr>
+        </tbody>
+      </table>
+    </div>`;
+
+  // ── CSS ────────────────────────────────────────────────────────────────
+  const css = `
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #fff; color: #222; font-size: 10px; padding: 8mm; }
+    .print-header { display: flex; align-items: center; gap: 14px; border-bottom: 2px solid #1D9E75; padding-bottom: 8px; margin-bottom: 10px; }
+    .print-header img { height: 54px; width: auto; }
+    .print-header h1 { font-size: 13px; font-weight: 700; color: #1D9E75; text-transform: uppercase; letter-spacing: .04em; }
+    .print-header h2 { font-size: 15px; font-weight: 900; color: #222; text-transform: uppercase; letter-spacing: .06em; }
+    .print-header p { font-size: 10px; color: #666; }
+    .meses-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+    .mes-box { border: 1px solid #ccc; border-radius: 4px; overflow: hidden; }
+    .mes-nome { background: #1D9E75; color: #fff; text-align: center; font-size: 10px; font-weight: 700; padding: 3px 0; letter-spacing: .06em; }
+    .mes-table { width: 100%; border-collapse: collapse; }
+    .mes-table thead th { background: #f0fdf4; color: #166534; font-size: 8px; font-weight: 700; text-align: center; padding: 2px 0; border-bottom: 1px solid #e5e7eb; }
+    .mes-table tbody td { text-align: center; font-size: 9px; padding: 2px 0; border: none; }
+    .mes-table tbody tr:last-child td:empty { display: none; }
+    .legenda-section { margin-bottom: 8px; }
+    .legenda-titulo { font-size: 9px; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; border-bottom: 1px solid #ddd; padding-bottom: 2px; }
+    .legenda-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px 8px; }
+    .legenda-item { display: flex; align-items: center; gap: 4px; font-size: 8px; color: #444; }
+    .legenda-cor { display: inline-block; width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+    .bim-section { margin-top: 4px; }
+    .bim-table { width: 100%; border-collapse: collapse; font-size: 9px; }
+    .bim-table th { background: #1D9E75; color: #fff; padding: 4px 6px; text-align: left; font-weight: 700; }
+    .bim-table td { padding: 3px 6px; border-bottom: 1px solid #e5e7eb; }
+    .bim-table .total-row td { font-weight: 700; background: #f0fdf4; border-top: 2px solid #1D9E75; }
+    @page { size: A4 portrait; margin: 0; }
+    @media print { body { padding: 8mm; } }`;
+
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+    <title>Calendário Escolar ${ano} — Escola Ponte do Saber</title>
+    <style>${css}</style></head>
+    <body onload="window.print()">
+      ${headerHtml}
+      ${mesesHtml}
+      ${legendaHtml}
+      ${bimHtml}
+    </body></html>`;
+
+  const w = window.open('', '_blank');
+  if (w) { w.document.write(html); w.document.close(); }
+  else showToast('❗ Permita pop-ups para imprimir.');
 }
 
 async function diagForceSyncAll() {
