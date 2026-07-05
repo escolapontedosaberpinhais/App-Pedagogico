@@ -1738,6 +1738,7 @@ function getFolder(path) {
     </div>
     <div class="btn-row">
       <button class="btn btn-primary" onclick="addUsuario()">➕ Adicionar usuário</button>
+      <button class="btn btn-secondary" onclick="reconstruirUsuariosApagados()" title="Recupera contas apagadas usando o histórico (chat, hora-atividade), preservando o ID original">🔧 Recuperar apagados</button>
     </div>
     <div class="divider"></div>
     <div id="usuarios-list" class="item-list"></div>
@@ -3726,7 +3727,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.33';
+const APP_VERSION = 'v2.9.34';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -4728,6 +4729,51 @@ function addUsuario() {
   showToast('Usuário criado!');
 }
 
+// Recupera contas apagadas varrendo o histórico que preserva o ID original do
+// autor (mensagens do chat e hora-atividade). Recria os usuários faltantes com
+// o MESMO id — assim pareceres/planejamentos/histórico continuam vinculados.
+function reconstruirUsuariosApagados() {
+  if (currentUser?.papel !== 'diretor' && currentUser?.papel !== 'pedagoga') {
+    alert('Apenas diretor(a) ou pedagoga podem recuperar usuários.'); return;
+  }
+  const candidatos = new Map(); // id -> { id, nome, papel }
+  (db.chatGeral || []).forEach(m => {
+    if (m && m.autorId && m.autorNome && !candidatos.has(m.autorId)) {
+      candidatos.set(m.autorId, { id: m.autorId, nome: m.autorNome, papel: m.papel || 'professora' });
+    }
+  });
+  (db.horaAtividade || []).forEach(h => {
+    if (h && h.professoraId && h.professoraNome && !candidatos.has(h.professoraId)) {
+      candidatos.set(h.professoraId, { id: h.professoraId, nome: h.professoraNome, papel: 'professora' });
+    }
+  });
+  const existentes = new Set(db.usuarios.map(u => u.id));
+  const faltantes = [...candidatos.values()].filter(c => !existentes.has(c.id));
+  if (!faltantes.length) {
+    alert('Nenhum usuário adicional encontrado no histórico (chat/hora-atividade). Se precisar, use "Adicionar usuário" para recadastrar manualmente.');
+    return;
+  }
+  const slug = (nome) => (nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '').slice(0, 20) || 'usuario';
+  const usados = new Set(db.usuarios.map(u => u.usuario));
+  const preview = faltantes.map(c => {
+    let login = slug((c.nome || '').split(' ')[0]);
+    let base = login, n = 1;
+    while (usados.has(login)) { login = base + n; n++; }
+    usados.add(login);
+    return { ...c, usuario: login };
+  });
+  const labelMap = { diretor: 'Diretor(a)', pedagoga: 'Pedagoga', secretaria: 'Secretaria', professora: 'Professora' };
+  const lista = preview.map(p => `• ${p.nome} (${labelMap[p.papel] || p.papel}) — login: ${p.usuario}`).join('\n');
+  if (!confirm(`Encontrei ${preview.length} usuário(s) para recuperar do histórico:\n\n${lista}\n\nTodos receberão a senha temporária "escola2024" (oriente cada um a trocar depois em Configurações). O ID original é preservado, então o histórico continua vinculado.\n\nRecuperar agora?`)) return;
+  preview.forEach(p => {
+    db.usuarios.push({ id: p.id, nome: p.nome, usuario: p.usuario, email: '', senha: hashPw('escola2024'), papel: p.papel, turmaIds: [] });
+  });
+  save();
+  logger.audit({ module: 'recovery', action: 'reconstruir-usuarios', message: `Recuperados ${preview.length} usuário(s) do histórico`, meta: { total: preview.length } });
+  renderUsuarios();
+  showToast(`✅ ${preview.length} usuário(s) recuperado(s)! Senha temporária: escola2024`);
+}
+
 function abrirEditarUsuario(id) {
   const u = db.usuarios.find(x => x.id === id);
   if (!u) return;
@@ -5166,7 +5212,7 @@ function deleteTurma(id) {
 
 function ordemTurma(nome) {
   if (!nome) return 99;
-  const n = nome.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const n = nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   if (n.match(/berc/)) return 0;
   // Checar do mais longo pro mais curto para evitar ambiguidade (iv antes de i, v)
   const rom = [['viii',8],['vii',7],['vi',6],['iv',4],['iii',3],['ii',2],['v',5],['i',1]];
@@ -6075,7 +6121,7 @@ function renderCorrecoes() {
   const bimFiltro   = document.getElementById('corr-filtro')?.value || '';
   const tipoFiltro  = document.getElementById('corr-tipo')?.value   || '';
   const turmaFiltro = document.getElementById('corr-turma')?.value  || '';
-  const busca       = (document.getElementById('corr-busca')?.value || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+  const busca       = (document.getElementById('corr-busca')?.value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
   const mostrarPl   = tipoFiltro === '' || tipoFiltro === 'planejamento';
   const mostrarPar  = tipoFiltro === '' || tipoFiltro === 'parecer';
 
@@ -6088,7 +6134,7 @@ function renderCorrecoes() {
     selTurma.innerHTML = optHtml;
   }
 
-  const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const matchBusca = item => {
     if (!busca) return true;
     const nomeAluno = norm(item.alunoNome || item.prof || item.conteudos || '');
@@ -11072,7 +11118,7 @@ async function importarAlunosFinanceDesk(desde) {
     const data = await resp.json();
     const alunos = Array.isArray(data) ? data : (data.alunos || []);
 
-    const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+    const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
     const normTurma = s => norm(s)
       .replace(/\bviii\b/g,'8').replace(/\bvii\b/g,'7').replace(/\bvi\b/g,'6')
       .replace(/\biv\b/g,'4').replace(/\bix\b/g,'9').replace(/\biii\b/g,'3')
