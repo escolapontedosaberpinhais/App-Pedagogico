@@ -1120,6 +1120,9 @@
     <button class="dnav-btn" id="dnav-correcao" onclick="drawerNav('correcao')" style="display:none;">
       <span class="di">&#x2705;</span> Corre&ccedil;&atilde;o
     </button>
+    <button class="dnav-btn" id="dnav-formacao" onclick="drawerNav('formacao')" style="display:none;">
+      <span class="di">&#x1F393;</span> Forma&ccedil;&atilde;o
+    </button>
 
     <!-- ⏰ Docentes -->
     <div class="dnav-group-label">&#x23F0; Docentes</div>
@@ -1169,6 +1172,7 @@
   <button id="nav-atividades" onclick="showTab('atividades')" data-tab="atividades" style="display:none;">🎯 Atividades</button>
   <button id="nav-auditoria" onclick="showTab('auditoria')" data-tab="auditoria" style="display:none;">📜 Auditoria</button>
   <button id="nav-ocorrencias" onclick="showTab('ocorrencias')" data-tab="ocorrencias" style="display:none;">📋 Ocorrências</button>
+  <button id="nav-formacao" onclick="showTab('formacao')" data-tab="formacao" style="display:none;">🎓 Formação</button>
   <button id="nav-calendario" onclick="showTab('calendario')" data-tab="calendario" style="display:none;">📅 Calendário</button>
 </nav>
 
@@ -1202,6 +1206,7 @@
       <button data-tab="rotina" onclick="showTab('rotina');closeNavGrp()">📅 Rotina</button>
       <button data-tab="avaliacoes" onclick="showTab('avaliacoes');closeNavGrp()">📊 Avaliações</button>
       <button data-tab="correcao" onclick="showTab('correcao');closeNavGrp()">✅ Correção</button>
+      <button data-tab="formacao" onclick="showTab('formacao');closeNavGrp()">🎓 Formação</button>
     </div>
   </div>
   <!-- ⏰ Docentes -->
@@ -2747,6 +2752,105 @@ function getFolder(path) {
   <div id="ocorrencias-list"></div>
 </div>
 
+<!-- ===================== FORMAÇÃO PEDAGÓGICA ===================== -->
+<div id="tab-formacao" class="section">
+  <div class="section-header">
+    <h2>🎓 Agenda de Formação Pedagógica</h2>
+  </div>
+
+  <!-- Formulário -->
+  <div class="card" style="margin-bottom:20px;">
+    <div id="fm-card-titulo" class="card-title">➕ Nova Atividade de Formação</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div>
+        <label style="font-size:13px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px;">Título / Tema <span style="color:#ef4444;">*</span></label>
+        <input type="text" id="fm-titulo" placeholder="Ex: Metodologias Ativas, Palestra sobre BNCC…"
+          style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:14px;" autocomplete="off">
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px;">Tipo</label>
+        <select id="fm-tipo" style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:14px;background:#fff;">
+          <option value="palestra">🎤 Palestra</option>
+          <option value="atividade">📋 Atividade</option>
+          <option value="workshop">🛠️ Workshop</option>
+          <option value="reuniao">👥 Reunião Pedagógica</option>
+          <option value="outro">📝 Outro</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div>
+        <label style="font-size:13px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px;">Data <span style="color:#ef4444;">*</span></label>
+        <input type="date" id="fm-data"
+          style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:14px;">
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px;">Horário</label>
+        <input type="time" id="fm-horario"
+          style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:14px;">
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px;">Local</label>
+        <input type="text" id="fm-local" placeholder="Ex: Sala dos professores"
+          style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:14px;" autocomplete="off">
+      </div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:13px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px;">Palestrante / Responsável</label>
+      <input type="text" id="fm-palestrante" placeholder="Nome do palestrante ou responsável pela atividade"
+        style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:14px;" autocomplete="off">
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:13px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px;">Descrição / Pauta</label>
+      <textarea id="fm-descricao" rows="3" placeholder="Descreva a pauta, objetivos ou detalhes da formação…"
+        style="width:100%;padding:10px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:14px;resize:vertical;font-family:inherit;"></textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="fm-btn-salvar" onclick="salvarFormacao()">💾 Salvar</button>
+      <button class="btn btn-secondary" onclick="limparFormFormacao()">✕ Limpar</button>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card" style="margin-bottom:16px;padding:14px 18px;">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div style="flex:1;min-width:180px;">
+        <label style="font-size:12px;font-weight:600;color:var(--gray-500);display:block;margin-bottom:4px;">🔍 Buscar</label>
+        <input type="text" id="fm-busca" placeholder="Título, palestrante, local…"
+          oninput="renderFormacao()"
+          style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;" autocomplete="off">
+      </div>
+      <div style="min-width:150px;">
+        <label style="font-size:12px;font-weight:600;color:var(--gray-500);display:block;margin-bottom:4px;">Tipo</label>
+        <select id="fm-filtro-tipo" onchange="renderFormacao()"
+          style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;background:#fff;">
+          <option value="">Todos</option>
+          <option value="palestra">🎤 Palestra</option>
+          <option value="atividade">📋 Atividade</option>
+          <option value="workshop">🛠️ Workshop</option>
+          <option value="reuniao">👥 Reunião Pedagógica</option>
+          <option value="outro">📝 Outro</option>
+        </select>
+      </div>
+      <div style="min-width:140px;">
+        <label style="font-size:12px;font-weight:600;color:var(--gray-500);display:block;margin-bottom:4px;">Período</label>
+        <select id="fm-filtro-periodo" onchange="renderFormacao()"
+          style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;background:#fff;">
+          <option value="">Todos</option>
+          <option value="proximos">Próximos</option>
+          <option value="passados">Passados</option>
+        </select>
+      </div>
+      <button class="btn btn-secondary btn-sm"
+        onclick="document.getElementById('fm-busca').value='';document.getElementById('fm-filtro-tipo').value='';document.getElementById('fm-filtro-periodo').value='';renderFormacao();"
+        style="height:36px;">✕ Limpar</button>
+    </div>
+  </div>
+
+  <!-- Lista -->
+  <div id="formacao-list"></div>
+</div>
+
 <!-- ===================== AUDITORIA ===================== -->
 <div id="tab-auditoria" class="section">
   <div class="section-header">
@@ -3432,7 +3536,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.22';
+const APP_VERSION = 'v2.9.23';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -3565,7 +3669,7 @@ async function migrarImagensPlanej() {
 async function loadFromFirestore() {
   const _t = logger.timer('firestore', 'load-initial');
   try {
-    const [rT, rA, rP, rPar, rAv, rU, rCfg, rNot, rHa, rRot, rAtiv, rDSA, rEP, rOc, rCal] = await Promise.all([
+    const [rT, rA, rP, rPar, rAv, rU, rCfg, rNot, rHa, rRot, rAtiv, rDSA, rEP, rOc, rFm, rCal] = await Promise.all([
       FSREF('turmas').get(), FSREF('alunos').get(),
       FSREF('planejamentos').get(), FSREF('pareceres').get(),
       FSREF('avaliacoes').get(), FSREF('usuarios').get(),
@@ -3573,7 +3677,7 @@ async function loadFromFirestore() {
       FSREF('horaAtividade').get(), FSREF('rotinas').get(),
       FSREF('atividades').get(), FSREF('diasSemAula').get(),
       FSREF('entregasPareceres').get(), FSREF('ocorrencias').get(),
-      FSREF('calendarioEscolar').get(),
+      FSREF('agendaFormacao').get(), FSREF('calendarioEscolar').get(),
     ]);
     if (rT.exists)   db.turmas        = rT.data().data   ?? [];
     if (rA.exists)   db.alunos        = rA.data().data   ?? [];
@@ -3619,6 +3723,17 @@ async function loadFromFirestore() {
       }
     }
     _ocorrenciasCarregadas = true;
+    if (rFm.exists) {
+      db.agendaFormacao = rFm.data().data ?? [];
+    } else {
+      const lsFm = LS.get('ps_agenda_formacao', []);
+      if (lsFm.length > 0) {
+        db.agendaFormacao = lsFm;
+        FSREF('agendaFormacao').set({ data: db.agendaFormacao })
+          .catch(e => logger.warn({ module: 'sync', action: 'restore-formacao', message: 'Erro ao restaurar agenda de formação', error: e }));
+      }
+    }
+    _agendaFormacaoCarregada = true;
     if (rCal.exists) {
       db.calendarioEscolar = rCal.data().data ?? null;
     } else {
@@ -3806,7 +3921,8 @@ function saveToFirestore() {
   batch.set(FSREF('horaAtividade'), { data: db.horaAtividade });
   if (_rotinasCarregadas)     batch.set(FSREF('rotinas'),     { data: db.rotinas });
   if (_atividadesCarregadas)  batch.set(FSREF('atividades'),  { data: db.atividades });
-  if (_ocorrenciasCarregadas) batch.set(FSREF('ocorrencias'), { data: db.ocorrencias });
+  if (_ocorrenciasCarregadas)   batch.set(FSREF('ocorrencias'),    { data: db.ocorrencias });
+  if (_agendaFormacaoCarregada) batch.set(FSREF('agendaFormacao'), { data: db.agendaFormacao });
   if (_calendarioEscolarCarregado && db.calendarioEscolar) batch.set(FSREF('calendarioEscolar'), { data: db.calendarioEscolar });
   batch.set(FSREF('diasSemAula'), { data: db.diasSemAula });
   batch.set(FSREF('entregasPareceres'), { data: db.entregasPareceres });
@@ -3906,6 +4022,14 @@ function setupSync() {
       refreshCurrentView();
     }
   });
+  FSREF('agendaFormacao').onSnapshot((doc) => {
+    if (doc.exists && !doc.metadata.hasPendingWrites) {
+      db.agendaFormacao = doc.data().data ?? [];
+      _agendaFormacaoCarregada = true;
+      LS.set('ps_agenda_formacao', db.agendaFormacao);
+      refreshCurrentView();
+    }
+  });
   FSREF('calendarioEscolar').onSnapshot((doc) => {
     if (doc.exists && !doc.metadata.hasPendingWrites) {
       db.calendarioEscolar = doc.data().data ?? null;
@@ -3956,6 +4080,7 @@ function refreshCurrentView() {
   if (id === 'tab-atividades')      { renderAtividades(); }
   if (id === 'tab-auditoria')       { carregarAuditoria(); }
   if (id === 'tab-ocorrencias')     { renderOcorrencias(); }
+  if (id === 'tab-formacao')        { renderFormacao(); }
   if (id === 'tab-calendario')      { renderCalendario(); }
 }
 
@@ -3977,14 +4102,17 @@ let db = {
   diasSemAula: [],
   entregasPareceres: { b1: '', b2: '', b3: '', b4: '' },
   ocorrencias: [],
+  agendaFormacao: [],
   calendarioEscolar: null,
 };
 // Guardas: evita sobrescrever dados no Firestore antes de carregá-los
 let _rotinasCarregadas            = false;
 let _atividadesCarregadas         = false;
 let _ocorrenciasCarregadas        = false;
+let _agendaFormacaoCarregada      = false;
 let _calendarioEscolarCarregado   = false;
 let _ocEditandoId                 = null;
+let _formacaoEditandoId           = null;
 
 function save() {
   // Backup local
@@ -4000,6 +4128,7 @@ function save() {
   LS.set('ps_dias_sem_aula', db.diasSemAula);
   LS.set('ps_entregas_pareceres', db.entregasPareceres);
   LS.set('ps_ocorrencias', db.ocorrencias);
+  LS.set('ps_agenda_formacao', db.agendaFormacao);
   if (db.calendarioEscolar) LS.set('ps_calendario_escolar', db.calendarioEscolar);
   // Firestore
   saveToFirestore();
@@ -4169,6 +4298,10 @@ function aplicarPapel() {
   // Ocorrências: gestão (diretor + pedagoga)
   nav('nav-ocorrencias',  isGestao);
   nav('dnav-ocorrencias', isGestao);
+
+  // Formação Pedagógica: gestão (diretor + pedagoga)
+  nav('nav-formacao',  isGestao);
+  nav('dnav-formacao', isGestao);
 
   // Calendário: gestão (diretor + pedagoga)
   nav('nav-calendario',    isGestao);
@@ -4434,7 +4567,7 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 const _TAB_GRUPOS = {
   dashboard: 'inicio',
   cadastro: 'gestao', impressao: 'gestao',
-  rotina: 'pedagogico', avaliacoes: 'pedagogico', correcao: 'pedagogico',
+  rotina: 'pedagogico', avaliacoes: 'pedagogico', correcao: 'pedagogico', formacao: 'pedagogico',
   'hora-atividade': 'docentes', planejamento: 'docentes', pareceres: 'docentes', atividades: 'docentes',
   auditoria: 'controle', ocorrencias: 'controle', calendario: 'controle',
 };
@@ -10924,6 +11057,155 @@ function showToast(msg, duration) {
   });
   document.body.appendChild(t);
   setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, duration || 2200);
+}
+
+// =====================================================================
+// FORMAÇÃO PEDAGÓGICA
+// =====================================================================
+const FM_TIPOS = {
+  palestra:   { label: 'Palestra',           emoji: '🎤', cor: '#7c3aed' },
+  atividade:  { label: 'Atividade',          emoji: '📋', cor: '#0284c7' },
+  workshop:   { label: 'Workshop',           emoji: '🛠️', cor: '#d97706' },
+  reuniao:    { label: 'Reunião Pedagógica', emoji: '👥', cor: '#059669' },
+  outro:      { label: 'Outro',              emoji: '📝', cor: '#64748b' },
+};
+
+function limparFormFormacao() {
+  document.getElementById('fm-titulo').value     = '';
+  document.getElementById('fm-tipo').value       = 'palestra';
+  document.getElementById('fm-data').value       = '';
+  document.getElementById('fm-horario').value    = '';
+  document.getElementById('fm-local').value      = '';
+  document.getElementById('fm-palestrante').value = '';
+  document.getElementById('fm-descricao').value  = '';
+  document.getElementById('fm-card-titulo').textContent = '➕ Nova Atividade de Formação';
+  document.getElementById('fm-btn-salvar').textContent  = '💾 Salvar';
+  _formacaoEditandoId = null;
+}
+
+function salvarFormacao() {
+  const titulo = document.getElementById('fm-titulo').value.trim();
+  const data   = document.getElementById('fm-data').value;
+  if (!titulo) { showToast('❗ Informe o título da atividade.'); return; }
+  if (!data)   { showToast('❗ Informe a data.'); return; }
+
+  const item = {
+    id:          _formacaoEditandoId || uid(),
+    titulo,
+    tipo:        document.getElementById('fm-tipo').value,
+    data,
+    horario:     document.getElementById('fm-horario').value,
+    local:       document.getElementById('fm-local').value.trim(),
+    palestrante: document.getElementById('fm-palestrante').value.trim(),
+    descricao:   document.getElementById('fm-descricao').value.trim(),
+    criadoPor:   currentUser?.nome ?? '',
+    criadoEm:    _formacaoEditandoId
+                   ? (db.agendaFormacao.find(x => x.id === _formacaoEditandoId)?.criadoEm ?? Date.now())
+                   : Date.now(),
+  };
+
+  if (_formacaoEditandoId) {
+    const idx = db.agendaFormacao.findIndex(x => x.id === _formacaoEditandoId);
+    if (idx !== -1) db.agendaFormacao[idx] = item;
+    showToast('✅ Formação atualizada!');
+  } else {
+    db.agendaFormacao.unshift(item);
+    showToast('✅ Formação registrada!');
+  }
+  save();
+  limparFormFormacao();
+  renderFormacao();
+}
+
+function editarFormacao(id) {
+  const item = db.agendaFormacao.find(x => x.id === id);
+  if (!item) return;
+  _formacaoEditandoId = id;
+  document.getElementById('fm-titulo').value      = item.titulo;
+  document.getElementById('fm-tipo').value        = item.tipo || 'palestra';
+  document.getElementById('fm-data').value        = item.data;
+  document.getElementById('fm-horario').value     = item.horario || '';
+  document.getElementById('fm-local').value       = item.local || '';
+  document.getElementById('fm-palestrante').value = item.palestrante || '';
+  document.getElementById('fm-descricao').value   = item.descricao || '';
+  document.getElementById('fm-card-titulo').textContent = '✏️ Editando Formação';
+  document.getElementById('fm-btn-salvar').textContent  = '💾 Salvar Alterações';
+  document.getElementById('tab-formacao').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function excluirFormacao(id) {
+  showConfirmModal('Excluir esta atividade de formação?', () => {
+    db.agendaFormacao = db.agendaFormacao.filter(x => x.id !== id);
+    save();
+    renderFormacao();
+    showToast('🗑️ Formação excluída.');
+  });
+}
+
+function renderFormacao() {
+  const el = document.getElementById('formacao-list');
+  if (!el) return;
+
+  const busca   = (document.getElementById('fm-busca')?.value ?? '').toLowerCase();
+  const filtTipo = document.getElementById('fm-filtro-tipo')?.value ?? '';
+  const filtPer  = document.getElementById('fm-filtro-periodo')?.value ?? '';
+  const hoje     = new Date().toISOString().slice(0, 10);
+
+  let lista = [...db.agendaFormacao].sort((a, b) => {
+    if (a.data !== b.data) return a.data > b.data ? 1 : -1;
+    return (a.horario || '') > (b.horario || '') ? 1 : -1;
+  });
+
+  if (filtTipo) lista = lista.filter(x => x.tipo === filtTipo);
+  if (filtPer === 'proximos') lista = lista.filter(x => x.data >= hoje);
+  if (filtPer === 'passados') lista = lista.filter(x => x.data < hoje);
+  if (busca) lista = lista.filter(x =>
+    (x.titulo + x.palestrante + x.local + x.descricao).toLowerCase().includes(busca)
+  );
+
+  if (!lista.length) {
+    el.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--gray-400);font-size:15px;">
+      🎓 Nenhuma atividade de formação encontrada.
+    </div>`;
+    return;
+  }
+
+  const fmtData = ds => {
+    if (!ds) return '';
+    const [y, m, d] = ds.split('-');
+    return `${d}/${m}/${y}`;
+  };
+  const diasSemana = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+
+  el.innerHTML = lista.map(item => {
+    const t     = FM_TIPOS[item.tipo] || FM_TIPOS.outro;
+    const passado = item.data < hoje;
+    const dt    = item.data ? new Date(item.data + 'T12:00:00') : null;
+    const dsw   = dt ? diasSemana[dt.getDay()] : '';
+    return `
+    <div class="card" style="margin-bottom:12px;${passado ? 'opacity:.7;' : ''}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+          <span style="font-size:26px;flex-shrink:0;">${t.emoji}</span>
+          <div style="min-width:0;">
+            <div style="font-size:15px;font-weight:700;color:var(--gray-800);line-height:1.3;">${item.titulo}</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
+              <span style="font-size:11px;font-weight:700;color:#fff;background:${t.cor};padding:2px 8px;border-radius:20px;">${t.label}</span>
+              ${item.data ? `<span style="font-size:12px;color:var(--gray-500);">📅 ${dsw}, ${fmtData(item.data)}${item.horario ? ' às ' + item.horario : ''}</span>` : ''}
+              ${item.local ? `<span style="font-size:12px;color:var(--gray-500);">📍 ${item.local}</span>` : ''}
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <button class="btn btn-secondary btn-sm" onclick="editarFormacao('${item.id}')">✏️ Editar</button>
+          <button class="btn btn-danger btn-sm" onclick="excluirFormacao('${item.id}')">🗑️</button>
+        </div>
+      </div>
+      ${item.palestrante ? `<div style="margin-top:10px;font-size:13px;color:var(--gray-600);">👤 <strong>Palestrante/Responsável:</strong> ${item.palestrante}</div>` : ''}
+      ${item.descricao ? `<div style="margin-top:6px;font-size:13px;color:var(--gray-600);white-space:pre-wrap;">${item.descricao}</div>` : ''}
+      <div style="margin-top:6px;font-size:11px;color:var(--gray-400);">Registrado por ${item.criadoPor}</div>
+    </div>`;
+  }).join('');
 }
 
 // =====================================================================
