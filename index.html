@@ -3726,7 +3726,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.30';
+const APP_VERSION = 'v2.9.31';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -4162,6 +4162,9 @@ function setupSync() {
           logger.info({ module: 'sync', action: 'update-current-user', message: 'currentUser atualizado pelo Firestore', meta: { turmaIds: currentUser.turmaIds, papel: currentUser.papel } });
         }
       }
+      // Atualiza lista de usuários no DM se o painel estiver aberto
+      const _panel = document.getElementById('chat-panel');
+      if (_panel?.classList.contains('open') && _chatSubView === 'dm') renderListaConversas();
     }
 
     refreshCurrentView();
@@ -11538,9 +11541,13 @@ function renderListaConversas() {
   const el = document.getElementById('chat-dm-lista');
   if (!el) return;
   const meuId = currentUser?.id;
-  const outros = (db.usuarios || []).filter(u => u.id !== meuId && u.ativo !== false);
+  const listaTotal = db.usuarios || [];
+  const outros = listaTotal.filter(u => u.id !== meuId && u.ativo !== false);
   if (!outros.length) {
-    el.innerHTML = '<div class="chat-vazio" style="padding:20px 10px;font-size:12px;">Nenhum outro usuário.</div>';
+    const msg = listaTotal.length === 0
+      ? '<div class="chat-vazio" style="padding:20px 10px;font-size:12px;">Carregando usuários… ⏳</div>'
+      : '<div class="chat-vazio" style="padding:20px 10px;font-size:12px;">Nenhum outro usuário.</div>';
+    el.innerHTML = msg;
     return;
   }
   el.innerHTML = outros.map(u => {
