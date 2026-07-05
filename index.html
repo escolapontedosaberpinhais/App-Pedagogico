@@ -3722,7 +3722,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.28';
+const APP_VERSION = 'v2.9.29';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -4241,17 +4241,6 @@ function setupSync() {
       }
     }
   });
-  FSREF('dmInbox_' + currentUser.id).onSnapshot((doc) => {
-    if (!doc.metadata.hasPendingWrites && doc.exists) {
-      const data = doc.data() || {};
-      _dmNaoLidas = Object.entries(data).filter(([convId, ts]) => {
-        if (_chatDMAtivo && _chatDMAtivo.convId === convId) return false;
-        const seen = parseInt(localStorage.getItem('dm_read_' + convId) || '0', 10);
-        return ts > seen;
-      }).length;
-      chatAtualizarBadge();
-    }
-  });
   FSREF('notificacoes').onSnapshot((doc) => {
     if (doc.exists && !doc.metadata.hasPendingWrites) {
       const novas = doc.data().data ?? [];
@@ -4332,6 +4321,7 @@ let _chatDMUnsub                  = null;
 let _chatDMMsgs                   = [];
 let _chatSubView                  = 'geral';
 let _dmNaoLidas                   = 0;
+let _dmInboxUnsub                 = null;
 let _ocEditandoId                 = null;
 let _formacaoEditandoId           = null;
 
@@ -4436,6 +4426,20 @@ function fazerLogout() {
 
 function aplicarPapel() {
   if (!currentUser) return;
+
+  // Subscription ao inbox de DMs — feito aqui pois currentUser já está definido
+  if (_dmInboxUnsub) { _dmInboxUnsub(); _dmInboxUnsub = null; }
+  _dmInboxUnsub = FSREF('dmInbox_' + currentUser.id).onSnapshot((doc) => {
+    if (!doc.metadata.hasPendingWrites && doc.exists) {
+      const data = doc.data() || {};
+      _dmNaoLidas = Object.entries(data).filter(([convId, ts]) => {
+        if (_chatDMAtivo && _chatDMAtivo.convId === convId) return false;
+        const seen = parseInt(localStorage.getItem('dm_read_' + convId) || '0', 10);
+        return ts > seen;
+      }).length;
+      chatAtualizarBadge();
+    }
+  });
 
   // Header
   const av = currentUser.nome.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
