@@ -1001,6 +1001,15 @@
     border-radius: 9px; font-size: 10px; font-weight: 800; margin-left: 5px; }
 
   /* ── Chat Flutuante ─────────────────────────────────────────────── */
+  @keyframes chat-ping {
+    0%   { transform: scale(1); opacity: 1; }
+    70%  { transform: scale(2.2); opacity: 0; }
+    100% { transform: scale(2.2); opacity: 0; }
+  }
+  @keyframes chat-pulse {
+    0%, 100% { box-shadow: 0 4px 16px rgba(0,0,0,.25), 0 0 0 0 rgba(239,68,68,.5); }
+    50%       { box-shadow: 0 4px 16px rgba(0,0,0,.25), 0 0 0 8px rgba(239,68,68,0); }
+  }
   .chat-fab {
     position: fixed; bottom: 24px; right: 24px; z-index: 1100;
     width: 56px; height: 56px; border-radius: 50%;
@@ -1009,6 +1018,7 @@
     display: flex; align-items: center; justify-content: center;
     transition: transform .15s, box-shadow .15s; }
   .chat-fab:hover { transform: scale(1.08); box-shadow: 0 6px 20px rgba(0,0,0,.3); }
+  .chat-fab.has-unread { animation: chat-pulse 1.6s ease-in-out infinite; }
   .chat-fab-badge {
     position: absolute; top: -4px; right: -4px;
     min-width: 20px; height: 20px; padding: 0 5px;
@@ -1016,6 +1026,9 @@
     font-size: 11px; font-weight: 800;
     display: flex; align-items: center; justify-content: center;
     border: 2px solid #fff; }
+  .chat-fab-badge::before {
+    content: ''; position: absolute; inset: 0; border-radius: 10px;
+    background: #ef4444; animation: chat-ping 1.6s ease-in-out infinite; }
   .chat-panel-overlay {
     position: fixed; inset: 0; z-index: 1099;
     background: rgba(0,0,0,.35); opacity: 0; pointer-events: none;
@@ -1039,12 +1052,17 @@
     font-size: 18px; color: var(--gray-500); line-height: 1; border-radius: 50%;
     transition: background .12s; flex-shrink: 0; }
   .chat-panel-close:hover { background: var(--gray-100); }
+  /* DM tela cheia */
+  .chat-dm-layout.tela-cheia .chat-dm-sidebar { display: none; }
+  .chat-dm-layout.tela-cheia .chat-dm-right { flex: 1; }
+  .chat-dm-back {
+    background: none; border: none; cursor: pointer; padding: 6px 10px 6px 4px;
+    font-size: 18px; color: var(--gray-600); line-height: 1; border-radius: 6px;
+    transition: background .12s; flex-shrink: 0; }
+  .chat-dm-back:hover { background: var(--gray-100); }
   @media (max-width: 600px) {
     .chat-panel { width: 100vw; }
     .chat-fab { bottom: 16px; right: 16px; }
-    .chat-dm-sidebar { width: 52px; }
-    .chat-user-nome, .chat-user-papel { display: none; }
-    .chat-user-avatar { width: 36px; height: 36px; }
   }
 </style>
 </head>
@@ -2995,6 +3013,7 @@ function getFolder(path) {
         </div>
         <div id="chat-dm-thread" style="display:none;flex-direction:column;flex:1;min-height:0;">
           <div class="chat-dm-header">
+            <button class="chat-dm-back" onclick="voltarListaDM()" title="Voltar">←</button>
             <span id="chat-dm-avatar" class="chat-user-avatar" style="width:26px;height:26px;font-size:12px;"></span>
             <span id="chat-dm-titulo"></span>
           </div>
@@ -3703,7 +3722,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.26';
+const APP_VERSION = 'v2.9.27';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -11442,10 +11461,12 @@ function chatAtualizarBadge() {
     const seenTs = parseInt(localStorage.getItem('chat_seen_geral') || '0', 10);
     const naoLidas = db.chatGeral.filter(m => m.criadoEm > seenTs && m.autorId !== currentUser?.id).length;
     const badge = document.getElementById('chat-fab-badge');
+    const fab   = document.getElementById('chat-fab');
     if (badge) {
       badge.style.display = naoLidas > 0 ? '' : 'none';
-      badge.textContent = naoLidas > 9 ? '9+' : String(naoLidas);
+      badge.textContent   = naoLidas > 9 ? '9+' : String(naoLidas);
     }
+    if (fab) fab.classList.toggle('has-unread', naoLidas > 0);
   } catch(e) {}
 }
 
@@ -11523,7 +11544,9 @@ function abrirChatDM(userId, nomeUsuario, papelUsuario) {
   document.getElementById('chat-dm-msgs').innerHTML =
     '<div class="chat-vazio">Carregando… ⏳</div>';
 
-  renderListaConversas();
+  // Oculta a lista e expande o thread em tela cheia
+  document.getElementById('chat-dm-lista')?.closest('.chat-dm-layout')
+    ?.classList.add('tela-cheia');
 
   _chatDMUnsub = FSREF('chatDM_' + _chatDMAtivo.convId).onSnapshot(doc => {
     if (!doc.metadata.hasPendingWrites) {
@@ -11536,6 +11559,17 @@ function abrirChatDM(userId, nomeUsuario, papelUsuario) {
   });
 
   document.getElementById('chat-dm-input')?.focus();
+}
+
+function voltarListaDM() {
+  if (_chatDMUnsub) { _chatDMUnsub(); _chatDMUnsub = null; }
+  _chatDMAtivo = null;
+  _chatDMMsgs = [];
+  document.getElementById('chat-dm-thread').style.display = 'none';
+  document.getElementById('chat-dm-vazia').style.display = '';
+  document.getElementById('chat-dm-lista')?.closest('.chat-dm-layout')
+    ?.classList.remove('tela-cheia');
+  renderListaConversas();
 }
 
 function chatSubView(view) {
