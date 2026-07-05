@@ -3727,7 +3727,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.34';
+const APP_VERSION = 'v2.9.35';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -4146,7 +4146,7 @@ function saveToFirestore() {
   // criações concorrentes de outras usuárias — ver savePareceresMerged()
   savePareceresMerged();
   batch.set(FSREF('avaliacoes'),    { data: db.avaliacoes });
-  if (_usuariosCarregado) batch.set(FSREF('usuarios'), { data: db.usuarios });
+  if (_usuariosCarregado && db.usuarios.length > 0) batch.set(FSREF('usuarios'), { data: db.usuarios });
   batch.set(FSREF('notificacoes'),  { data: db.notificacoes });
   batch.set(FSREF('horaAtividade'), { data: db.horaAtividade });
   if (_rotinasCarregadas)     batch.set(FSREF('rotinas'),     { data: db.rotinas });
@@ -4737,20 +4737,42 @@ function reconstruirUsuariosApagados() {
     alert('Apenas diretor(a) ou pedagoga podem recuperar usuários.'); return;
   }
   const candidatos = new Map(); // id -> { id, nome, papel }
+  // Fontes com ID original preservado (pode recriar vínculo histórico exato)
   (db.chatGeral || []).forEach(m => {
     if (m && m.autorId && m.autorNome && !candidatos.has(m.autorId)) {
-      candidatos.set(m.autorId, { id: m.autorId, nome: m.autorNome, papel: m.papel || 'professora' });
+      candidatos.set(m.autorId, { id: m.autorId, nome: m.autorNome, papel: m.papel || 'professora', fonteId: true });
     }
   });
   (db.horaAtividade || []).forEach(h => {
     if (h && h.professoraId && h.professoraNome && !candidatos.has(h.professoraId)) {
-      candidatos.set(h.professoraId, { id: h.professoraId, nome: h.professoraNome, papel: 'professora' });
+      candidatos.set(h.professoraId, { id: h.professoraId, nome: h.professoraNome, papel: 'professora', fonteId: true });
+    }
+  });
+  // Fontes sem ID (nome apenas) — gera novo ID mas recupera o acesso
+  const nomeNormz = n => (n || '').trim().toLowerCase();
+  const nomesCandidatos = new Set([...candidatos.values()].map(c => nomeNormz(c.nome)));
+  const existentesNomes = new Set(db.usuarios.map(u => nomeNormz(u.nome)));
+  (db.turmas || []).forEach(t => {
+    if (t && t.prof && !existentesNomes.has(nomeNormz(t.prof)) && !nomesCandidatos.has(nomeNormz(t.prof))) {
+      const fakeId = '_turma_' + t.id;
+      candidatos.set(fakeId, { id: fakeId, nome: t.prof, papel: 'professora', fonteId: false });
+      nomesCandidatos.add(nomeNormz(t.prof));
+    }
+  });
+  (db.planejamentos || []).forEach(p => {
+    if (p && p.prof && !existentesNomes.has(nomeNormz(p.prof)) && !nomesCandidatos.has(nomeNormz(p.prof))) {
+      const fakeId = '_plan_' + (p.id || Math.random());
+      candidatos.set(fakeId, { id: fakeId, nome: p.prof, papel: 'professora', fonteId: false });
+      nomesCandidatos.add(nomeNormz(p.prof));
     }
   });
   const existentes = new Set(db.usuarios.map(u => u.id));
-  const faltantes = [...candidatos.values()].filter(c => !existentes.has(c.id));
+  const existentesNomesSet = new Set(db.usuarios.map(u => nomeNormz(u.nome)));
+  const faltantes = [...candidatos.values()].filter(c =>
+    c.fonteId ? !existentes.has(c.id) : !existentesNomesSet.has(nomeNormz(c.nome))
+  );
   if (!faltantes.length) {
-    alert('Nenhum usuário adicional encontrado no histórico (chat/hora-atividade). Se precisar, use "Adicionar usuário" para recadastrar manualmente.');
+    alert('Nenhum usuário adicional encontrado no histórico (chat, hora-atividade, turmas, planejamentos). Se precisar, use "Adicionar usuário" para recadastrar manualmente.');
     return;
   }
   const slug = (nome) => (nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '').slice(0, 20) || 'usuario';
@@ -4763,13 +4785,15 @@ function reconstruirUsuariosApagados() {
     return { ...c, usuario: login };
   });
   const labelMap = { diretor: 'Diretor(a)', pedagoga: 'Pedagoga', secretaria: 'Secretaria', professora: 'Professora' };
-  const lista = preview.map(p => `• ${p.nome} (${labelMap[p.papel] || p.papel}) — login: ${p.usuario}`).join('\n');
-  if (!confirm(`Encontrei ${preview.length} usuário(s) para recuperar do histórico:\n\n${lista}\n\nTodos receberão a senha temporária "escola2024" (oriente cada um a trocar depois em Configurações). O ID original é preservado, então o histórico continua vinculado.\n\nRecuperar agora?`)) return;
+  const lista = preview.map(p => `• ${p.nome} (${labelMap[p.papel] || p.papel}) — login: ${p.usuario}${p.fonteId ? '' : ' ⚠️ novo ID'}`).join('\n');
+  const avisoIdNovo = preview.some(p => !p.fonteId) ? '\n\n⚠️ Usuários com "novo ID" foram encontrados em turmas/planejamentos mas sem ID original — o histórico não será revinculado automaticamente.' : '';
+  if (!confirm(`Encontrei ${preview.length} usuário(s) para recuperar:\n\n${lista}${avisoIdNovo}\n\nTodos receberão a senha temporária "escola2024". Recuperar agora?`)) return;
   preview.forEach(p => {
-    db.usuarios.push({ id: p.id, nome: p.nome, usuario: p.usuario, email: '', senha: hashPw('escola2024'), papel: p.papel, turmaIds: [] });
+    const id = p.fonteId ? p.id : uid();
+    db.usuarios.push({ id, nome: p.nome, usuario: p.usuario, email: '', senha: hashPw('escola2024'), papel: p.papel, turmaIds: [] });
   });
   save();
-  logger.audit({ module: 'recovery', action: 'reconstruir-usuarios', message: `Recuperados ${preview.length} usuário(s) do histórico`, meta: { total: preview.length } });
+  logger.audit({ module: 'recovery', action: 'reconstruir-usuarios', message: `Recuperados ${preview.length} usuário(s) do histórico (chat/hora-atividade/turmas/planejamentos)`, meta: { total: preview.length } });
   renderUsuarios();
   showToast(`✅ ${preview.length} usuário(s) recuperado(s)! Senha temporária: escola2024`);
 }
@@ -11691,7 +11715,9 @@ function abrirChatDM(userId, nomeUsuario, papelUsuario) {
       const el = document.getElementById('chat-dm-msgs');
       const naBase = el ? (el.scrollHeight - el.scrollTop <= el.clientHeight + 60) : true;
       renderChatDM(naBase);
-      chatMarcarVisto('dm');
+      // Só marca como lido se o painel estiver aberto — evita sumir o badge de não-lidas
+      const _panelAberto = document.getElementById('chat-panel')?.classList.contains('open');
+      if (_panelAberto) chatMarcarVisto('dm');
     }
   });
 
@@ -11732,6 +11758,7 @@ function toggleChatPanel() {
     panel.classList.remove('open');
     overlay.classList.remove('open');
     if (fab) fab.style.display = '';
+    voltarListaDM();
   } else {
     panel.classList.add('open');
     overlay.classList.add('open');
@@ -11746,6 +11773,7 @@ function fecharChatPanel() {
   document.getElementById('chat-panel-overlay')?.classList.remove('open');
   const fab = document.getElementById('chat-fab');
   if (fab) fab.style.display = '';
+  voltarListaDM();
 }
 
 async function enviarMensagemGeral() {
