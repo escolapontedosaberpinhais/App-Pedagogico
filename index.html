@@ -1002,9 +1002,9 @@
 
   /* ── Chat Flutuante ─────────────────────────────────────────────── */
   @keyframes chat-ping {
-    0%   { transform: scale(1); opacity: 1; }
-    70%  { transform: scale(2.2); opacity: 0; }
-    100% { transform: scale(2.2); opacity: 0; }
+    0%   { transform: scale(1); opacity: 0.7; }
+    70%  { transform: scale(2.4); opacity: 0; }
+    100% { transform: scale(2.4); opacity: 0; }
   }
   @keyframes chat-pulse {
     0%, 100% { box-shadow: 0 4px 16px rgba(0,0,0,.25), 0 0 0 0 rgba(239,68,68,.5); }
@@ -1025,10 +1025,14 @@
     background: #ef4444; color: #fff; border-radius: 10px;
     font-size: 11px; font-weight: 800;
     display: flex; align-items: center; justify-content: center;
-    border: 2px solid #fff; }
+    border: 2px solid #fff; overflow: visible; z-index: 1; }
   .chat-fab-badge::before {
     content: ''; position: absolute; inset: 0; border-radius: 10px;
-    background: #ef4444; animation: chat-ping 1.6s ease-in-out infinite; }
+    background: #ef4444; animation: chat-ping 1.6s ease-in-out infinite;
+    z-index: -1; pointer-events: none; }
+  .chat-dm-unread-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #ef4444; flex-shrink: 0; align-self: center; }
   .chat-panel-overlay {
     position: fixed; inset: 0; z-index: 1099;
     background: rgba(0,0,0,.35); opacity: 0; pointer-events: none;
@@ -3722,7 +3726,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.29';
+const APP_VERSION = 'v2.9.30';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -4321,6 +4325,7 @@ let _chatDMUnsub                  = null;
 let _chatDMMsgs                   = [];
 let _chatSubView                  = 'geral';
 let _dmNaoLidas                   = 0;
+let _dmInboxData                  = {};
 let _dmInboxUnsub                 = null;
 let _ocEditandoId                 = null;
 let _formacaoEditandoId           = null;
@@ -4430,14 +4435,17 @@ function aplicarPapel() {
   // Subscription ao inbox de DMs — feito aqui pois currentUser já está definido
   if (_dmInboxUnsub) { _dmInboxUnsub(); _dmInboxUnsub = null; }
   _dmInboxUnsub = FSREF('dmInbox_' + currentUser.id).onSnapshot((doc) => {
-    if (!doc.metadata.hasPendingWrites && doc.exists) {
-      const data = doc.data() || {};
+    if (!doc.metadata.hasPendingWrites) {
+      const data = doc.exists ? (doc.data() || {}) : {};
+      _dmInboxData = data;
       _dmNaoLidas = Object.entries(data).filter(([convId, ts]) => {
         if (_chatDMAtivo && _chatDMAtivo.convId === convId) return false;
         const seen = parseInt(localStorage.getItem('dm_read_' + convId) || '0', 10);
         return ts > seen;
       }).length;
       chatAtualizarBadge();
+      const panel = document.getElementById('chat-panel');
+      if (panel?.classList.contains('open') && _chatSubView === 'dm') renderListaConversas();
     }
   });
 
@@ -11497,6 +11505,7 @@ function chatMarcarVisto(tipo) {
       localStorage.setItem('dm_read_' + convId, Date.now());
       _dmNaoLidas = Math.max(0, _dmNaoLidas - 1);
       chatAtualizarBadge();
+      renderListaConversas();
     }
   } catch(e) {}
 }
@@ -11538,13 +11547,18 @@ function renderListaConversas() {
     const papel = _CHAT_PAPEL_LABEL[u.papel] || u.papel || '';
     const isAtivo = _chatDMAtivo?.userId === u.id;
     const inicial = (u.nome || '?')[0].toUpperCase();
+    const convId = _chatConvId(meuId, u.id);
+    const inboxTs = _dmInboxData[convId] || 0;
+    const seenTs  = parseInt(localStorage.getItem('dm_read_' + convId) || '0', 10);
+    const temNaoLida = !isAtivo && inboxTs > seenTs;
     return `
     <div class="chat-user-item ${isAtivo ? 'ativo' : ''}" onclick="abrirChatDM('${u.id}','${_chatEscape(u.nome)}','${u.papel || ''}')">
       <div class="chat-user-avatar">${inicial}</div>
-      <div>
+      <div style="flex:1">
         <div class="chat-user-nome">${_chatEscape(u.nome)}</div>
         <div class="chat-user-papel">${papel}</div>
       </div>
+      ${temNaoLida ? '<span class="chat-dm-unread-dot" title="Mensagem não lida"></span>' : ''}
     </div>`;
   }).join('');
 }
