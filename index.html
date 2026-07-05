@@ -2844,6 +2844,9 @@ function getFolder(path) {
       <button class="btn btn-secondary btn-sm"
         onclick="document.getElementById('fm-busca').value='';document.getElementById('fm-filtro-tipo').value='';document.getElementById('fm-filtro-periodo').value='';renderFormacao();"
         style="height:36px;">✕ Limpar</button>
+      <button class="btn btn-secondary btn-sm"
+        onclick="imprimirFormacao()"
+        style="height:36px;margin-left:auto;">🖨️ Imprimir PDF</button>
     </div>
   </div>
 
@@ -3536,7 +3539,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.23';
+const APP_VERSION = 'v2.9.24';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -11206,6 +11209,143 @@ function renderFormacao() {
       <div style="margin-top:6px;font-size:11px;color:var(--gray-400);">Registrado por ${item.criadoPor}</div>
     </div>`;
   }).join('');
+}
+
+function imprimirFormacao() {
+  if (!db.agendaFormacao || !db.agendaFormacao.length) {
+    showToast('❗ Nenhuma atividade de formação para imprimir.');
+    return;
+  }
+
+  const lista = [...db.agendaFormacao].sort((a, b) => {
+    if (a.data !== b.data) return a.data > b.data ? 1 : -1;
+    return (a.horario || '') > (b.horario || '') ? 1 : -1;
+  });
+
+  const diasSemana = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                 'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+  const tipos = {
+    palestra:  { label: 'Palestra',           cor: '#7c3aed' },
+    atividade: { label: 'Atividade',          cor: '#0284c7' },
+    workshop:  { label: 'Workshop',           cor: '#d97706' },
+    reuniao:   { label: 'Reunião Pedagógica', cor: '#059669' },
+    outro:     { label: 'Outro',              cor: '#64748b' },
+  };
+
+  const fmtDt = ds => {
+    const [y, m, d] = ds.split('-');
+    return { dia: d, mes: meses[parseInt(m,10)-1], ano: y, dsw: diasSemana[new Date(ds+'T12:00:00').getDay()] };
+  };
+
+  // Agrupa por mês
+  const porMes = {};
+  lista.forEach(item => {
+    const key = item.data ? item.data.slice(0, 7) : '0000-00';
+    if (!porMes[key]) porMes[key] = [];
+    porMes[key].push(item);
+  });
+
+  const hoje = new Date().toISOString().slice(0, 10);
+  let itensHtml = '';
+  Object.keys(porMes).sort().forEach(key => {
+    const [y, m] = key.split('-');
+    const nomeMes = m !== '00' ? (meses[parseInt(m,10)-1] ?? '') : '';
+    itensHtml += `<div class="mes-sep">${nomeMes ? nomeMes.toUpperCase() + ' ' + y : 'Sem data'}</div>`;
+    porMes[key].forEach(item => {
+      const t = tipos[item.tipo] || tipos.outro;
+      const dt = item.data ? fmtDt(item.data) : null;
+      const passado = item.data && item.data < hoje;
+      itensHtml += `
+      <div class="ev-card${passado ? ' passado' : ''}">
+        <div class="ev-bar" style="background:${t.cor};"></div>
+        <div class="ev-date">
+          ${dt ? `<span class="ev-d">${dt.dia}</span><span class="ev-m">${dt.mes.slice(0,3).toUpperCase()}</span><span class="ev-dw">${dt.dsw.slice(0,3).toUpperCase()}</span>` : '<span class="ev-d" style="font-size:10px;">—</span>'}
+        </div>
+        <div class="ev-body">
+          <div class="ev-title">${item.titulo}</div>
+          <div class="ev-meta">
+            <span class="badge" style="background:${t.cor};">${t.label}</span>
+            ${item.horario ? `<span class="meta-item">🕐 ${item.horario}</span>` : ''}
+            ${item.local ? `<span class="meta-item">📍 ${item.local}</span>` : ''}
+          </div>
+          ${item.palestrante ? `<div class="ev-info">👤 <strong>Palestrante/Responsável:</strong> ${item.palestrante}</div>` : ''}
+          ${item.descricao ? `<div class="ev-desc">${item.descricao}</div>` : ''}
+        </div>
+      </div>`;
+    });
+  });
+
+  const agora = new Date();
+  const dataImp = `${String(agora.getDate()).padStart(2,'0')}/${String(agora.getMonth()+1).padStart(2,'0')}/${agora.getFullYear()}`;
+
+  const css = `
+    * { box-sizing: border-box; margin: 0; padding: 0;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important; }
+    body { font-family: Arial, sans-serif; background: #fff; color: #1a1a1a; font-size: 10px; padding: 10mm; }
+    .no-print { display: flex; gap: 10px; margin-bottom: 12px; }
+    .btn-p { padding: 7px 16px; background: #1D9E75; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 700; }
+    .btn-p:hover { background: #157a5b; }
+    .btn-c { padding: 7px 16px; background: #e5e7eb; color: #333; border: none; border-radius: 6px; cursor: pointer; font-size: 11px; }
+    .print-header { text-align: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 3px solid #1D9E75; }
+    .header-stripe { height: 5px; border-radius: 3px; margin-bottom: 8px;
+      background: linear-gradient(to right,#c0392b,#e67e22,#27ae60,#2980b9,#8e44ad,#1D9E75,#e74c3c,#1abc9c); }
+    .logo-wrap { display: inline-block; background: #fff; border-radius: 8px; padding: 4px; margin-bottom: 4px; box-shadow: 0 0 0 1px #e5e7eb; }
+    .logo-wrap img { height: 64px; width: 64px; object-fit: contain; display: block; }
+    .escola-nome { font-size: 13px; font-weight: 800; color: #1D9E75; text-transform: uppercase; letter-spacing: .06em; }
+    .escola-end { font-size: 8px; color: #666; margin: 2px 0 5px; }
+    .doc-titulo { font-size: 16px; font-weight: 900; color: #1a1a1a; text-transform: uppercase; letter-spacing: .08em; }
+    .doc-sub { font-size: 8px; color: #888; margin-top: 3px; }
+    .mes-sep { font-size: 9px; font-weight: 800; color: #1D9E75; text-transform: uppercase; letter-spacing: .1em;
+      border-bottom: 1.5px solid #1D9E75; padding-bottom: 3px; margin: 14px 0 6px; }
+    .ev-card { display: flex; align-items: stretch; margin-bottom: 6px;
+      border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden; page-break-inside: avoid; }
+    .ev-card.passado { opacity: .6; }
+    .ev-bar { width: 5px; flex-shrink: 0; }
+    .ev-date { width: 42px; flex-shrink: 0; text-align: center; background: #f8fafc;
+      border-right: 1px solid #e5e7eb; padding: 6px 2px; display: flex; flex-direction: column;
+      justify-content: center; align-items: center; }
+    .ev-d { font-size: 18px; font-weight: 900; color: #1a1a1a; line-height: 1; }
+    .ev-m { font-size: 7px; font-weight: 700; color: #888; margin-top: 2px; }
+    .ev-dw { font-size: 7px; color: #aaa; margin-top: 1px; }
+    .ev-body { flex: 1; padding: 7px 11px; }
+    .ev-title { font-size: 11.5px; font-weight: 800; color: #1a1a1a; margin-bottom: 4px; line-height: 1.3; }
+    .ev-meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 3px; }
+    .badge { font-size: 7.5px; font-weight: 700; color: #fff; padding: 2px 8px; border-radius: 20px; }
+    .meta-item { font-size: 8px; color: #555; }
+    .ev-info { font-size: 8.5px; color: #444; margin-top: 3px; }
+    .ev-desc { font-size: 8px; color: #666; margin-top: 3px; line-height: 1.5; white-space: pre-wrap; }
+    .footer { margin-top: 16px; text-align: right; font-size: 7.5px; color: #aaa;
+      border-top: 1px solid #eee; padding-top: 7px; }
+    @page { size: A4 portrait; margin: 0; }
+    @media print { body { padding: 10mm; } .no-print { display: none !important; } }`;
+
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+    <title>Formação Pedagógica — Escola Ponte do Saber</title>
+    <style>${css}</style></head>
+    <body>
+      <div class="no-print">
+        <button class="btn-p" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+        <button class="btn-c" onclick="window.close()">✕ Fechar</button>
+      </div>
+      <div class="print-header">
+        <div class="header-stripe"></div>
+        <div class="logo-wrap"><img src="/icon-nobg.png" alt="Logo Escola Ponte do Saber"></div>
+        <div class="escola-nome">Escola Ponte do Saber</div>
+        <div class="escola-end">Rua Rio Paraná nº 124 — Weissópolis — Pinhais — PR</div>
+        <div class="doc-titulo">Programação de Formação Pedagógica</div>
+        <div class="doc-sub">Emitido em ${dataImp} · ${lista.length} atividade${lista.length !== 1 ? 's' : ''}</div>
+      </div>
+      ${itensHtml}
+      <div class="footer">Escola Ponte do Saber — Sistema Pedagógico Digital · Impresso em ${dataImp}</div>
+    </body></html>`;
+
+  const w = window.open('', '_blank');
+  if (w) { w.document.write(html); w.document.close(); }
+  else showToast('❗ Permita pop-ups para imprimir.');
 }
 
 // =====================================================================
