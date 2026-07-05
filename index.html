@@ -999,7 +999,49 @@
   .chat-badge { display: inline-flex; align-items: center; justify-content: center;
     min-width: 18px; height: 18px; padding: 0 5px; background: #ef4444; color: #fff;
     border-radius: 9px; font-size: 10px; font-weight: 800; margin-left: 5px; }
+
+  /* ── Chat Flutuante ─────────────────────────────────────────────── */
+  .chat-fab {
+    position: fixed; bottom: 24px; right: 24px; z-index: 1100;
+    width: 56px; height: 56px; border-radius: 50%;
+    background: var(--green); color: #fff; border: none; cursor: pointer;
+    font-size: 24px; box-shadow: 0 4px 16px rgba(0,0,0,.25);
+    display: flex; align-items: center; justify-content: center;
+    transition: transform .15s, box-shadow .15s; }
+  .chat-fab:hover { transform: scale(1.08); box-shadow: 0 6px 20px rgba(0,0,0,.3); }
+  .chat-fab-badge {
+    position: absolute; top: -4px; right: -4px;
+    min-width: 20px; height: 20px; padding: 0 5px;
+    background: #ef4444; color: #fff; border-radius: 10px;
+    font-size: 11px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid #fff; }
+  .chat-panel-overlay {
+    position: fixed; inset: 0; z-index: 1099;
+    background: rgba(0,0,0,.35); opacity: 0; pointer-events: none;
+    transition: opacity .25s; }
+  .chat-panel-overlay.open { opacity: 1; pointer-events: auto; }
+  .chat-panel {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 1100;
+    width: 380px; max-width: 100vw;
+    background: #fff; box-shadow: -4px 0 24px rgba(0,0,0,.18);
+    display: flex; flex-direction: column;
+    transform: translateX(100%); transition: transform .28s cubic-bezier(.4,0,.2,1); }
+  .chat-panel.open { transform: translateX(0); }
+  .chat-panel-header {
+    display: flex; align-items: center; gap: 4px;
+    border-bottom: 2px solid var(--gray-200); padding: 0 10px 0 4px;
+    background: #fff; flex-shrink: 0; }
+  .chat-panel-tabs { display: flex; flex: 1; }
+  .chat-panel-tabs .chat-tab-btn { flex: 1; }
+  .chat-panel-close {
+    background: none; border: none; cursor: pointer; padding: 8px;
+    font-size: 18px; color: var(--gray-500); line-height: 1; border-radius: 50%;
+    transition: background .12s; flex-shrink: 0; }
+  .chat-panel-close:hover { background: var(--gray-100); }
   @media (max-width: 600px) {
+    .chat-panel { width: 100vw; }
+    .chat-fab { bottom: 16px; right: 16px; }
     .chat-dm-sidebar { width: 52px; }
     .chat-user-nome, .chat-user-papel { display: none; }
     .chat-user-avatar { width: 36px; height: 36px; }
@@ -1210,11 +1252,6 @@
     <button class="dnav-btn" id="dnav-calendario" onclick="drawerNav('calendario')" style="display:none;">
       <span class="di">&#x1F4C5;</span> Calend&aacute;rio
     </button>
-    <!-- 💬 Comunicação -->
-    <div class="dnav-group-label">&#x1F4AC; Comunica&ccedil;&atilde;o</div>
-    <button class="dnav-btn" id="dnav-chat" onclick="drawerNav('chat')" style="display:none;">
-      <span class="di">&#x1F4AC;</span> Chat Interno <span id="dnav-chat-badge" style="display:none;" class="chat-badge"></span>
-    </button>
   </div>
   <div class="drawer-footer">
     <button class="drawer-key" onclick="fecharDrawer();abrirTrocarSenha();">&#x1F511; Trocar senha</button>
@@ -1239,7 +1276,6 @@
   <button id="nav-ocorrencias" onclick="showTab('ocorrencias')" data-tab="ocorrencias" style="display:none;">📋 Ocorrências</button>
   <button id="nav-formacao" onclick="showTab('formacao')" data-tab="formacao" style="display:none;">🎓 Formação</button>
   <button id="nav-calendario" onclick="showTab('calendario')" data-tab="calendario" style="display:none;">📅 Calendário</button>
-  <button id="nav-chat" onclick="showTab('chat')" data-tab="chat" style="display:none;">💬 Chat <span id="nav-chat-badge" style="display:none;" class="chat-badge"></span></button>
 </nav>
 
 <!-- ── Nav agrupada para diretoria ── -->
@@ -1285,17 +1321,6 @@
       <button data-tab="planejamento" onclick="showTab('planejamento');closeNavGrp()">📋 Planejamentos</button>
       <button data-tab="pareceres" onclick="showTab('pareceres');closeNavGrp()">✨ Pareceres IA</button>
       <button data-tab="atividades" onclick="showTab('atividades');closeNavGrp()">🎯 Atividades</button>
-    </div>
-  </div>
-  <!-- 💬 Comunicação -->
-  <div class="nav-grp" id="navgrp-comunicacao">
-    <button class="nav-grp-btn" id="navgrp-btn-comunicacao" onclick="toggleNavGrp('comunicacao')">
-      💬 Comunicação <span class="nav-grp-arrow">▾</span>
-    </button>
-    <div class="nav-grp-drop" id="navdrop-comunicacao">
-      <button id="navdir-chat" data-tab="chat" onclick="showTab('chat');closeNavGrp()" style="display:none;">
-        💬 Chat Interno <span id="navdir-chat-badge" style="display:none;" class="chat-badge"></span>
-      </button>
     </div>
   </div>
   <!-- 🔒 Controle -->
@@ -2931,69 +2956,67 @@ function getFolder(path) {
   <div id="formacao-list"></div>
 </div>
 
-<!-- ===================== CHAT INTERNO ===================== -->
-<div id="tab-chat" class="section">
-  <div class="section-header">
-    <h2>💬 Chat Interno</h2>
+<!-- ===================== CHAT FLUTUANTE ===================== -->
+<!-- Overlay -->
+<div id="chat-panel-overlay" class="chat-panel-overlay" onclick="fecharChatPanel()"></div>
+
+<!-- Painel deslizante -->
+<div id="chat-panel" class="chat-panel">
+  <div class="chat-panel-header">
+    <div class="chat-panel-tabs">
+      <button class="chat-tab-btn active" id="chat-tab-geral" onclick="chatSubView('geral')">💬 Geral</button>
+      <button class="chat-tab-btn" id="chat-tab-dm" onclick="chatSubView('dm')">📩 Diretas</button>
+    </div>
+    <button class="chat-panel-close" onclick="fecharChatPanel()" title="Fechar">✕</button>
   </div>
 
-  <div class="card" style="padding:0;overflow:hidden;">
-    <!-- Tabs -->
-    <div class="chat-tabs">
-      <button class="chat-tab-btn active" id="chat-tab-geral" onclick="chatSubView('geral')">
-        💬 Chat Geral
-      </button>
-      <button class="chat-tab-btn" id="chat-tab-dm" onclick="chatSubView('dm')">
-        📩 Mensagens Diretas
-      </button>
+  <!-- View: Chat Geral -->
+  <div id="chat-view-geral" class="chat-view" style="flex:1;min-height:0;display:flex;flex-direction:column;">
+    <div id="chat-geral-msgs" class="chat-msgs" style="flex:1;min-height:0;overflow-y:auto;"></div>
+    <div class="chat-input-row">
+      <textarea id="chat-geral-input" class="chat-input" rows="1"
+        placeholder="Mensagem… (Enter para enviar)"
+        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px';"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviarMensagemGeral();}"></textarea>
+      <button class="chat-send-btn" onclick="enviarMensagemGeral()">➤</button>
     </div>
+  </div>
 
-    <!-- View: Chat Geral -->
-    <div id="chat-view-geral" class="chat-view" style="height:calc(100vh - 260px);min-height:360px;">
-      <div id="chat-geral-msgs" class="chat-msgs"></div>
-      <div class="chat-input-row">
-        <textarea id="chat-geral-input" class="chat-input" rows="1"
-          placeholder="Digite sua mensagem… (Enter para enviar, Shift+Enter para nova linha)"
-          oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px';"
-          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviarMensagemGeral();}"></textarea>
-        <button class="chat-send-btn" onclick="enviarMensagemGeral()">Enviar ➤</button>
-      </div>
-    </div>
-
-    <!-- View: Mensagens Diretas -->
-    <div id="chat-view-dm" class="chat-view" style="display:none;height:calc(100vh - 260px);min-height:360px;">
-      <div class="chat-dm-layout" style="flex:1;min-height:0;overflow:hidden;">
-        <!-- Sidebar: lista de usuários -->
-        <div class="chat-dm-sidebar" id="chat-dm-lista"></div>
-        <!-- Área direita -->
-        <div class="chat-dm-right">
-          <!-- Estado vazio -->
-          <div id="chat-dm-vazia" class="chat-dm-vazia">
-            <div style="text-align:center;">
-              <div style="font-size:40px;margin-bottom:10px;">💬</div>
-              <div>Selecione um usuário para iniciar uma conversa privada</div>
-            </div>
+  <!-- View: Mensagens Diretas -->
+  <div id="chat-view-dm" class="chat-view" style="display:none;flex:1;min-height:0;">
+    <div class="chat-dm-layout" style="flex:1;min-height:0;overflow:hidden;">
+      <div class="chat-dm-sidebar" id="chat-dm-lista"></div>
+      <div class="chat-dm-right">
+        <div id="chat-dm-vazia" class="chat-dm-vazia">
+          <div style="text-align:center;">
+            <div style="font-size:36px;margin-bottom:8px;">💬</div>
+            <div style="font-size:13px;">Selecione um usuário para conversar</div>
           </div>
-          <!-- Thread ativa -->
-          <div id="chat-dm-thread" style="display:none;flex-direction:column;flex:1;min-height:0;">
-            <div class="chat-dm-header">
-              <span id="chat-dm-avatar" class="chat-user-avatar" style="width:28px;height:28px;font-size:13px;"></span>
-              <span id="chat-dm-titulo"></span>
-            </div>
-            <div id="chat-dm-msgs" class="chat-msgs" style="flex:1;min-height:0;"></div>
-            <div class="chat-input-row">
-              <textarea id="chat-dm-input" class="chat-input" rows="1"
-                placeholder="Mensagem privada… (Enter para enviar)"
-                oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px';"
-                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviarMensagemDM();}"></textarea>
-              <button class="chat-send-btn" onclick="enviarMensagemDM()">Enviar ➤</button>
-            </div>
+        </div>
+        <div id="chat-dm-thread" style="display:none;flex-direction:column;flex:1;min-height:0;">
+          <div class="chat-dm-header">
+            <span id="chat-dm-avatar" class="chat-user-avatar" style="width:26px;height:26px;font-size:12px;"></span>
+            <span id="chat-dm-titulo"></span>
+          </div>
+          <div id="chat-dm-msgs" class="chat-msgs" style="flex:1;min-height:0;overflow-y:auto;"></div>
+          <div class="chat-input-row">
+            <textarea id="chat-dm-input" class="chat-input" rows="1"
+              placeholder="Mensagem privada…"
+              oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px';"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviarMensagemDM();}"></textarea>
+            <button class="chat-send-btn" onclick="enviarMensagemDM()">➤</button>
           </div>
         </div>
       </div>
     </div>
   </div>
 </div>
+
+<!-- Botão flutuante -->
+<button id="chat-fab" class="chat-fab" onclick="toggleChatPanel()" title="Chat Interno">
+  💬
+  <span id="chat-fab-badge" class="chat-fab-badge" style="display:none;"></span>
+</button>
 
 <!-- ===================== AUDITORIA ===================== -->
 <div id="tab-auditoria" class="section">
@@ -3680,7 +3703,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.25';
+const APP_VERSION = 'v2.9.26';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -4192,7 +4215,7 @@ function setupSync() {
       db.chatGeral = doc.exists ? (doc.data().data ?? []) : [];
       _chatGeralCarregado = true;
       chatAtualizarBadge();
-      if (document.getElementById('tab-chat')?.classList.contains('active') && _chatSubView === 'geral') {
+      if (document.getElementById('chat-panel')?.classList.contains('open') && _chatSubView === 'geral') {
         const el = document.getElementById('chat-geral-msgs');
         const naBase = el ? (el.scrollHeight - el.scrollTop <= el.clientHeight + 60) : true;
         renderChatGeral(naBase);
@@ -4242,7 +4265,6 @@ function refreshCurrentView() {
   if (id === 'tab-auditoria')       { carregarAuditoria(); }
   if (id === 'tab-ocorrencias')     { renderOcorrencias(); }
   if (id === 'tab-formacao')        { renderFormacao(); }
-  if (id === 'tab-chat')            { chatSubView(_chatSubView); }
   if (id === 'tab-calendario')      { renderCalendario(); }
 }
 
@@ -4475,11 +4497,6 @@ function aplicarPapel() {
   nav('nav-calendario',    isGestao);
   nav('dnav-calendario',   isGestao);
   nav('navdir-calendario', isGestao);
-
-  // Chat Interno: todos os usuários
-  nav('nav-chat',    true);
-  nav('dnav-chat',   true);
-  nav('navdir-chat', true);
 
   // Diagnóstico de sincronização: apenas diretor
   nav('btn-diagnostico-sync', isDiretor);
@@ -4743,7 +4760,6 @@ const _TAB_GRUPOS = {
   rotina: 'pedagogico', avaliacoes: 'pedagogico', correcao: 'pedagogico', formacao: 'pedagogico',
   'hora-atividade': 'docentes', planejamento: 'docentes', pareceres: 'docentes', atividades: 'docentes',
   auditoria: 'controle', ocorrencias: 'controle', calendario: 'controle',
-  chat: 'comunicacao',
 };
 
 function toggleNavGrp(grp) {
@@ -4801,7 +4817,6 @@ function showTab(tab) {
   if (tab === 'config')         { renderUsuarios(); atualizarStatusFdSync(); }
   if (tab === 'ocorrencias')    { renderOcorrencias(); }
   if (tab === 'calendario')     { renderCalendario(); }
-  if (tab === 'chat')           { chatSubView(_chatSubView); chatMarcarVisto('geral'); }
 }
 
 // --- DRAWER functions ---
@@ -11426,12 +11441,11 @@ function chatAtualizarBadge() {
   try {
     const seenTs = parseInt(localStorage.getItem('chat_seen_geral') || '0', 10);
     const naoLidas = db.chatGeral.filter(m => m.criadoEm > seenTs && m.autorId !== currentUser?.id).length;
-    ['nav-chat-badge','dnav-chat-badge','navdir-chat-badge'].forEach(id => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.style.display = naoLidas > 0 ? '' : 'none';
-      el.textContent = naoLidas > 9 ? '9+' : naoLidas;
-    });
+    const badge = document.getElementById('chat-fab-badge');
+    if (badge) {
+      badge.style.display = naoLidas > 0 ? '' : 'none';
+      badge.textContent = naoLidas > 9 ? '9+' : String(naoLidas);
+    }
   } catch(e) {}
 }
 
@@ -11526,20 +11540,36 @@ function abrirChatDM(userId, nomeUsuario, papelUsuario) {
 
 function chatSubView(view) {
   _chatSubView = view;
-  const btnGeral = document.getElementById('chat-tab-geral');
-  const btnDM    = document.getElementById('chat-tab-dm');
+  const btnGeral  = document.getElementById('chat-tab-geral');
+  const btnDM     = document.getElementById('chat-tab-dm');
   const viewGeral = document.getElementById('chat-view-geral');
   const viewDM    = document.getElementById('chat-view-dm');
-  if (btnGeral) btnGeral.classList.toggle('active', view === 'geral');
-  if (btnDM)    btnDM.classList.toggle('active', view === 'dm');
-  if (viewGeral) viewGeral.style.display = view === 'geral' ? '' : 'none';
+  if (btnGeral)  btnGeral.classList.toggle('active', view === 'geral');
+  if (btnDM)     btnDM.classList.toggle('active', view === 'dm');
+  if (viewGeral) viewGeral.style.display = view === 'geral' ? 'flex' : 'none';
   if (viewDM)    viewDM.style.display    = view === 'dm'    ? 'flex' : 'none';
-  if (view === 'geral') {
-    renderChatGeral();
-    chatMarcarVisto('geral');
+  if (view === 'geral') { renderChatGeral(); chatMarcarVisto('geral'); }
+  else                  { renderListaConversas(); }
+}
+
+function toggleChatPanel() {
+  const panel   = document.getElementById('chat-panel');
+  const overlay = document.getElementById('chat-panel-overlay');
+  const isOpen  = panel?.classList.contains('open');
+  if (isOpen) {
+    panel.classList.remove('open');
+    overlay.classList.remove('open');
   } else {
-    renderListaConversas();
+    panel.classList.add('open');
+    overlay.classList.add('open');
+    chatSubView(_chatSubView);
+    chatMarcarVisto('geral');
   }
+}
+
+function fecharChatPanel() {
+  document.getElementById('chat-panel')?.classList.remove('open');
+  document.getElementById('chat-panel-overlay')?.classList.remove('open');
 }
 
 async function enviarMensagemGeral() {
