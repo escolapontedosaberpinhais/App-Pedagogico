@@ -3722,7 +3722,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.27';
+const APP_VERSION = 'v2.9.28';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -4241,6 +4241,17 @@ function setupSync() {
       }
     }
   });
+  FSREF('dmInbox_' + currentUser.id).onSnapshot((doc) => {
+    if (!doc.metadata.hasPendingWrites && doc.exists) {
+      const data = doc.data() || {};
+      _dmNaoLidas = Object.entries(data).filter(([convId, ts]) => {
+        if (_chatDMAtivo && _chatDMAtivo.convId === convId) return false;
+        const seen = parseInt(localStorage.getItem('dm_read_' + convId) || '0', 10);
+        return ts > seen;
+      }).length;
+      chatAtualizarBadge();
+    }
+  });
   FSREF('notificacoes').onSnapshot((doc) => {
     if (doc.exists && !doc.metadata.hasPendingWrites) {
       const novas = doc.data().data ?? [];
@@ -4320,6 +4331,7 @@ let _chatDMAtivo                  = null;
 let _chatDMUnsub                  = null;
 let _chatDMMsgs                   = [];
 let _chatSubView                  = 'geral';
+let _dmNaoLidas                   = 0;
 let _ocEditandoId                 = null;
 let _formacaoEditandoId           = null;
 
@@ -11458,15 +11470,16 @@ function _chatMsgHtml(msg) {
 
 function chatAtualizarBadge() {
   try {
-    const seenTs = parseInt(localStorage.getItem('chat_seen_geral') || '0', 10);
-    const naoLidas = db.chatGeral.filter(m => m.criadoEm > seenTs && m.autorId !== currentUser?.id).length;
-    const badge = document.getElementById('chat-fab-badge');
-    const fab   = document.getElementById('chat-fab');
+    const seenTs   = parseInt(localStorage.getItem('chat_seen_geral') || '0', 10);
+    const geralNL  = db.chatGeral.filter(m => m.criadoEm > seenTs && m.autorId !== currentUser?.id).length;
+    const total    = geralNL + (_dmNaoLidas || 0);
+    const badge    = document.getElementById('chat-fab-badge');
+    const fab      = document.getElementById('chat-fab');
     if (badge) {
-      badge.style.display = naoLidas > 0 ? '' : 'none';
-      badge.textContent   = naoLidas > 9 ? '9+' : String(naoLidas);
+      badge.style.display = total > 0 ? '' : 'none';
+      badge.textContent   = total > 9 ? '9+' : String(total);
     }
-    if (fab) fab.classList.toggle('has-unread', naoLidas > 0);
+    if (fab) fab.classList.toggle('has-unread', total > 0);
   } catch(e) {}
 }
 
@@ -11476,7 +11489,10 @@ function chatMarcarVisto(tipo) {
       localStorage.setItem('chat_seen_geral', Date.now());
       chatAtualizarBadge();
     } else if (tipo === 'dm' && _chatDMAtivo) {
-      localStorage.setItem('chat_seen_dm_' + _chatDMAtivo.convId, Date.now());
+      const convId = _chatDMAtivo.convId;
+      localStorage.setItem('dm_read_' + convId, Date.now());
+      _dmNaoLidas = Math.max(0, _dmNaoLidas - 1);
+      chatAtualizarBadge();
     }
   } catch(e) {}
 }
@@ -11589,13 +11605,16 @@ function chatSubView(view) {
 function toggleChatPanel() {
   const panel   = document.getElementById('chat-panel');
   const overlay = document.getElementById('chat-panel-overlay');
+  const fab     = document.getElementById('chat-fab');
   const isOpen  = panel?.classList.contains('open');
   if (isOpen) {
     panel.classList.remove('open');
     overlay.classList.remove('open');
+    if (fab) fab.style.display = '';
   } else {
     panel.classList.add('open');
     overlay.classList.add('open');
+    if (fab) fab.style.display = 'none';
     chatSubView(_chatSubView);
     chatMarcarVisto('geral');
   }
@@ -11604,6 +11623,8 @@ function toggleChatPanel() {
 function fecharChatPanel() {
   document.getElementById('chat-panel')?.classList.remove('open');
   document.getElementById('chat-panel-overlay')?.classList.remove('open');
+  const fab = document.getElementById('chat-fab');
+  if (fab) fab.style.display = '';
 }
 
 async function enviarMensagemGeral() {
@@ -11619,6 +11640,10 @@ async function enviarMensagemGeral() {
     papel: currentUser.papel, texto, criadoEm: Date.now(),
   };
 
+  // Otimista: exibe imediatamente antes da confirmação do servidor
+  db.chatGeral.push(msg);
+  renderChatGeral(true);
+
   try {
     await FSREF('chatGeral').set(
       { data: firebase.firestore.FieldValue.arrayUnion(msg) },
@@ -11626,6 +11651,8 @@ async function enviarMensagemGeral() {
     );
   } catch(e) {
     showToast('❌ Erro ao enviar mensagem.');
+    db.chatGeral = db.chatGeral.filter(m => m.id !== msg.id);
+    renderChatGeral(false);
     input.value = texto;
   } finally {
     input.disabled = false;
@@ -11647,13 +11674,27 @@ async function enviarMensagemDM() {
     papel: currentUser.papel, texto, criadoEm: Date.now(),
   };
 
+  // Otimista: exibe imediatamente
+  _chatDMMsgs.push(msg);
+  renderChatDM(true);
+
+  const convId      = _chatDMAtivo.convId;
+  const recipientId = _chatDMAtivo.userId;
+
   try {
-    await FSREF('chatDM_' + _chatDMAtivo.convId).set(
+    await FSREF('chatDM_' + convId).set(
       { data: firebase.firestore.FieldValue.arrayUnion(msg) },
       { merge: true }
     );
+    // Notifica o destinatário via inbox
+    FSREF('dmInbox_' + recipientId).set(
+      { [convId]: Date.now() },
+      { merge: true }
+    ).catch(() => {});
   } catch(e) {
     showToast('❌ Erro ao enviar mensagem.');
+    _chatDMMsgs = _chatDMMsgs.filter(m => m.id !== msg.id);
+    renderChatDM(false);
     input.value = texto;
   } finally {
     input.disabled = false;
