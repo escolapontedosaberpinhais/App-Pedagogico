@@ -3726,7 +3726,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.32';
+const APP_VERSION = 'v2.9.33';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -3970,6 +3970,30 @@ async function loadFromFirestore() {
       _rotinasCarregadas = true; _atividadesCarregadas = true;
       saveToFirestore();
     }
+    // Load bem-sucedido: agora é seguro gravar no Firestore
+    _usuariosCarregado = true;
+    _firestoreOk = true;
+
+    // ── RECUPERAÇÃO AUTOMÁTICA DE USUÁRIOS ──────────────────────────────
+    // Se o servidor voltou reduzido (assinatura do "wipe": ≤1 usuário) mas
+    // este dispositivo ainda tem uma lista maior preservada no localStorage,
+    // restaura os usuários perdidos e regrava no servidor. Roda ANTES do
+    // setupSync(), então o backup local ainda não foi sobrescrito.
+    try {
+      const lsU = LS.get('ps_usuarios', []);
+      if (db.usuarios.length <= 1 && Array.isArray(lsU) && lsU.length > db.usuarios.length) {
+        const ids = new Set(db.usuarios.map(u => u && u.id));
+        const restaurados = lsU.filter(u => u && u.id && !ids.has(u.id));
+        if (restaurados.length) {
+          db.usuarios = [...db.usuarios, ...restaurados];
+          logger.warn({ module: 'recovery', action: 'restore-usuarios', message: `Restaurados ${restaurados.length} usuário(s) do backup local após wipe`, meta: { restaurados: restaurados.length, total: db.usuarios.length } });
+          saveToFirestore();
+        }
+      }
+    } catch (eRec) {
+      logger.error({ module: 'recovery', action: 'restore-usuarios', message: 'Falha na recuperação automática', error: eRec });
+    }
+
     _t.done({ meta: { planejamentos: db.planejamentos.length, alunos: db.alunos.length, turmas: db.turmas.length } });
   } catch (e) {
     logger.warn({ module: 'firestore', action: 'load', message: 'Firestore indisponível, usando localStorage', error: e });
@@ -3986,6 +4010,8 @@ async function loadFromFirestore() {
     db.diasSemAula        = LS.get('ps_dias_sem_aula', []);
     db.entregasPareceres  = LS.get('ps_entregas_pareceres', { b1: '', b2: '', b3: '', b4: '' });
     _rotinasCarregadas = true; _atividadesCarregadas = true;
+    // NÃO marca _firestoreOk/_usuariosCarregado: load falhou, gravar agora
+    // sobrescreveria o servidor com dados possivelmente vazios do localStorage.
   }
 }
 
@@ -4101,6 +4127,14 @@ function resubscribePlanejamentos() {
 }
 
 function saveToFirestore() {
+  // TRAVA DE SEGURANÇA: nunca grava no Firestore antes de um carregamento
+  // inicial bem-sucedido. Sem isso, um boot com falha de rede (que cai no
+  // fallback do localStorage, possivelmente vazio) sobrescreveria TODAS as
+  // coleções do servidor com arrays vazios — perda de dados global.
+  if (!_firestoreOk) {
+    logger.warn({ module: 'firestore', action: 'save-bloqueado', message: 'Gravação bloqueada: dados ainda não carregados do servidor' });
+    return;
+  }
   if (!navigator.onLine) { SyncStatus.offline(); return; }
   SyncStatus.saving();
   const batch = fstore.batch();
@@ -4111,7 +4145,7 @@ function saveToFirestore() {
   // criações concorrentes de outras usuárias — ver savePareceresMerged()
   savePareceresMerged();
   batch.set(FSREF('avaliacoes'),    { data: db.avaliacoes });
-  batch.set(FSREF('usuarios'),      { data: db.usuarios });
+  if (_usuariosCarregado) batch.set(FSREF('usuarios'), { data: db.usuarios });
   batch.set(FSREF('notificacoes'),  { data: db.notificacoes });
   batch.set(FSREF('horaAtividade'), { data: db.horaAtividade });
   if (_rotinasCarregadas)     batch.set(FSREF('rotinas'),     { data: db.rotinas });
@@ -4140,6 +4174,11 @@ function setupSync() {
   const handle = (field, def) => (doc) => {
     if (!doc.exists || doc.metadata.hasPendingWrites) return;
     let serverData = doc.data().data ?? def;
+
+    // Recebemos dados autoritativos do servidor via snapshot — mesmo que o
+    // load inicial tenha falhado, agora é seguro voltar a gravar.
+    _firestoreOk = true;
+    if (field === 'usuarios') _usuariosCarregado = true;
 
     // O servidor é a fonte da verdade. Não há mais "anti-rollback" que regrava
     // dados antigos por cima — esse mecanismo ressuscitava itens excluídos.
@@ -4317,6 +4356,8 @@ let db = {
   chatGeral: [],
 };
 // Guardas: evita sobrescrever dados no Firestore antes de carregá-los
+let _firestoreOk                  = false;  // trava global: só grava após load bem-sucedido
+let _usuariosCarregado            = false;
 let _rotinasCarregadas            = false;
 let _atividadesCarregadas         = false;
 let _ocorrenciasCarregadas        = false;
@@ -5049,11 +5090,14 @@ window.addEventListener('DOMContentLoaded', async () => {
   setupSync();
   document.getElementById('loading-screen').style.display = 'none';
 
-  // Cria usuário diretor padrão se não existir nenhum
-  if (db.usuarios.length === 0) {
+  // Cria usuário diretor padrão APENAS numa primeira execução real —
+  // ou seja, quando o Firestore respondeu com sucesso E de fato não há
+  // nenhum usuário. Se o load falhou (_firestoreOk === false), NÃO cria
+  // nem grava: isso sobrescreveria a lista real de usuários no servidor.
+  if (_firestoreOk && db.usuarios.length === 0) {
     db.usuarios.push({
       id: uid(), nome: 'Diretor(a)', usuario: 'diretor',
-      senha: hashPw('escola2024'), papel: 'diretor', turmaId: null,
+      senha: hashPw('escola2024'), papel: 'diretor', turmaIds: [],
     });
     save();
   }
