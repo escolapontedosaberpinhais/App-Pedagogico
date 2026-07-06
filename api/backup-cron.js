@@ -110,6 +110,28 @@ async function uploadDrive(token, filename, content, folderId) {
   return r.json();
 }
 
+// ── Interpreta o JSON da conta de serviço, tolerante a problemas de paste ────
+// Aceita: JSON puro, JSON com aspas externas acidentais, ou o JSON em base64.
+function parseServiceAccount(raw) {
+  let s = (raw || '').trim();
+
+  // Remove aspas externas acidentais (quando o valor inteiro foi colado entre aspas)
+  if (s.length > 1 && ((s[0] === "'" && s[s.length - 1] === "'") ||
+                       (s[0] === '"' && s[s.length - 1] === '"' && !s.startsWith('{')))) {
+    s = s.slice(1, -1).trim();
+  }
+
+  // Se não parece JSON, tenta decodificar de base64
+  if (!s.startsWith('{')) {
+    try {
+      const dec = Buffer.from(s, 'base64').toString('utf8').trim();
+      if (dec.startsWith('{')) s = dec;
+    } catch { /* ignora */ }
+  }
+
+  return JSON.parse(s);
+}
+
 // ── Handler principal ────────────────────────────────────────────────────────
 export default async function handler(req, res) {
   // Autenticação: só exige o segredo se ele estiver configurado.
@@ -151,9 +173,17 @@ export default async function handler(req, res) {
     diag.etapa = 'ler GDRIVE_SA_JSON';
     let sa;
     try {
-      sa = JSON.parse(SA_JSON);
+      sa = parseServiceAccount(SA_JSON);
     } catch (e) {
-      diag.error = 'GDRIVE_SA_JSON não é um JSON válido. Cole o conteúdo inteiro do arquivo .json da conta de serviço.';
+      const t = (SA_JSON || '').trim();
+      diag.error = 'GDRIVE_SA_JSON não é um JSON válido. Cole o conteúdo inteiro do arquivo .json da conta de serviço (ou o mesmo conteúdo em base64).';
+      // Pistas seguras (não revelam a chave privada) para diagnóstico:
+      diag.parseErro     = e.message;
+      diag.tamanho       = t.length;
+      diag.primeiroChar  = t[0] || '(vazio)';
+      diag.ultimoChar    = t[t.length - 1] || '(vazio)';
+      diag.comecaComChave = t.startsWith('{');
+      diag.terminaComChave = t.endsWith('}');
       return res.status(500).json(diag);
     }
     diag.contaServico = sa.client_email || '(sem client_email)';
