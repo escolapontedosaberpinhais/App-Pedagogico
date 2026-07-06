@@ -41,6 +41,37 @@ const DOCS = [
   'notificacoes',
 ];
 
+// Rótulos amigáveis para o resumo do conteúdo do backup
+const LABELS = {
+  turmas:         'Turmas',
+  alunos:         'Alunos',
+  planejamentos:  'Planejamentos',
+  pareceres:      'Pareceres',
+  avaliacoes:     'Avaliações',
+  usuarios:       'Usuários (professores e equipe)',
+  chatGeral:      'Mensagens do chat geral',
+  horaAtividade:  'Registros de hora-atividade',
+  rotinas:        'Rotinas',
+  config:         'Configurações',
+  ocorrencias:    'Ocorrências',
+  agendaFormacao: 'Agenda de formação',
+  notificacoes:   'Notificações',
+};
+
+// Monta um resumo legível do que há dentro do backup (contagem por coleção)
+function montarResumo(backup) {
+  const resumo = {};
+  for (const d of DOCS) {
+    if (backup[d] === undefined) continue;
+    const v = backup[d];
+    const label = LABELS[d] || d;
+    if (Array.isArray(v))              resumo[label] = v.length;
+    else if (v && typeof v === 'object') resumo[label] = 'configurado';
+    else                               resumo[label] = v;
+  }
+  return resumo;
+}
+
 // ── Converte valor Firestore REST → JavaScript puro ──────────────────────────
 function fromFsValue(v) {
   if (!v) return null;
@@ -173,7 +204,7 @@ export default async function handler(req, res) {
 
   const diag = {
     ok: false,
-    versao: 'backup-v5-oauth',
+    versao: 'backup-v6-resumo',
     etapa: 'início',
     metodoDrive: usaOAuth ? 'oauth (conta do usuário)' : (SA_JSON ? 'conta de serviço' : 'nenhum'),
     env: {
@@ -236,6 +267,11 @@ export default async function handler(req, res) {
       }
     }
     diag.colecoesColetadas = coletados;
+
+    // Resumo do conteúdo — quantos registros de cada tipo há no backup
+    const resumo = montarResumo(backup);
+    backup._resumo = resumo;   // fica salvo dentro do arquivo também
+    diag.resumo = resumo;      // aparece na resposta do teste
 
     // 3. Nome do arquivo com data BRT (AAAA-MM-DD)
     const dataBrt = new Date().toLocaleDateString('pt-BR', {
