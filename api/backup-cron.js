@@ -158,6 +158,7 @@ export default async function handler(req, res) {
   // Diagnóstico passo a passo — visível ao abrir a URL no navegador.
   const diag = {
     ok: false,
+    versao: 'backup-v4-brace-repair',
     etapa: 'início',
     env: {
       FIREBASE_WEB_API_KEY: !!API_KEY,
