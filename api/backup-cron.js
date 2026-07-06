@@ -111,25 +111,34 @@ async function uploadDrive(token, filename, content, folderId) {
 }
 
 // ── Interpreta o JSON da conta de serviço, tolerante a problemas de paste ────
-// Aceita: JSON puro, JSON com aspas externas acidentais, ou o JSON em base64.
+// Tenta várias formas: JSON puro, base64, aspas externas acidentais, ou com o
+// caractere "{" inicial perdido no paste. Retorna o 1º candidato válido que
+// tenha private_key + client_email.
 function parseServiceAccount(raw) {
-  let s = (raw || '').trim();
+  const s = (raw || '').trim();
+  const candidatos = [s];
 
-  // Remove aspas externas acidentais (quando o valor inteiro foi colado entre aspas)
-  if (s.length > 1 && ((s[0] === "'" && s[s.length - 1] === "'") ||
-                       (s[0] === '"' && s[s.length - 1] === '"' && !s.startsWith('{')))) {
-    s = s.slice(1, -1).trim();
-  }
+  // Sem aspas externas acidentais (valor colado entre aspas)
+  if (s.length > 1 && s[0] === '"' && s[s.length - 1] === '"') candidatos.push(s.slice(1, -1).trim());
+  if (s.length > 1 && s[0] === "'" && s[s.length - 1] === "'") candidatos.push(s.slice(1, -1).trim());
 
-  // Se não parece JSON, tenta decodificar de base64
-  if (!s.startsWith('{')) {
+  // "{" inicial perdido no paste (começa com "type": ... e termina com })
+  if (!s.startsWith('{') && s.endsWith('}')) candidatos.push('{' + s);
+
+  // Conteúdo em base64
+  try {
+    const dec = Buffer.from(s, 'base64').toString('utf8').trim();
+    if (dec.startsWith('{')) candidatos.push(dec);
+  } catch { /* ignora */ }
+
+  let ultimoErro;
+  for (const c of candidatos) {
     try {
-      const dec = Buffer.from(s, 'base64').toString('utf8').trim();
-      if (dec.startsWith('{')) s = dec;
-    } catch { /* ignora */ }
+      const obj = JSON.parse(c);
+      if (obj && obj.private_key && obj.client_email) return obj;
+    } catch (e) { ultimoErro = e; }
   }
-
-  return JSON.parse(s);
+  throw ultimoErro || new Error('JSON da conta de serviço não pôde ser interpretado');
 }
 
 // ── Handler principal ────────────────────────────────────────────────────────
