@@ -5,6 +5,11 @@
 //   FIREBASE_WEB_API_KEY  — chave web do Firebase (já existe no app)
 //   GDRIVE_SA_JSON        — conteúdo do JSON da conta de serviço do Google
 //   GDRIVE_FOLDER_ID      — ID da pasta no Google Drive onde salvar os backups
+//   CRON_SECRET           — (opcional) se definida, protege o endpoint
+//
+// TESTE MANUAL: abra no navegador
+//   https://SEU-DOMINIO.vercel.app/api/backup-cron
+// e veja o JSON de diagnóstico com o resultado de cada etapa.
 
 import { createSign } from 'node:crypto';
 
@@ -56,7 +61,7 @@ async function getGoogleToken(sa) {
   const header  = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
   const payload = Buffer.from(JSON.stringify({
     iss:   sa.client_email,
-    scope: 'https://www.googleapis.com/auth/drive.file',
+    scope: 'https://www.googleapis.com/auth/drive',
     aud:   'https://oauth2.googleapis.com/token',
     iat:   now,
     exp:   now + 3600,
@@ -93,7 +98,8 @@ async function uploadDrive(token, filename, content, folderId) {
     `--${BOUNDARY}--`,
   ].join('\r\n');
 
-  const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+  // supportsAllDrives=true permite gravar em pastas de Drives compartilhados
+  const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true', {
     method:  'POST',
     headers: {
       Authorization:  `Bearer ${token}`,
@@ -106,24 +112,64 @@ async function uploadDrive(token, filename, content, folderId) {
 
 // ── Handler principal ────────────────────────────────────────────────────────
 export default async function handler(req, res) {
-  // Vercel envia Authorization: Bearer {CRON_SECRET} nas chamadas cron
-  const auth = req.headers.authorization;
-  if (!CRON_SECRET || auth !== `Bearer ${CRON_SECRET}`) {
-    return res.status(401).json({ error: 'Não autorizado' });
+  // Autenticação: só exige o segredo se ele estiver configurado.
+  // O Vercel só envia o header Authorization quando CRON_SECRET existe como env var;
+  // sem ela, a checagem antiga travava TUDO com 401. Agora, sem segredo, o cron roda
+  // e o endpoint também pode ser testado manualmente pelo navegador.
+  if (CRON_SECRET) {
+    const auth = req.headers.authorization;
+    const viaQuery = req.query?.secret === CRON_SECRET;
+    if (auth !== `Bearer ${CRON_SECRET}` && !viaQuery) {
+      return res.status(401).json({ error: 'Não autorizado' });
+    }
   }
 
-  const erros = [];
-  if (!SA_JSON)    erros.push('GDRIVE_SA_JSON não configurada');
-  if (!FOLDER_ID)  erros.push('GDRIVE_FOLDER_ID não configurada');
-  if (!API_KEY)    erros.push('FIREBASE_WEB_API_KEY não configurada');
-  if (erros.length) return res.status(500).json({ error: erros.join('; ') });
+  // Diagnóstico passo a passo — visível ao abrir a URL no navegador.
+  const diag = {
+    ok: false,
+    etapa: 'início',
+    env: {
+      FIREBASE_WEB_API_KEY: !!API_KEY,
+      GDRIVE_SA_JSON:       !!SA_JSON,
+      GDRIVE_FOLDER_ID:     !!FOLDER_ID,
+      CRON_SECRET:          !!CRON_SECRET,
+    },
+  };
+
+  const faltando = [];
+  if (!SA_JSON)   faltando.push('GDRIVE_SA_JSON');
+  if (!FOLDER_ID) faltando.push('GDRIVE_FOLDER_ID');
+  if (!API_KEY)   faltando.push('FIREBASE_WEB_API_KEY');
+  if (faltando.length) {
+    diag.etapa = 'variáveis de ambiente';
+    diag.error = 'Variáveis não configuradas no Vercel: ' + faltando.join(', ');
+    return res.status(500).json(diag);
+  }
 
   try {
-    // 1. Obter token do Google Drive
-    const sa    = JSON.parse(SA_JSON);
-    const token = await getGoogleToken(sa);
+    // 1. Interpretar o JSON da conta de serviço
+    diag.etapa = 'ler GDRIVE_SA_JSON';
+    let sa;
+    try {
+      sa = JSON.parse(SA_JSON);
+    } catch (e) {
+      diag.error = 'GDRIVE_SA_JSON não é um JSON válido. Cole o conteúdo inteiro do arquivo .json da conta de serviço.';
+      return res.status(500).json(diag);
+    }
+    diag.contaServico = sa.client_email || '(sem client_email)';
+    if (!sa.private_key || !sa.client_email) {
+      diag.etapa = 'validar GDRIVE_SA_JSON';
+      diag.error = 'O JSON da conta de serviço não tem private_key/client_email. Use o arquivo de CHAVE (JSON) da conta, não outro arquivo.';
+      return res.status(500).json(diag);
+    }
 
-    // 2. Ler todas as coleções do Firestore em paralelo
+    // 2. Obter token OAuth do Google
+    diag.etapa = 'autenticar no Google (JWT → token)';
+    const token = await getGoogleToken(sa);
+    diag.tokenObtido = true;
+
+    // 3. Ler todas as coleções do Firestore
+    diag.etapa = 'ler Firestore';
     const resultados = await Promise.allSettled(DOCS.map(d => lerDoc(d).then(v => ({ d, v }))));
     const backup = {
       exportadoEm: new Date().toISOString(),
@@ -137,25 +183,31 @@ export default async function handler(req, res) {
         coletados++;
       }
     }
+    diag.colecoesColetadas = coletados;
 
-    // 3. Nome do arquivo com data BRT (AAAA-MM-DD)
+    // 4. Nome do arquivo com data BRT (AAAA-MM-DD)
     const dataBrt = new Date().toLocaleDateString('pt-BR', {
       timeZone: 'America/Sao_Paulo',
       year: 'numeric', month: '2-digit', day: '2-digit',
     }).split('/').reverse().join('-');
     const filename = `backup_pedagogico_${dataBrt}.json`;
 
-    // 4. Upload para o Google Drive
+    // 5. Upload para o Google Drive
+    diag.etapa = 'enviar para o Google Drive';
     const result = await uploadDrive(token, filename, JSON.stringify(backup, null, 2), FOLDER_ID);
-    if (result.error) throw new Error('Drive: ' + JSON.stringify(result.error));
+    if (result.error) {
+      diag.error = 'Google Drive recusou o upload: ' + JSON.stringify(result.error);
+      diag.dica = 'Verifique se a pasta foi COMPARTILHADA com a conta de serviço (' + diag.contaServico + ') como Editor, e se o GDRIVE_FOLDER_ID está correto.';
+      return res.status(500).json(diag);
+    }
 
-    return res.status(200).json({
-      ok:        true,
-      arquivo:   filename,
-      driveId:   result.id,
-      colecoes:  coletados,
-    });
+    diag.ok       = true;
+    diag.etapa    = 'concluído';
+    diag.arquivo  = filename;
+    diag.driveId  = result.id;
+    return res.status(200).json(diag);
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    diag.error = e.message;
+    return res.status(500).json(diag);
   }
 }
