@@ -1645,6 +1645,54 @@ function getFolder(path) {
     folder = iter.hasNext() ? iter.next() : folder.createFolder(path[i]);
   }
   return folder;
+}
+
+function doGet(e) {
+  try {
+    var action = e.parameter.action;
+    if (action === 'read') {
+      var rd = DocumentApp.openById(e.parameter.docId);
+      return _json({ok:true, content: rd.getBody().getText()});
+    }
+    if (action === 'listPlanejamentos') {
+      return _json({ok:true, items: _listarPlanejamentos()});
+    }
+    return _json({ok:true, status:'online'});
+  } catch(err) {
+    return _json({ok:false, error: err.toString()});
+  }
+}
+
+function _json(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function _listarPlanejamentos() {
+  var out = [];
+  var roots = DriveApp.getFoldersByName('Escola Ponte do Saber');
+  while (roots.hasNext()) {
+    var root = roots.next();
+    var turmas = root.getFolders();
+    while (turmas.hasNext()) {
+      var turma = turmas.next();
+      var bims = turma.getFolders();
+      while (bims.hasNext()) {
+        var bim = bims.next();
+        var pfs = bim.getFoldersByName('Planejamentos');
+        while (pfs.hasNext()) {
+          var pf = pfs.next();
+          var files = pf.getFiles();
+          while (files.hasNext()) {
+            var f = files.next();
+            var content = '';
+            try { content = DocumentApp.openById(f.getId()).getBody().getText(); } catch(e2) {}
+            out.push({ turma: turma.getName(), bimestre: bim.getName(), name: f.getName(), id: f.getId(), content: content });
+          }
+        }
+      }
+    }
+  }
+  return out;
 }</textarea>
       <button class="btn btn-secondary btn-sm" style="position:absolute;top:8px;right:8px;" onclick="copiarScript()">📋 Copiar</button>
     </div>
@@ -1682,6 +1730,16 @@ function getFolder(path) {
     </div>
     <div id="drive-folder-info" style="margin-top:10px;font-size:13px;color:var(--gray-600);display:none;">
       📁 Estrutura no Drive: <code>Escola Ponte do Saber / {Turma} / {Bimestre} / Pareceres|Planejamentos</code>
+    </div>
+
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--gray-200);">
+      <div class="card-title" style="font-size:14px;margin-bottom:6px;">🔄 Recuperar planejamentos do Drive</div>
+      <div style="font-size:13px;color:var(--gray-600);margin-bottom:10px;">
+        Lê os planejamentos salvos nas pastas do Drive e os reinsere no sistema.
+        Útil se a lista de planejamentos estiver vazia. Não afeta alunos, turmas ou pareceres.
+      </div>
+      <button class="btn btn-secondary" onclick="recuperarPlanejamentosDrive()">🔄 Recuperar planejamentos</button>
+      <div id="recuperar-plan-status" style="margin-top:10px;font-size:13px;"></div>
     </div>
   </div>
 
@@ -3727,7 +3785,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.35';
+const APP_VERSION = 'v2.9.36';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -11344,6 +11402,110 @@ function parsePlanejamentoTxt(txt) {
     if (val && val !== '—') result[s.key] = val;
   }
   return result;
+}
+
+// Reconstrói um objeto de planejamento a partir do texto de um Google Doc do Drive
+function parsePlanejamentoRecuperado(item) {
+  const txt = (item && item.content) || '';
+  if (!txt.trim()) return null;
+  const linhas = txt.split('\n').map(l => l.trim());
+  const pega = (regex) => {
+    for (const l of linhas) { const m = l.match(regex); if (m) return m[1].trim(); }
+    return '';
+  };
+  const turmaNome = pega(/^Turma:\s*(.+)$/i) || item.turma || '';
+  const dataBR    = pega(/^Data:\s*(.+)$/i);
+  const bimestre  = pega(/^Per[ií]odo:\s*(.+)$/i) || item.bimestre || '';
+  const prof      = pega(/^Professora?\(o\):\s*(.+)$/i);
+
+  // Data: dd/mm/aaaa → aaaa-mm-dd; se ausente, usa a data do nome do arquivo (…- AAAAMMDD)
+  let data = '';
+  const md = dataBR.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (md) data = md[3] + '-' + md[2] + '-' + md[1];
+  if (!data) {
+    const mn = String(item.name || '').match(/(\d{4})(\d{2})(\d{2})/);
+    if (mn) data = mn[1] + '-' + mn[2] + '-' + mn[3];
+  }
+
+  const sec = parsePlanejamentoTxt(txt);
+  const direitos = sec.direitos ? sec.direitos.split(/,\s*|\n/).map(s => s.trim()).filter(Boolean) : [];
+  const campos   = sec.campos   ? sec.campos.split(/;\s*|\n/).map(s => s.trim()).filter(Boolean) : [];
+  const conteudos = sec.conteudos || String(item.name || '').replace(/\s*-\s*\d{8}.*$/, '').trim();
+  const desenvolvimento = sec.desenvolvimento || '';
+  if (!conteudos && !desenvolvimento) return null;
+
+  return {
+    id: uid(),
+    turmaId: '',
+    _turmaNome: turmaNome,
+    data,
+    bimestre,
+    prof,
+    direitos,
+    campos,
+    bncc: sec.bncc || '',
+    conteudos,
+    desenvolvimento,
+    temImagem: false,
+    criadoEm: new Date().toISOString(),
+    criadoPor: (currentUser && (currentUser.login || currentUser.usuario || currentUser.nome)) || '',
+    docUrl: item.id ? ('https://docs.google.com/document/d/' + item.id + '/edit') : undefined,
+    historico: [{ acao: 'recuperado do Drive', por: (currentUser && currentUser.nome) || 'Sistema', em: new Date().toISOString() }],
+    recuperado: true,
+  };
+}
+
+// Lê os planejamentos das pastas do Drive (via Apps Script) e reinsere no sistema
+async function recuperarPlanejamentosDrive() {
+  const statusEl = document.getElementById('recuperar-plan-status');
+  const setStatus = (msg, cor) => { if (statusEl) { statusEl.textContent = msg; statusEl.style.color = cor || 'var(--gray-600)'; } };
+  if (!appsScriptUrl) { setStatus('⚠️ Configure o Google Drive primeiro (Passo 2 acima).', '#b45309'); return; }
+  if (!confirm('Recuperar planejamentos do Google Drive?\n\nOs planejamentos salvos nas pastas do Drive serão lidos e reinseridos no sistema.\nAlunos, turmas e pareceres NÃO são afetados. Itens que já existem não são duplicados.')) return;
+
+  setStatus('🔎 Lendo planejamentos do Drive… pode levar até 1 minuto.', 'var(--gray-600)');
+  let items;
+  try {
+    const url = appsScriptUrl + '?action=listPlanejamentos';
+    const res = await fetch(url);
+    const txt = await res.text();
+    const json = JSON.parse(txt);
+    if (!json.ok) throw new Error(json.error || 'resposta inválida do Apps Script');
+    items = json.items || [];
+  } catch (e) {
+    setStatus('⚠️ Não consegui ler do Drive: ' + e.message + '. Verifique se o Apps Script foi atualizado (código novo) e reimplantado como Nova versão.', '#b45309');
+    return;
+  }
+  if (!items.length) { setStatus('Nenhum planejamento encontrado nas pastas do Drive.', '#b45309'); return; }
+
+  const normaliza = s => String(s || '').trim().toLowerCase();
+  const turmaPorNome = {};
+  db.turmas.forEach(t => { turmaPorNome[normaliza(t.nome)] = t.id; });
+
+  const chave = p => [p.turmaId, p.data, normaliza(p.conteudos)].join('|');
+  const existentes = new Set(db.planejamentos.map(chave));
+
+  let novos = 0, semTurma = 0, ignorados = 0;
+  for (const it of items) {
+    const pl = parsePlanejamentoRecuperado(it);
+    if (!pl) { ignorados++; continue; }
+    const tid = turmaPorNome[normaliza(pl._turmaNome)] || '';
+    pl.turmaId = tid;
+    if (!tid) semTurma++;
+    delete pl._turmaNome;
+    if (existentes.has(chave(pl))) { ignorados++; continue; }
+    existentes.add(chave(pl));
+    db.planejamentos.unshift(pl);
+    novos++;
+  }
+
+  if (!novos) { setStatus('Tudo certo — nenhum planejamento novo para adicionar (' + items.length + ' já estavam no sistema).', '#059669'); return; }
+
+  save();
+  if (typeof renderPlanejamentos === 'function') renderPlanejamentos();
+  let msg = '✅ ' + novos + ' planejamento(s) recuperado(s) do Drive!';
+  if (semTurma) msg += ' — ' + semTurma + ' ficaram sem turma vinculada (o nome da turma no documento não bate com as turmas atuais; edite manualmente).';
+  setStatus(msg, '#059669');
+  showToast(msg, 9000);
 }
 
 function buildPlanejamentoTxt(p) {
