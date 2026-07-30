@@ -1957,6 +1957,39 @@ function _listarPlanejamentos() {
   </div>
 
   <div class="card">
+    <div class="card-title">📎 Já tem o planejamento pronto? Suba o arquivo</div>
+    <div style="font-size:13px;color:var(--gray-600);margin-bottom:12px;">
+      Escolha a <strong>turma</strong>, o <strong>bimestre</strong> e a <strong>data</strong>, depois selecione o arquivo pronto.
+      De <strong>Word (.docx)</strong> o texto é extraído automaticamente. <strong>PDF</strong> fica anexado para abrir/baixar.
+      <br><span style="color:var(--gray-400);">Tamanho máximo do arquivo: ~720 KB.</span>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Turma *</label>
+        <select id="plarq-turma"></select>
+      </div>
+      <div class="form-group">
+        <label>Bimestre *</label>
+        <select id="plarq-bimestre">
+          <option>1º Bimestre</option>
+          <option>2º Bimestre</option>
+          <option>3º Bimestre</option>
+          <option>4º Bimestre</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Data</label>
+        <input type="date" id="plarq-data" />
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+      <input type="file" id="plarq-input" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style="font-size:13px;">
+      <button class="btn btn-primary" onclick="subirPlanejamentoArquivo()">📎 Subir planejamento</button>
+    </div>
+    <div id="plarq-status" style="margin-top:10px;font-size:13px;"></div>
+  </div>
+
+  <div class="card">
     <!-- Toggle modo diário / semanal -->
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
       <div class="card-title" style="margin:0;">📝 Novo Planejamento</div>
@@ -2292,20 +2325,6 @@ function _listarPlanejamentos() {
       <input type="hidden" id="par-aluno" />
       <div id="par-aluno-picker" class="aluno-picker"></div>
     </div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">📎 Já tem o parecer pronto? Suba o arquivo</div>
-    <div style="font-size:13px;color:var(--gray-600);margin-bottom:12px;">
-      Selecione a <strong>turma</strong>, o <strong>bimestre</strong> e o <strong>aluno</strong> acima; depois escolha o arquivo pronto.
-      De <strong>Word (.docx)</strong> o texto é extraído automaticamente. <strong>PDF</strong> fica anexado para abrir/baixar.
-      <br><span style="color:var(--gray-400);">Tamanho máximo do arquivo: ~720 KB.</span>
-    </div>
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-      <input type="file" id="par-arquivo-input" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style="font-size:13px;">
-      <button class="btn btn-primary" onclick="subirParecerArquivo()">📎 Subir parecer</button>
-    </div>
-    <div id="par-arquivo-status" style="margin-top:10px;font-size:13px;"></div>
   </div>
 
   <div class="card">
@@ -3799,7 +3818,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.38';
+const APP_VERSION = 'v2.9.39';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -5128,7 +5147,7 @@ function mostrarPushNotif(titulo, corpo) {
 function populateSelects() {
   const turmas = turmasVisiveis();
 
-  ['aluno-turma', 'pl-turma', 'pls-turma', 'par-turma', 'av-turma', 'filtro-pl-turma'].forEach(id => {
+  ['aluno-turma', 'pl-turma', 'pls-turma', 'par-turma', 'av-turma', 'filtro-pl-turma', 'plarq-turma'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     const prev = el.value;
@@ -5147,7 +5166,7 @@ function populateSelects() {
   if (currentUser?.papel === 'professora') {
     const ids = getUsrTurmaIds(currentUser);
     if (ids.length > 0) {
-      ['pl-turma', 'pls-turma', 'par-turma', 'av-turma'].forEach(id => {
+      ['pl-turma', 'pls-turma', 'par-turma', 'av-turma', 'plarq-turma'].forEach(id => {
         const el = document.getElementById(id);
         if (el && !el.value) el.value = ids[0];
       });
@@ -6923,7 +6942,7 @@ async function executarExclusaoPlanej(novaLista, idsParaExcluirImagem) {
     }
     db.planejamentos = listaFinal;
     LS.set('ps_planejamentos', listaFinal);
-    idsExcluir.forEach(id => excluirImagemPlanej(id));
+    idsExcluir.forEach(id => { excluirImagemPlanej(id); excluirPlanejArquivo(id); });
     logger.audit({ module: 'planejamento', action: 'delete', message: `${(idsParaExcluirImagem || []).length} planejamento(s) excluído(s)`, meta: { ids: idsParaExcluirImagem } });
     renderPlanejamentos();
     renderDashboard();
@@ -7110,6 +7129,7 @@ function renderPlanejamentos() {
       : p.corrigido ? `<span class="badge" style="background:#d1fae5;color:#065f46;font-size:11px;">✅ Aprovado</span>` : '';
     const cardStyle = devolvido ? 'border:2px solid #f59e0b;background:#fffbeb;' : '';
     const imgBadge = (p.temImagem || p.imagemDesenvolvimento) ? `<span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:11px;">🖼️ Com imagem</span>` : '';
+    const arquivoBadge = p.temArquivo ? `<span class="badge" style="background:#e0f2fe;color:#075985;font-size:11px;">📎 Arquivo${p.arquivoNome ? ' (' + escapeHtml((p.arquivoNome.split('.').pop() || '').toUpperCase()) + ')' : ''}</span>` : '';
     return `<div class="item-card" style="${cardStyle}">
       <div class="info">
         <strong>${conteudosTxt}</strong>
@@ -7120,7 +7140,7 @@ function renderPlanejamentos() {
         </span>
         ${direitosTxt ? `<span style="font-size:12px;color:var(--green-dark);">⭐ ${direitosTxt}</span>` : ''}
         <span style="font-size:12px;color:var(--gray-400);">💾 Salvo em: ${savedAt}</span>
-        <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">${revisaoBadge}${imgBadge}</div>
+        <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">${revisaoBadge}${imgBadge}${arquivoBadge}</div>
         ${p.desenvolvimento || p.metodologia ? `<div style="margin-top:4px;font-size:13px;color:var(--gray-600);">${(p.desenvolvimento || p.metodologia).slice(0,120)}${(p.desenvolvimento||p.metodologia).length>120?'…':''}</div>` : ''}
         ${htmlHistorico(p)}
       </div>
@@ -7129,6 +7149,7 @@ function renderPlanejamentos() {
         ${isProf && devolvido ? `<button class="btn btn-success btn-sm" onclick="profEnviarCorrecao('pl','${p.id}')">📤 Enviei a correção</button>` : ''}
         ${canCorrect ? `<button class="btn btn-sm btn-amber" onclick="devolverParaCorrecao('pl','${p.id}')">↩️ Devolver</button>` : ''}
         ${canCorrect ? `<button class="btn btn-sm btn-success" onclick="${revisado ? `aprovarRevisao('pl','${p.id}')` : `toggleCorrigido('${p.id}')`}">✅ Aprovar</button>` : ''}
+        ${p.temArquivo ? `<button class="btn btn-secondary btn-sm" onclick="abrirPlanejamentoArquivo('${p.id}')" title="Abrir arquivo enviado">📎 Arquivo</button>` : ''}
         <button class="btn btn-secondary btn-sm" onclick="verPlanejamento('${p.id}')">👁️</button>
         <button class="btn btn-secondary btn-sm" onclick="imprimirPlanejamento('${p.id}')">🖨️</button>
         ${canDeletePl ? `<button class="btn btn-danger btn-sm" onclick="deletePlanejamento('${p.id}')">🗑️</button>` : ''}
@@ -7239,8 +7260,13 @@ async function verPlanejamento(id) {
   ].filter(Boolean).join('\n');
 
   const titulo = `📋 Planejamento — ${turma ? turma.nome : ''}`;
-  // Abre imediatamente com o texto; a imagem (documento separado) carrega logo em seguida
-  abrirModalVisualizar(titulo, linhas, p.docUrl);
+  // Botão para abrir o arquivo enviado (quando o planejamento veio de um arquivo)
+  const anexoBtn = p.temArquivo
+    ? `<div style="margin-bottom:12px;"><button onclick="abrirPlanejamentoArquivo('${p.id}')" style="background:#0ea5e9;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;">📎 Abrir arquivo enviado${p.arquivoNome ? ' (' + escapeHtml(p.arquivoNome) + ')' : ''}</button></div>`
+    : '';
+  const baseHtml = anexoBtn + `<div style="white-space:pre-wrap;font-size:14px;line-height:1.6;">${escapeHtml(linhas)}</div>`;
+  // Abre imediatamente com o texto/anexo; a imagem (documento separado) carrega logo em seguida
+  abrirModalVisualizar(titulo, linhas, p.docUrl, baseHtml);
 
   // Carrega e exibe a imagem do desenvolvimento, se houver
   let imgSrc = p.imagemDesenvolvimento || null;
@@ -7248,7 +7274,7 @@ async function verPlanejamento(id) {
     try { imgSrc = await carregarImagemPlanej(p.id); } catch(e) { imgSrc = null; }
   }
   if (imgSrc) {
-    const htmlBody = `<div style="white-space:pre-wrap;font-size:14px;line-height:1.6;">${escapeHtml(linhas)}</div>`
+    const htmlBody = baseHtml
       + `<div style="margin-top:16px;">`
       +   `<div style="font-weight:600;margin-bottom:6px;color:var(--gray-700);">🖼️ Imagem do desenvolvimento</div>`
       +   `<img src="${imgSrc}" alt="Imagem do planejamento" style="max-width:100%;border-radius:8px;border:1px solid #e5e7eb;">`
@@ -7837,20 +7863,7 @@ function salvarParecer() {
   }
 }
 
-// ── Parecer pronto enviado como arquivo (.docx / .pdf) ──────────────────────
-// O arquivo binário fica em documento separado (parecerfile_<id>) para não
-// estourar o limite de 1 MB do documento principal de pareceres.
-const PARECERFILEREF = (id) => fstore.collection('appdata').doc('parecerfile_' + String(id));
-function salvarParecerArquivo(id, dataUrl, nome, tipo) {
-  return PARECERFILEREF(id).set({ file: dataUrl, nome: nome || '', tipo: tipo || '' });
-}
-function carregarParecerArquivo(id) {
-  return PARECERFILEREF(id).get().then(d => (d.exists ? d.data() : null)).catch(() => null);
-}
-function excluirParecerArquivo(id) {
-  return PARECERFILEREF(id).delete().catch(() => {});
-}
-
+// ── Utilidades para arquivos enviados (.docx / .pdf) ────────────────────────
 // Descompacta um bloco DEFLATE cru usando a API nativa do navegador
 async function _inflateRaw(bytes) {
   const ds = new DecompressionStream('deflate-raw');
@@ -7918,19 +7931,32 @@ function _bytesParaBase64(bytes) {
   return btoa(bin);
 }
 
-async function subirParecerArquivo() {
-  const statusEl = document.getElementById('par-arquivo-status');
+// ── Planejamento pronto enviado como arquivo (.docx / .pdf) ─────────────────
+// O arquivo binário fica em documento separado (planejfile_<id>) para não
+// estourar o limite de 1 MB do documento principal de planejamentos.
+const PLANEJFILEREF = (id) => fstore.collection('appdata').doc('planejfile_' + String(id));
+function salvarPlanejArquivo(id, dataUrl, nome, tipo) {
+  return PLANEJFILEREF(id).set({ file: dataUrl, nome: nome || '', tipo: tipo || '' });
+}
+function carregarPlanejArquivo(id) {
+  return PLANEJFILEREF(id).get().then(d => (d.exists ? d.data() : null)).catch(() => null);
+}
+function excluirPlanejArquivo(id) {
+  return PLANEJFILEREF(id).delete().catch(() => {});
+}
+
+async function subirPlanejamentoArquivo() {
+  const statusEl = document.getElementById('plarq-status');
   const setStatus = (m, c) => { if (statusEl) { statusEl.textContent = m; statusEl.style.color = c || 'var(--gray-600)'; } };
 
-  const alunoId = document.getElementById('par-aluno').value;
-  const aluno = db.alunos.find(a => a.id === alunoId);
-  if (!aluno) { setStatus('⚠️ Selecione a turma e o aluno acima primeiro.', '#b45309'); return; }
+  const turmaId = document.getElementById('plarq-turma')?.value || '';
+  if (!turmaId) { setStatus('⚠️ Selecione a turma.', '#b45309'); return; }
 
-  const input = document.getElementById('par-arquivo-input');
+  const input = document.getElementById('plarq-input');
   const file = input && input.files && input.files[0];
   if (!file) { setStatus('⚠️ Escolha um arquivo (.docx ou .pdf).', '#b45309'); return; }
 
-  const nome = file.name || 'parecer';
+  const nome = file.name || 'planejamento';
   const ext = (nome.split('.').pop() || '').toLowerCase();
   const ehDocx = ext === 'docx' || (file.type || '').includes('wordprocessingml');
   const ehPdf  = ext === 'pdf'  || file.type === 'application/pdf';
@@ -7942,9 +7968,9 @@ async function subirParecerArquivo() {
     return;
   }
 
-  const turmaId = document.getElementById('par-turma').value;
-  const periodo = document.getElementById('par-periodo').value;
-  const data    = (document.getElementById('par-data') && document.getElementById('par-data').value) || '';
+  const bimestre = document.getElementById('plarq-bimestre')?.value || '';
+  const data     = (document.getElementById('plarq-data') && document.getElementById('plarq-data').value) || '';
+  const prof     = (document.getElementById('pl-prof') && document.getElementById('pl-prof').value) || currentUser?.nome || '';
 
   setStatus('⏳ Processando arquivo…');
   try {
@@ -7956,52 +7982,55 @@ async function subirParecerArquivo() {
     const textoExtraido = !!texto;
     if (!texto) {
       texto = ehPdf
-        ? '📎 Parecer enviado em PDF — abra o arquivo anexado para ver o conteúdo.'
-        : '📎 Parecer enviado como arquivo — abra o anexo para ver o conteúdo.';
+        ? '📎 Planejamento enviado em PDF — abra o arquivo anexado para ver o conteúdo.'
+        : '📎 Planejamento enviado como arquivo — abra o anexo para ver o conteúdo.';
     }
 
     const tipo = ehPdf ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     const dataUrl = 'data:' + tipo + ';base64,' + _bytesParaBase64(new Uint8Array(buf));
+    const rotulo = nome.replace(/\.(docx|pdf)$/i, '').trim() || 'Planejamento (arquivo)';
 
-    const p = {
+    const pl = {
       id: uid(),
-      alunoId,
-      alunoNome: aluno.nome,
       turmaId,
-      periodo,
       data,
-      texto,
-      tom: 'arquivo',
+      bimestre,
+      prof,
+      direitos: [],
+      campos: [],
+      bncc: '',
+      conteudos: rotulo,
+      desenvolvimento: texto,
+      temImagem: false,
       temArquivo: true,
       arquivoNome: nome,
       arquivoTipo: tipo,
       criadoEm: new Date().toISOString(),
       criadoPor: currentUser?.login || currentUser?.usuario || currentUser?.nome || '',
-      profEmail: currentUser?.email || '',
       historico: [{ acao: 'enviado como arquivo', por: currentUser?.nome || 'Professora', em: new Date().toISOString() }],
     };
 
-    await salvarParecerArquivo(p.id, dataUrl, nome, tipo);   // arquivo em doc separado
-    db.pareceres.unshift(p);
+    await salvarPlanejArquivo(pl.id, dataUrl, nome, tipo);   // arquivo em doc separado
+    db.planejamentos.unshift(pl);
     save();                                                   // usa merge transacional
-    renderPareceres();
+    renderPlanejamentos();
     if (input) input.value = '';
 
     const turmaNome = db.turmas.find(t => t.id === turmaId)?.nome || 'Turma';
-    criarNotificacao('✨ Novo parecer para corrigir', aluno.nome + ' · ' + turmaNome + ' · ' + periodo, 'parecer', p.id);
-    logger.audit({ module: 'parecer', action: 'create-arquivo', message: `Parecer (arquivo) enviado para ${aluno.nome}`, after: { alunoNome: aluno.nome, turmaId, periodo, arquivo: nome } });
+    criarNotificacao('📋 Novo planejamento para corrigir', prof + ' · ' + turmaNome + ' · ' + rotulo, 'planejamento', pl.id);
+    logger.audit({ module: 'planejamento', action: 'create-arquivo', message: `Planejamento (arquivo) enviado`, after: { turmaId, bimestre, arquivo: nome } });
 
-    setStatus('✅ Parecer de ' + aluno.nome + ' enviado! ' + (textoExtraido ? 'Texto extraído do Word e arquivo anexado.' : 'Arquivo anexado.'), '#059669');
-    showToast('✅ Parecer enviado!');
+    setStatus('✅ Planejamento enviado! ' + (textoExtraido ? 'Texto extraído do Word e arquivo anexado.' : 'Arquivo anexado.'), '#059669');
+    showToast('✅ Planejamento enviado!');
   } catch (e) {
     setStatus('⚠️ Erro ao processar o arquivo: ' + (e.message || e), '#b45309');
   }
 }
 
-// Abre/baixa o arquivo anexado a um parecer
-async function abrirParecerArquivo(id) {
+// Abre/baixa o arquivo anexado a um planejamento
+async function abrirPlanejamentoArquivo(id) {
   showToast('📎 Abrindo arquivo…');
-  const rec = await carregarParecerArquivo(id);
+  const rec = await carregarPlanejArquivo(id);
   if (!rec || !rec.file) { showToast('⚠️ Arquivo não encontrado.'); return; }
   try {
     const blob = await (await fetch(rec.file)).blob();
@@ -8009,7 +8038,7 @@ async function abrirParecerArquivo(id) {
     const a = document.createElement('a');
     a.href = url;
     if ((rec.tipo || '').includes('pdf')) { a.target = '_blank'; a.rel = 'noopener'; }
-    else { a.download = rec.nome || 'parecer.docx'; }
+    else { a.download = rec.nome || 'planejamento.docx'; }
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   } catch (e) {
@@ -8029,7 +8058,6 @@ function deleteParecer(id) {
   if (!confirm('Excluir parecer?')) return;
   db.pareceres = db.pareceres.filter(p => p.id !== id);
   registrarParecerDeletedIds([id]); // tombstone: evita ressurreição pelo merge/sync
-  if (par.temArquivo) excluirParecerArquivo(id); // remove o arquivo anexado
   save();
   logger.audit({ module: 'parecer', action: 'delete', message: `Parecer excluído: ${par.alunoNome}`, before: { alunoNome: par.alunoNome, periodo: par.periodo, turmaId: par.turmaId } });
   renderPareceres();
@@ -8624,8 +8652,6 @@ function renderPareceres() {
       ? `<span class="badge" style="background:#d1fae5;color:#065f46;font-size:11px;">🖨️ Pronto p/ impressão</span>` : '';
     const impressoLabel = p.impresso
       ? `<span class="badge" style="background:#e0e7ff;color:#3730a3;font-size:11px;">🖨️ Impresso</span>` : '';
-    const arquivoBadge = p.temArquivo
-      ? `<span class="badge" style="background:#e0f2fe;color:#075985;font-size:11px;">📎 Arquivo${p.arquivoNome ? ' (' + escapeHtml((p.arquivoNome.split('.').pop() || '').toUpperCase()) + ')' : ''}</span>` : '';
 
     // Borda de destaque para devolvido
     const cardStyle = devolvido ? 'border:2px solid #f59e0b;background:#fffbeb;' : '';
@@ -8636,7 +8662,7 @@ function renderPareceres() {
         <strong>${p.alunoNome}</strong>
         <span><span class="badge badge-green">${turma ? turma.nome : '—'}</span> &nbsp;${p.periodo}${dataFmtPar ? ` &nbsp;|&nbsp; 📅 ${dataFmtPar}` : ''} &nbsp;|&nbsp; Tom: ${p.tom}</span>
         <span style="font-size:12px;color:var(--gray-400);">💾 Salvo em: ${savedAt}</span>
-        <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">${revisaoBadge}${prontoLabel}${impressoLabel}${arquivoBadge}</div>
+        <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">${revisaoBadge}${prontoLabel}${impressoLabel}</div>
         <div style="margin-top:4px;font-size:13px;color:var(--gray-600);">${preview}</div>
         ${htmlHistorico(p)}
       </div>
@@ -8647,7 +8673,6 @@ function renderPareceres() {
         ${canCorrect ? `<button class="btn btn-sm btn-amber" onclick="devolverParaCorrecao('par','${p.id}')">↩️ Devolver</button>` : ''}
         ${canCorrect ? `<button class="btn btn-sm btn-success" onclick="${revisado ? `aprovarRevisao('par','${p.id}')` : `toggleParecerCorrigido('${p.id}')`}">✅ Aprovar</button>` : ''}
         ${canCorrect && !p.prontoImpressao && p.corrigido ? `<button class="btn btn-sm btn-success" onclick="toggleProntoImpressao('${p.id}')">🖨️ Liberar</button>` : ''}
-        ${p.temArquivo ? `<button class="btn btn-secondary btn-sm" onclick="abrirParecerArquivo('${p.id}')" title="Abrir arquivo enviado">📎 Arquivo</button>` : ''}
         <button class="btn btn-secondary btn-sm" onclick="verParecer('${p.id}')" title="Abrir (Google Docs)">👁️</button>
         <button class="btn btn-primary btn-sm" onclick="imprimirParecer('${p.id}')" title="Imprimir / Salvar PDF">🖨️ PDF</button>
         ${canDeletePar ? `<button class="btn btn-danger btn-sm" onclick="deleteParecer('${p.id}')" title="Excluir">🗑️</button>` : ''}
@@ -8665,10 +8690,7 @@ function verParecer(id) {
     + `<strong>Aluno(a):</strong> ${escapeHtml(p.alunoNome)}<br>`
     + `<strong>Turma:</strong> ${escapeHtml(turma ? turma.nome : '—')}<br>`
     + `<strong>Período:</strong> ${escapeHtml(p.periodo)}</div>`;
-  const anexoBtn = p.temArquivo
-    ? `<div style="margin-bottom:12px;"><button onclick="abrirParecerArquivo('${p.id}')" style="background:#0ea5e9;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;">📎 Abrir arquivo enviado${p.arquivoNome ? ' (' + escapeHtml(p.arquivoNome) + ')' : ''}</button></div>`
-    : '';
-  const corpoHtml = cabecalho + anexoBtn + formatarParecerHtml(p.texto || '');
+  const corpoHtml = cabecalho + formatarParecerHtml(p.texto || '');
   abrirModalVisualizar(`✨ Parecer — ${p.alunoNome}`, '', p.docUrl, corpoHtml);
 }
 
