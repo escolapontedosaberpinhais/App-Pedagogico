@@ -2295,6 +2295,20 @@ function _listarPlanejamentos() {
   </div>
 
   <div class="card">
+    <div class="card-title">📎 Já tem o parecer pronto? Suba o arquivo</div>
+    <div style="font-size:13px;color:var(--gray-600);margin-bottom:12px;">
+      Selecione a <strong>turma</strong>, o <strong>bimestre</strong> e o <strong>aluno</strong> acima; depois escolha o arquivo pronto.
+      De <strong>Word (.docx)</strong> o texto é extraído automaticamente. <strong>PDF</strong> fica anexado para abrir/baixar.
+      <br><span style="color:var(--gray-400);">Tamanho máximo do arquivo: ~720 KB.</span>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <input type="file" id="par-arquivo-input" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style="font-size:13px;">
+      <button class="btn btn-primary" onclick="subirParecerArquivo()">📎 Subir parecer</button>
+    </div>
+    <div id="par-arquivo-status" style="margin-top:10px;font-size:13px;"></div>
+  </div>
+
+  <div class="card">
     <div class="card-title">📊 Desenvolvimento do Aluno</div>
     <div class="form-grid">
       <div class="form-group full">
@@ -3785,7 +3799,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.37';
+const APP_VERSION = 'v2.9.38';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -7823,6 +7837,186 @@ function salvarParecer() {
   }
 }
 
+// ── Parecer pronto enviado como arquivo (.docx / .pdf) ──────────────────────
+// O arquivo binário fica em documento separado (parecerfile_<id>) para não
+// estourar o limite de 1 MB do documento principal de pareceres.
+const PARECERFILEREF = (id) => fstore.collection('appdata').doc('parecerfile_' + String(id));
+function salvarParecerArquivo(id, dataUrl, nome, tipo) {
+  return PARECERFILEREF(id).set({ file: dataUrl, nome: nome || '', tipo: tipo || '' });
+}
+function carregarParecerArquivo(id) {
+  return PARECERFILEREF(id).get().then(d => (d.exists ? d.data() : null)).catch(() => null);
+}
+function excluirParecerArquivo(id) {
+  return PARECERFILEREF(id).delete().catch(() => {});
+}
+
+// Descompacta um bloco DEFLATE cru usando a API nativa do navegador
+async function _inflateRaw(bytes) {
+  const ds = new DecompressionStream('deflate-raw');
+  const stream = new Blob([bytes]).stream().pipeThrough(ds);
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+// Converte o XML do Word em texto legível
+function _docxXmlParaTexto(xml) {
+  return xml
+    .replace(/<w:tab\b[^>]*\/?>/g, '\t')
+    .replace(/<w:br\b[^>]*\/?>/g, '\n')
+    .replace(/<\/w:p>/g, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&apos;/g, "'")
+    .replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+// Extrai o texto de um .docx (ZIP → word/document.xml) sem bibliotecas externas
+async function extrairTextoDocx(arrayBuffer) {
+  const bytes = new Uint8Array(arrayBuffer);
+  const dv = new DataView(arrayBuffer);
+  // Localiza o End of Central Directory (assinatura 0x06054b50), do fim p/ o início
+  let eocd = -1;
+  const min = Math.max(0, bytes.length - 22 - 65536);
+  for (let i = bytes.length - 22; i >= min; i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error('arquivo .docx inválido (ZIP)');
+  const cdOffset = dv.getUint32(eocd + 16, true);
+  const cdCount  = dv.getUint16(eocd + 10, true);
+  let ptr = cdOffset, alvo = null;
+  for (let i = 0; i < cdCount; i++) {
+    if (dv.getUint32(ptr, true) !== 0x02014b50) break;
+    const method   = dv.getUint16(ptr + 10, true);
+    const compSize = dv.getUint32(ptr + 20, true);
+    const nameLen  = dv.getUint16(ptr + 28, true);
+    const extraLen = dv.getUint16(ptr + 30, true);
+    const commLen  = dv.getUint16(ptr + 32, true);
+    const localOff = dv.getUint32(ptr + 42, true);
+    const nome = new TextDecoder().decode(bytes.subarray(ptr + 46, ptr + 46 + nameLen));
+    if (nome === 'word/document.xml') { alvo = { method, compSize, localOff }; break; }
+    ptr += 46 + nameLen + extraLen + commLen;
+  }
+  if (!alvo) throw new Error('conteúdo do Word não encontrado');
+  const lo = alvo.localOff;
+  if (dv.getUint32(lo, true) !== 0x04034b50) throw new Error('cabeçalho ZIP inválido');
+  const lNameLen  = dv.getUint16(lo + 26, true);
+  const lExtraLen = dv.getUint16(lo + 28, true);
+  const dataStart = lo + 30 + lNameLen + lExtraLen;
+  const comp = bytes.subarray(dataStart, dataStart + alvo.compSize);
+  const xmlBytes = alvo.method === 0 ? comp : await _inflateRaw(comp);
+  const xml = new TextDecoder('utf-8').decode(xmlBytes);
+  return _docxXmlParaTexto(xml);
+}
+
+// Converte bytes → base64 (em blocos, para não estourar a pilha)
+function _bytesParaBase64(bytes) {
+  let bin = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(bin);
+}
+
+async function subirParecerArquivo() {
+  const statusEl = document.getElementById('par-arquivo-status');
+  const setStatus = (m, c) => { if (statusEl) { statusEl.textContent = m; statusEl.style.color = c || 'var(--gray-600)'; } };
+
+  const alunoId = document.getElementById('par-aluno').value;
+  const aluno = db.alunos.find(a => a.id === alunoId);
+  if (!aluno) { setStatus('⚠️ Selecione a turma e o aluno acima primeiro.', '#b45309'); return; }
+
+  const input = document.getElementById('par-arquivo-input');
+  const file = input && input.files && input.files[0];
+  if (!file) { setStatus('⚠️ Escolha um arquivo (.docx ou .pdf).', '#b45309'); return; }
+
+  const nome = file.name || 'parecer';
+  const ext = (nome.split('.').pop() || '').toLowerCase();
+  const ehDocx = ext === 'docx' || (file.type || '').includes('wordprocessingml');
+  const ehPdf  = ext === 'pdf'  || file.type === 'application/pdf';
+  if (!ehDocx && !ehPdf) { setStatus('⚠️ Formato não suportado. Use .docx ou .pdf.', '#b45309'); return; }
+
+  const LIMITE = 720 * 1024;
+  if (file.size > LIMITE) {
+    setStatus('⚠️ Arquivo muito grande (' + Math.round(file.size / 1024) + ' KB). Máximo ~720 KB. Comprima o PDF ou envie como .docx.', '#b45309');
+    return;
+  }
+
+  const turmaId = document.getElementById('par-turma').value;
+  const periodo = document.getElementById('par-periodo').value;
+  const data    = (document.getElementById('par-data') && document.getElementById('par-data').value) || '';
+
+  setStatus('⏳ Processando arquivo…');
+  try {
+    const buf = await file.arrayBuffer();
+    let texto = '';
+    if (ehDocx) {
+      try { texto = await extrairTextoDocx(buf); } catch (e) { texto = ''; }
+    }
+    const textoExtraido = !!texto;
+    if (!texto) {
+      texto = ehPdf
+        ? '📎 Parecer enviado em PDF — abra o arquivo anexado para ver o conteúdo.'
+        : '📎 Parecer enviado como arquivo — abra o anexo para ver o conteúdo.';
+    }
+
+    const tipo = ehPdf ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    const dataUrl = 'data:' + tipo + ';base64,' + _bytesParaBase64(new Uint8Array(buf));
+
+    const p = {
+      id: uid(),
+      alunoId,
+      alunoNome: aluno.nome,
+      turmaId,
+      periodo,
+      data,
+      texto,
+      tom: 'arquivo',
+      temArquivo: true,
+      arquivoNome: nome,
+      arquivoTipo: tipo,
+      criadoEm: new Date().toISOString(),
+      criadoPor: currentUser?.login || currentUser?.usuario || currentUser?.nome || '',
+      profEmail: currentUser?.email || '',
+      historico: [{ acao: 'enviado como arquivo', por: currentUser?.nome || 'Professora', em: new Date().toISOString() }],
+    };
+
+    await salvarParecerArquivo(p.id, dataUrl, nome, tipo);   // arquivo em doc separado
+    db.pareceres.unshift(p);
+    save();                                                   // usa merge transacional
+    renderPareceres();
+    if (input) input.value = '';
+
+    const turmaNome = db.turmas.find(t => t.id === turmaId)?.nome || 'Turma';
+    criarNotificacao('✨ Novo parecer para corrigir', aluno.nome + ' · ' + turmaNome + ' · ' + periodo, 'parecer', p.id);
+    logger.audit({ module: 'parecer', action: 'create-arquivo', message: `Parecer (arquivo) enviado para ${aluno.nome}`, after: { alunoNome: aluno.nome, turmaId, periodo, arquivo: nome } });
+
+    setStatus('✅ Parecer de ' + aluno.nome + ' enviado! ' + (textoExtraido ? 'Texto extraído do Word e arquivo anexado.' : 'Arquivo anexado.'), '#059669');
+    showToast('✅ Parecer enviado!');
+  } catch (e) {
+    setStatus('⚠️ Erro ao processar o arquivo: ' + (e.message || e), '#b45309');
+  }
+}
+
+// Abre/baixa o arquivo anexado a um parecer
+async function abrirParecerArquivo(id) {
+  showToast('📎 Abrindo arquivo…');
+  const rec = await carregarParecerArquivo(id);
+  if (!rec || !rec.file) { showToast('⚠️ Arquivo não encontrado.'); return; }
+  try {
+    const blob = await (await fetch(rec.file)).blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    if ((rec.tipo || '').includes('pdf')) { a.target = '_blank'; a.rel = 'noopener'; }
+    else { a.download = rec.nome || 'parecer.docx'; }
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) {
+    showToast('⚠️ Não foi possível abrir o arquivo: ' + (e.message || e));
+  }
+}
+
 function copiarParecer() {
   const texto = document.getElementById('parecer-output').innerText;
   navigator.clipboard.writeText(texto).then(() => showToast('Texto copiado!'));
@@ -7835,6 +8029,7 @@ function deleteParecer(id) {
   if (!confirm('Excluir parecer?')) return;
   db.pareceres = db.pareceres.filter(p => p.id !== id);
   registrarParecerDeletedIds([id]); // tombstone: evita ressurreição pelo merge/sync
+  if (par.temArquivo) excluirParecerArquivo(id); // remove o arquivo anexado
   save();
   logger.audit({ module: 'parecer', action: 'delete', message: `Parecer excluído: ${par.alunoNome}`, before: { alunoNome: par.alunoNome, periodo: par.periodo, turmaId: par.turmaId } });
   renderPareceres();
@@ -8429,6 +8624,8 @@ function renderPareceres() {
       ? `<span class="badge" style="background:#d1fae5;color:#065f46;font-size:11px;">🖨️ Pronto p/ impressão</span>` : '';
     const impressoLabel = p.impresso
       ? `<span class="badge" style="background:#e0e7ff;color:#3730a3;font-size:11px;">🖨️ Impresso</span>` : '';
+    const arquivoBadge = p.temArquivo
+      ? `<span class="badge" style="background:#e0f2fe;color:#075985;font-size:11px;">📎 Arquivo${p.arquivoNome ? ' (' + escapeHtml((p.arquivoNome.split('.').pop() || '').toUpperCase()) + ')' : ''}</span>` : '';
 
     // Borda de destaque para devolvido
     const cardStyle = devolvido ? 'border:2px solid #f59e0b;background:#fffbeb;' : '';
@@ -8439,7 +8636,7 @@ function renderPareceres() {
         <strong>${p.alunoNome}</strong>
         <span><span class="badge badge-green">${turma ? turma.nome : '—'}</span> &nbsp;${p.periodo}${dataFmtPar ? ` &nbsp;|&nbsp; 📅 ${dataFmtPar}` : ''} &nbsp;|&nbsp; Tom: ${p.tom}</span>
         <span style="font-size:12px;color:var(--gray-400);">💾 Salvo em: ${savedAt}</span>
-        <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">${revisaoBadge}${prontoLabel}${impressoLabel}</div>
+        <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">${revisaoBadge}${prontoLabel}${impressoLabel}${arquivoBadge}</div>
         <div style="margin-top:4px;font-size:13px;color:var(--gray-600);">${preview}</div>
         ${htmlHistorico(p)}
       </div>
@@ -8450,6 +8647,7 @@ function renderPareceres() {
         ${canCorrect ? `<button class="btn btn-sm btn-amber" onclick="devolverParaCorrecao('par','${p.id}')">↩️ Devolver</button>` : ''}
         ${canCorrect ? `<button class="btn btn-sm btn-success" onclick="${revisado ? `aprovarRevisao('par','${p.id}')` : `toggleParecerCorrigido('${p.id}')`}">✅ Aprovar</button>` : ''}
         ${canCorrect && !p.prontoImpressao && p.corrigido ? `<button class="btn btn-sm btn-success" onclick="toggleProntoImpressao('${p.id}')">🖨️ Liberar</button>` : ''}
+        ${p.temArquivo ? `<button class="btn btn-secondary btn-sm" onclick="abrirParecerArquivo('${p.id}')" title="Abrir arquivo enviado">📎 Arquivo</button>` : ''}
         <button class="btn btn-secondary btn-sm" onclick="verParecer('${p.id}')" title="Abrir (Google Docs)">👁️</button>
         <button class="btn btn-primary btn-sm" onclick="imprimirParecer('${p.id}')" title="Imprimir / Salvar PDF">🖨️ PDF</button>
         ${canDeletePar ? `<button class="btn btn-danger btn-sm" onclick="deleteParecer('${p.id}')" title="Excluir">🗑️</button>` : ''}
@@ -8467,7 +8665,10 @@ function verParecer(id) {
     + `<strong>Aluno(a):</strong> ${escapeHtml(p.alunoNome)}<br>`
     + `<strong>Turma:</strong> ${escapeHtml(turma ? turma.nome : '—')}<br>`
     + `<strong>Período:</strong> ${escapeHtml(p.periodo)}</div>`;
-  const corpoHtml = cabecalho + formatarParecerHtml(p.texto || '');
+  const anexoBtn = p.temArquivo
+    ? `<div style="margin-bottom:12px;"><button onclick="abrirParecerArquivo('${p.id}')" style="background:#0ea5e9;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;">📎 Abrir arquivo enviado${p.arquivoNome ? ' (' + escapeHtml(p.arquivoNome) + ')' : ''}</button></div>`
+    : '';
+  const corpoHtml = cabecalho + anexoBtn + formatarParecerHtml(p.texto || '');
   abrirModalVisualizar(`✨ Parecer — ${p.alunoNome}`, '', p.docUrl, corpoHtml);
 }
 
