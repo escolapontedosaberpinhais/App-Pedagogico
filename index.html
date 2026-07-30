@@ -1957,6 +1957,39 @@ function _listarPlanejamentos() {
   </div>
 
   <div class="card">
+    <div class="card-title">📎 Já tem o planejamento pronto? Suba o arquivo</div>
+    <div style="font-size:13px;color:var(--gray-600);margin-bottom:12px;">
+      Escolha a <strong>turma</strong>, o <strong>bimestre</strong> e a <strong>data</strong>, depois selecione o arquivo pronto.
+      De <strong>Word (.docx)</strong> o texto é extraído automaticamente. <strong>PDF</strong> fica anexado para abrir/baixar.
+      <br><span style="color:var(--gray-400);">Tamanho máximo do arquivo: ~720 KB.</span>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Turma *</label>
+        <select id="plarq-turma"></select>
+      </div>
+      <div class="form-group">
+        <label>Bimestre *</label>
+        <select id="plarq-bimestre">
+          <option>1º Bimestre</option>
+          <option>2º Bimestre</option>
+          <option>3º Bimestre</option>
+          <option>4º Bimestre</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Data</label>
+        <input type="date" id="plarq-data" />
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+      <input type="file" id="plarq-input" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style="font-size:13px;">
+      <button class="btn btn-primary" onclick="subirPlanejamentoArquivo()">📎 Subir planejamento</button>
+    </div>
+    <div id="plarq-status" style="margin-top:10px;font-size:13px;"></div>
+  </div>
+
+  <div class="card">
     <!-- Toggle modo diário / semanal -->
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
       <div class="card-title" style="margin:0;">📝 Novo Planejamento</div>
@@ -3785,7 +3818,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.36';
+const APP_VERSION = 'v2.9.39';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -4165,6 +4198,41 @@ async function savePareceresMerged() {
   }
 }
 
+// Gravação transacional dos planejamentos: faz MERGE por id com o servidor em vez
+// de sobrescrever o array inteiro. Sem isso, quando duas professoras salvam quase
+// ao mesmo tempo, a última gravação apaga o planejamento recém-criado pela outra
+// (era a causa de planejamentos "sumindo"). Itens excluídos nunca ressuscitam.
+async function savePlanejamentosMerged() {
+  if (!navigator.onLine) return;
+  try {
+    await fstore.runTransaction(async (tx) => {
+      const ref = FSREF('planejamentos');
+      const snap = await tx.get(ref);
+      let server = snap.exists ? (snap.data().data || []) : [];
+      const seen = new Set();
+      const merged = [];
+      // Itens locais refletem as edições do usuário atual — têm prioridade
+      for (const p of db.planejamentos) {
+        const id = String(p.id);
+        if (_planejDeletedIds.has(id)) continue;
+        merged.push(p); seen.add(id);
+      }
+      // Itens que só existem no servidor = criações/edições recentes de outra
+      // usuária ainda não sincronizadas localmente → preserva
+      for (const p of server) {
+        const id = String(p.id);
+        if (seen.has(id) || _planejDeletedIds.has(id)) continue;
+        merged.push(p); seen.add(id);
+      }
+      tx.set(ref, { data: merged });
+    });
+  } catch(e) {
+    // fallback: gravação simples para não perder o save
+    try { await FSREF('planejamentos').set({ data: db.planejamentos }); } catch(_) {}
+    logger.warn({ module: 'firestore', action: 'save-planejamentos-merge', message: 'Merge transacional de planejamentos falhou; usado overwrite', error: e });
+  }
+}
+
 function resubscribePlanejamentos() {
   if (_unsubPlanejamentos) { _unsubPlanejamentos(); _unsubPlanejamentos = null; }
   _unsubPlanejamentos = FSREF('planejamentos').onSnapshot(doc => {
@@ -4199,9 +4267,9 @@ function saveToFirestore() {
   const batch = fstore.batch();
   batch.set(FSREF('turmas'),        { data: db.turmas });
   batch.set(FSREF('alunos'),        { data: db.alunos });
-  batch.set(FSREF('planejamentos'), { data: db.planejamentos });
-  // pareceres: gravados via merge transacional (fora do batch) p/ não apagar
-  // criações concorrentes de outras usuárias — ver savePareceresMerged()
+  // planejamentos e pareceres: gravados via merge transacional (fora do batch)
+  // p/ não apagar criações concorrentes de outras usuárias — ver *Merged()
+  savePlanejamentosMerged();
   savePareceresMerged();
   batch.set(FSREF('avaliacoes'),    { data: db.avaliacoes });
   if (_usuariosCarregado && db.usuarios.length > 0) batch.set(FSREF('usuarios'), { data: db.usuarios });
@@ -5079,7 +5147,7 @@ function mostrarPushNotif(titulo, corpo) {
 function populateSelects() {
   const turmas = turmasVisiveis();
 
-  ['aluno-turma', 'pl-turma', 'pls-turma', 'par-turma', 'av-turma', 'filtro-pl-turma'].forEach(id => {
+  ['aluno-turma', 'pl-turma', 'pls-turma', 'par-turma', 'av-turma', 'filtro-pl-turma', 'plarq-turma'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     const prev = el.value;
@@ -5098,7 +5166,7 @@ function populateSelects() {
   if (currentUser?.papel === 'professora') {
     const ids = getUsrTurmaIds(currentUser);
     if (ids.length > 0) {
-      ['pl-turma', 'pls-turma', 'par-turma', 'av-turma'].forEach(id => {
+      ['pl-turma', 'pls-turma', 'par-turma', 'av-turma', 'plarq-turma'].forEach(id => {
         const el = document.getElementById(id);
         if (el && !el.value) el.value = ids[0];
       });
@@ -6850,14 +6918,31 @@ async function executarExclusaoPlanej(novaLista, idsParaExcluirImagem) {
   if (_unsubPlanejamentos) { _unsubPlanejamentos(); _unsubPlanejamentos = null; }
   SyncStatus.saving();
   showToast('⏳ Excluindo…');
+  const idsExcluir = (idsParaExcluirImagem || []).map(String);
   try {
     // 1. Registra os IDs como excluídos ANTES de gravar — proteção cross-device
-    await registrarDeletedIds(idsParaExcluirImagem || []);
-    // 2. Grava a nova lista e AGUARDA confirmação do servidor
-    await FSREF('planejamentos').set({ data: novaLista });
-    db.planejamentos = novaLista;
-    LS.set('ps_planejamentos', novaLista);
-    (idsParaExcluirImagem || []).forEach(id => excluirImagemPlanej(id));
+    await registrarDeletedIds(idsExcluir);
+    // 2. Remoção transacional: parte da lista ATUAL do servidor e remove apenas os
+    //    ids excluídos. Assim, planejamentos criados por outras usuárias enquanto
+    //    esta exclusão acontece NÃO são apagados (antes o overwrite os perdia).
+    let listaFinal = novaLista;
+    try {
+      await fstore.runTransaction(async (tx) => {
+        const ref = FSREF('planejamentos');
+        const snap = await tx.get(ref);
+        const server = snap.exists ? (snap.data().data || []) : [];
+        const idSet = new Set(idsExcluir);
+        listaFinal = server.filter(p => !idSet.has(String(p.id)));
+        tx.set(ref, { data: listaFinal });
+      });
+    } catch (txErr) {
+      // fallback: overwrite com a lista local já filtrada
+      await FSREF('planejamentos').set({ data: novaLista });
+      listaFinal = novaLista;
+    }
+    db.planejamentos = listaFinal;
+    LS.set('ps_planejamentos', listaFinal);
+    idsExcluir.forEach(id => { excluirImagemPlanej(id); excluirPlanejArquivo(id); });
     logger.audit({ module: 'planejamento', action: 'delete', message: `${(idsParaExcluirImagem || []).length} planejamento(s) excluído(s)`, meta: { ids: idsParaExcluirImagem } });
     renderPlanejamentos();
     renderDashboard();
@@ -7044,6 +7129,7 @@ function renderPlanejamentos() {
       : p.corrigido ? `<span class="badge" style="background:#d1fae5;color:#065f46;font-size:11px;">✅ Aprovado</span>` : '';
     const cardStyle = devolvido ? 'border:2px solid #f59e0b;background:#fffbeb;' : '';
     const imgBadge = (p.temImagem || p.imagemDesenvolvimento) ? `<span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:11px;">🖼️ Com imagem</span>` : '';
+    const arquivoBadge = p.temArquivo ? `<span class="badge" style="background:#e0f2fe;color:#075985;font-size:11px;">📎 Arquivo${p.arquivoNome ? ' (' + escapeHtml((p.arquivoNome.split('.').pop() || '').toUpperCase()) + ')' : ''}</span>` : '';
     return `<div class="item-card" style="${cardStyle}">
       <div class="info">
         <strong>${conteudosTxt}</strong>
@@ -7054,7 +7140,7 @@ function renderPlanejamentos() {
         </span>
         ${direitosTxt ? `<span style="font-size:12px;color:var(--green-dark);">⭐ ${direitosTxt}</span>` : ''}
         <span style="font-size:12px;color:var(--gray-400);">💾 Salvo em: ${savedAt}</span>
-        <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">${revisaoBadge}${imgBadge}</div>
+        <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">${revisaoBadge}${imgBadge}${arquivoBadge}</div>
         ${p.desenvolvimento || p.metodologia ? `<div style="margin-top:4px;font-size:13px;color:var(--gray-600);">${(p.desenvolvimento || p.metodologia).slice(0,120)}${(p.desenvolvimento||p.metodologia).length>120?'…':''}</div>` : ''}
         ${htmlHistorico(p)}
       </div>
@@ -7063,6 +7149,7 @@ function renderPlanejamentos() {
         ${isProf && devolvido ? `<button class="btn btn-success btn-sm" onclick="profEnviarCorrecao('pl','${p.id}')">📤 Enviei a correção</button>` : ''}
         ${canCorrect ? `<button class="btn btn-sm btn-amber" onclick="devolverParaCorrecao('pl','${p.id}')">↩️ Devolver</button>` : ''}
         ${canCorrect ? `<button class="btn btn-sm btn-success" onclick="${revisado ? `aprovarRevisao('pl','${p.id}')` : `toggleCorrigido('${p.id}')`}">✅ Aprovar</button>` : ''}
+        ${p.temArquivo ? `<button class="btn btn-secondary btn-sm" onclick="abrirPlanejamentoArquivo('${p.id}')" title="Abrir arquivo enviado">📎 Arquivo</button>` : ''}
         <button class="btn btn-secondary btn-sm" onclick="verPlanejamento('${p.id}')">👁️</button>
         <button class="btn btn-secondary btn-sm" onclick="imprimirPlanejamento('${p.id}')">🖨️</button>
         ${canDeletePl ? `<button class="btn btn-danger btn-sm" onclick="deletePlanejamento('${p.id}')">🗑️</button>` : ''}
@@ -7156,7 +7243,7 @@ function verSemanal(semanaId) {
   overlay.style.display = 'block';
 }
 
-function verPlanejamento(id) {
+async function verPlanejamento(id) {
   const p = db.planejamentos.find(x => x.id === id);
   if (!p) return;
   // Exibe o conteúdo completo do banco local — evita truncamento do visualizador do Google Drive
@@ -7171,7 +7258,34 @@ function verPlanejamento(id) {
     p.bncc             ? `\nObjetivos / BNCC:\n${p.bncc}` : '',
     p.desenvolvimento  ? `\nDesenvolvimento:\n${p.desenvolvimento}` : '',
   ].filter(Boolean).join('\n');
-  abrirModalVisualizar(`📋 Planejamento — ${turma ? turma.nome : ''}`, linhas, p.docUrl);
+
+  const titulo = `📋 Planejamento — ${turma ? turma.nome : ''}`;
+  // Botão para abrir o arquivo enviado (quando o planejamento veio de um arquivo)
+  const anexoBtn = p.temArquivo
+    ? `<div style="margin-bottom:12px;"><button onclick="abrirPlanejamentoArquivo('${p.id}')" style="background:#0ea5e9;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;">📎 Abrir arquivo enviado${p.arquivoNome ? ' (' + escapeHtml(p.arquivoNome) + ')' : ''}</button></div>`
+    : '';
+  const baseHtml = anexoBtn + `<div style="white-space:pre-wrap;font-size:14px;line-height:1.6;">${escapeHtml(linhas)}</div>`;
+  // Abre imediatamente com o texto/anexo; a imagem (documento separado) carrega logo em seguida
+  abrirModalVisualizar(titulo, linhas, p.docUrl, baseHtml);
+
+  // Carrega e exibe a imagem do desenvolvimento, se houver
+  let imgSrc = p.imagemDesenvolvimento || null;
+  if (!imgSrc && p.temImagem) {
+    try { imgSrc = await carregarImagemPlanej(p.id); } catch(e) { imgSrc = null; }
+  }
+  if (imgSrc) {
+    const htmlBody = baseHtml
+      + `<div style="margin-top:16px;">`
+      +   `<div style="font-weight:600;margin-bottom:6px;color:var(--gray-700);">🖼️ Imagem do desenvolvimento</div>`
+      +   `<img src="${imgSrc}" alt="Imagem do planejamento" style="max-width:100%;border-radius:8px;border:1px solid #e5e7eb;">`
+      + `</div>`;
+    // Só atualiza se o modal ainda estiver mostrando este mesmo planejamento
+    const tituloEl = document.getElementById('modal-visualizar-titulo');
+    const overlay = document.getElementById('modal-visualizar-overlay');
+    if (overlay && overlay.style.display === 'block' && tituloEl && tituloEl.textContent === titulo) {
+      abrirModalVisualizar(titulo, linhas, p.docUrl, htmlBody);
+    }
+  }
 }
 
 async function imprimirPlanejamentoDoDocs(p) {
@@ -7746,6 +7860,189 @@ function salvarParecer() {
       .catch(e => showToast('⚠️ Salvo localmente. Drive: ' + e.message));
   } else {
     showToast('Parecer salvo!');
+  }
+}
+
+// ── Utilidades para arquivos enviados (.docx / .pdf) ────────────────────────
+// Descompacta um bloco DEFLATE cru usando a API nativa do navegador
+async function _inflateRaw(bytes) {
+  const ds = new DecompressionStream('deflate-raw');
+  const stream = new Blob([bytes]).stream().pipeThrough(ds);
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+// Converte o XML do Word em texto legível
+function _docxXmlParaTexto(xml) {
+  return xml
+    .replace(/<w:tab\b[^>]*\/?>/g, '\t')
+    .replace(/<w:br\b[^>]*\/?>/g, '\n')
+    .replace(/<\/w:p>/g, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&apos;/g, "'")
+    .replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+// Extrai o texto de um .docx (ZIP → word/document.xml) sem bibliotecas externas
+async function extrairTextoDocx(arrayBuffer) {
+  const bytes = new Uint8Array(arrayBuffer);
+  const dv = new DataView(arrayBuffer);
+  // Localiza o End of Central Directory (assinatura 0x06054b50), do fim p/ o início
+  let eocd = -1;
+  const min = Math.max(0, bytes.length - 22 - 65536);
+  for (let i = bytes.length - 22; i >= min; i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error('arquivo .docx inválido (ZIP)');
+  const cdOffset = dv.getUint32(eocd + 16, true);
+  const cdCount  = dv.getUint16(eocd + 10, true);
+  let ptr = cdOffset, alvo = null;
+  for (let i = 0; i < cdCount; i++) {
+    if (dv.getUint32(ptr, true) !== 0x02014b50) break;
+    const method   = dv.getUint16(ptr + 10, true);
+    const compSize = dv.getUint32(ptr + 20, true);
+    const nameLen  = dv.getUint16(ptr + 28, true);
+    const extraLen = dv.getUint16(ptr + 30, true);
+    const commLen  = dv.getUint16(ptr + 32, true);
+    const localOff = dv.getUint32(ptr + 42, true);
+    const nome = new TextDecoder().decode(bytes.subarray(ptr + 46, ptr + 46 + nameLen));
+    if (nome === 'word/document.xml') { alvo = { method, compSize, localOff }; break; }
+    ptr += 46 + nameLen + extraLen + commLen;
+  }
+  if (!alvo) throw new Error('conteúdo do Word não encontrado');
+  const lo = alvo.localOff;
+  if (dv.getUint32(lo, true) !== 0x04034b50) throw new Error('cabeçalho ZIP inválido');
+  const lNameLen  = dv.getUint16(lo + 26, true);
+  const lExtraLen = dv.getUint16(lo + 28, true);
+  const dataStart = lo + 30 + lNameLen + lExtraLen;
+  const comp = bytes.subarray(dataStart, dataStart + alvo.compSize);
+  const xmlBytes = alvo.method === 0 ? comp : await _inflateRaw(comp);
+  const xml = new TextDecoder('utf-8').decode(xmlBytes);
+  return _docxXmlParaTexto(xml);
+}
+
+// Converte bytes → base64 (em blocos, para não estourar a pilha)
+function _bytesParaBase64(bytes) {
+  let bin = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(bin);
+}
+
+// ── Planejamento pronto enviado como arquivo (.docx / .pdf) ─────────────────
+// O arquivo binário fica em documento separado (planejfile_<id>) para não
+// estourar o limite de 1 MB do documento principal de planejamentos.
+const PLANEJFILEREF = (id) => fstore.collection('appdata').doc('planejfile_' + String(id));
+function salvarPlanejArquivo(id, dataUrl, nome, tipo) {
+  return PLANEJFILEREF(id).set({ file: dataUrl, nome: nome || '', tipo: tipo || '' });
+}
+function carregarPlanejArquivo(id) {
+  return PLANEJFILEREF(id).get().then(d => (d.exists ? d.data() : null)).catch(() => null);
+}
+function excluirPlanejArquivo(id) {
+  return PLANEJFILEREF(id).delete().catch(() => {});
+}
+
+async function subirPlanejamentoArquivo() {
+  const statusEl = document.getElementById('plarq-status');
+  const setStatus = (m, c) => { if (statusEl) { statusEl.textContent = m; statusEl.style.color = c || 'var(--gray-600)'; } };
+
+  const turmaId = document.getElementById('plarq-turma')?.value || '';
+  if (!turmaId) { setStatus('⚠️ Selecione a turma.', '#b45309'); return; }
+
+  const input = document.getElementById('plarq-input');
+  const file = input && input.files && input.files[0];
+  if (!file) { setStatus('⚠️ Escolha um arquivo (.docx ou .pdf).', '#b45309'); return; }
+
+  const nome = file.name || 'planejamento';
+  const ext = (nome.split('.').pop() || '').toLowerCase();
+  const ehDocx = ext === 'docx' || (file.type || '').includes('wordprocessingml');
+  const ehPdf  = ext === 'pdf'  || file.type === 'application/pdf';
+  if (!ehDocx && !ehPdf) { setStatus('⚠️ Formato não suportado. Use .docx ou .pdf.', '#b45309'); return; }
+
+  const LIMITE = 720 * 1024;
+  if (file.size > LIMITE) {
+    setStatus('⚠️ Arquivo muito grande (' + Math.round(file.size / 1024) + ' KB). Máximo ~720 KB. Comprima o PDF ou envie como .docx.', '#b45309');
+    return;
+  }
+
+  const bimestre = document.getElementById('plarq-bimestre')?.value || '';
+  const data     = (document.getElementById('plarq-data') && document.getElementById('plarq-data').value) || '';
+  const prof     = (document.getElementById('pl-prof') && document.getElementById('pl-prof').value) || currentUser?.nome || '';
+
+  setStatus('⏳ Processando arquivo…');
+  try {
+    const buf = await file.arrayBuffer();
+    let texto = '';
+    if (ehDocx) {
+      try { texto = await extrairTextoDocx(buf); } catch (e) { texto = ''; }
+    }
+    const textoExtraido = !!texto;
+    if (!texto) {
+      texto = ehPdf
+        ? '📎 Planejamento enviado em PDF — abra o arquivo anexado para ver o conteúdo.'
+        : '📎 Planejamento enviado como arquivo — abra o anexo para ver o conteúdo.';
+    }
+
+    const tipo = ehPdf ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    const dataUrl = 'data:' + tipo + ';base64,' + _bytesParaBase64(new Uint8Array(buf));
+    const rotulo = nome.replace(/\.(docx|pdf)$/i, '').trim() || 'Planejamento (arquivo)';
+
+    const pl = {
+      id: uid(),
+      turmaId,
+      data,
+      bimestre,
+      prof,
+      direitos: [],
+      campos: [],
+      bncc: '',
+      conteudos: rotulo,
+      desenvolvimento: texto,
+      temImagem: false,
+      temArquivo: true,
+      arquivoNome: nome,
+      arquivoTipo: tipo,
+      criadoEm: new Date().toISOString(),
+      criadoPor: currentUser?.login || currentUser?.usuario || currentUser?.nome || '',
+      historico: [{ acao: 'enviado como arquivo', por: currentUser?.nome || 'Professora', em: new Date().toISOString() }],
+    };
+
+    await salvarPlanejArquivo(pl.id, dataUrl, nome, tipo);   // arquivo em doc separado
+    db.planejamentos.unshift(pl);
+    save();                                                   // usa merge transacional
+    renderPlanejamentos();
+    if (input) input.value = '';
+
+    const turmaNome = db.turmas.find(t => t.id === turmaId)?.nome || 'Turma';
+    criarNotificacao('📋 Novo planejamento para corrigir', prof + ' · ' + turmaNome + ' · ' + rotulo, 'planejamento', pl.id);
+    logger.audit({ module: 'planejamento', action: 'create-arquivo', message: `Planejamento (arquivo) enviado`, after: { turmaId, bimestre, arquivo: nome } });
+
+    setStatus('✅ Planejamento enviado! ' + (textoExtraido ? 'Texto extraído do Word e arquivo anexado.' : 'Arquivo anexado.'), '#059669');
+    showToast('✅ Planejamento enviado!');
+  } catch (e) {
+    setStatus('⚠️ Erro ao processar o arquivo: ' + (e.message || e), '#b45309');
+  }
+}
+
+// Abre/baixa o arquivo anexado a um planejamento
+async function abrirPlanejamentoArquivo(id) {
+  showToast('📎 Abrindo arquivo…');
+  const rec = await carregarPlanejArquivo(id);
+  if (!rec || !rec.file) { showToast('⚠️ Arquivo não encontrado.'); return; }
+  try {
+    const blob = await (await fetch(rec.file)).blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    if ((rec.tipo || '').includes('pdf')) { a.target = '_blank'; a.rel = 'noopener'; }
+    else { a.download = rec.nome || 'planejamento.docx'; }
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) {
+    showToast('⚠️ Não foi possível abrir o arquivo: ' + (e.message || e));
   }
 }
 
