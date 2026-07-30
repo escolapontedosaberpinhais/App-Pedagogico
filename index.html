@@ -3785,7 +3785,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.36';
+const APP_VERSION = 'v2.9.37';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -4165,6 +4165,41 @@ async function savePareceresMerged() {
   }
 }
 
+// Gravação transacional dos planejamentos: faz MERGE por id com o servidor em vez
+// de sobrescrever o array inteiro. Sem isso, quando duas professoras salvam quase
+// ao mesmo tempo, a última gravação apaga o planejamento recém-criado pela outra
+// (era a causa de planejamentos "sumindo"). Itens excluídos nunca ressuscitam.
+async function savePlanejamentosMerged() {
+  if (!navigator.onLine) return;
+  try {
+    await fstore.runTransaction(async (tx) => {
+      const ref = FSREF('planejamentos');
+      const snap = await tx.get(ref);
+      let server = snap.exists ? (snap.data().data || []) : [];
+      const seen = new Set();
+      const merged = [];
+      // Itens locais refletem as edições do usuário atual — têm prioridade
+      for (const p of db.planejamentos) {
+        const id = String(p.id);
+        if (_planejDeletedIds.has(id)) continue;
+        merged.push(p); seen.add(id);
+      }
+      // Itens que só existem no servidor = criações/edições recentes de outra
+      // usuária ainda não sincronizadas localmente → preserva
+      for (const p of server) {
+        const id = String(p.id);
+        if (seen.has(id) || _planejDeletedIds.has(id)) continue;
+        merged.push(p); seen.add(id);
+      }
+      tx.set(ref, { data: merged });
+    });
+  } catch(e) {
+    // fallback: gravação simples para não perder o save
+    try { await FSREF('planejamentos').set({ data: db.planejamentos }); } catch(_) {}
+    logger.warn({ module: 'firestore', action: 'save-planejamentos-merge', message: 'Merge transacional de planejamentos falhou; usado overwrite', error: e });
+  }
+}
+
 function resubscribePlanejamentos() {
   if (_unsubPlanejamentos) { _unsubPlanejamentos(); _unsubPlanejamentos = null; }
   _unsubPlanejamentos = FSREF('planejamentos').onSnapshot(doc => {
@@ -4199,9 +4234,9 @@ function saveToFirestore() {
   const batch = fstore.batch();
   batch.set(FSREF('turmas'),        { data: db.turmas });
   batch.set(FSREF('alunos'),        { data: db.alunos });
-  batch.set(FSREF('planejamentos'), { data: db.planejamentos });
-  // pareceres: gravados via merge transacional (fora do batch) p/ não apagar
-  // criações concorrentes de outras usuárias — ver savePareceresMerged()
+  // planejamentos e pareceres: gravados via merge transacional (fora do batch)
+  // p/ não apagar criações concorrentes de outras usuárias — ver *Merged()
+  savePlanejamentosMerged();
   savePareceresMerged();
   batch.set(FSREF('avaliacoes'),    { data: db.avaliacoes });
   if (_usuariosCarregado && db.usuarios.length > 0) batch.set(FSREF('usuarios'), { data: db.usuarios });
@@ -6850,14 +6885,31 @@ async function executarExclusaoPlanej(novaLista, idsParaExcluirImagem) {
   if (_unsubPlanejamentos) { _unsubPlanejamentos(); _unsubPlanejamentos = null; }
   SyncStatus.saving();
   showToast('⏳ Excluindo…');
+  const idsExcluir = (idsParaExcluirImagem || []).map(String);
   try {
     // 1. Registra os IDs como excluídos ANTES de gravar — proteção cross-device
-    await registrarDeletedIds(idsParaExcluirImagem || []);
-    // 2. Grava a nova lista e AGUARDA confirmação do servidor
-    await FSREF('planejamentos').set({ data: novaLista });
-    db.planejamentos = novaLista;
-    LS.set('ps_planejamentos', novaLista);
-    (idsParaExcluirImagem || []).forEach(id => excluirImagemPlanej(id));
+    await registrarDeletedIds(idsExcluir);
+    // 2. Remoção transacional: parte da lista ATUAL do servidor e remove apenas os
+    //    ids excluídos. Assim, planejamentos criados por outras usuárias enquanto
+    //    esta exclusão acontece NÃO são apagados (antes o overwrite os perdia).
+    let listaFinal = novaLista;
+    try {
+      await fstore.runTransaction(async (tx) => {
+        const ref = FSREF('planejamentos');
+        const snap = await tx.get(ref);
+        const server = snap.exists ? (snap.data().data || []) : [];
+        const idSet = new Set(idsExcluir);
+        listaFinal = server.filter(p => !idSet.has(String(p.id)));
+        tx.set(ref, { data: listaFinal });
+      });
+    } catch (txErr) {
+      // fallback: overwrite com a lista local já filtrada
+      await FSREF('planejamentos').set({ data: novaLista });
+      listaFinal = novaLista;
+    }
+    db.planejamentos = listaFinal;
+    LS.set('ps_planejamentos', listaFinal);
+    idsExcluir.forEach(id => excluirImagemPlanej(id));
     logger.audit({ module: 'planejamento', action: 'delete', message: `${(idsParaExcluirImagem || []).length} planejamento(s) excluído(s)`, meta: { ids: idsParaExcluirImagem } });
     renderPlanejamentos();
     renderDashboard();
@@ -7156,7 +7208,7 @@ function verSemanal(semanaId) {
   overlay.style.display = 'block';
 }
 
-function verPlanejamento(id) {
+async function verPlanejamento(id) {
   const p = db.planejamentos.find(x => x.id === id);
   if (!p) return;
   // Exibe o conteúdo completo do banco local — evita truncamento do visualizador do Google Drive
@@ -7171,7 +7223,29 @@ function verPlanejamento(id) {
     p.bncc             ? `\nObjetivos / BNCC:\n${p.bncc}` : '',
     p.desenvolvimento  ? `\nDesenvolvimento:\n${p.desenvolvimento}` : '',
   ].filter(Boolean).join('\n');
-  abrirModalVisualizar(`📋 Planejamento — ${turma ? turma.nome : ''}`, linhas, p.docUrl);
+
+  const titulo = `📋 Planejamento — ${turma ? turma.nome : ''}`;
+  // Abre imediatamente com o texto; a imagem (documento separado) carrega logo em seguida
+  abrirModalVisualizar(titulo, linhas, p.docUrl);
+
+  // Carrega e exibe a imagem do desenvolvimento, se houver
+  let imgSrc = p.imagemDesenvolvimento || null;
+  if (!imgSrc && p.temImagem) {
+    try { imgSrc = await carregarImagemPlanej(p.id); } catch(e) { imgSrc = null; }
+  }
+  if (imgSrc) {
+    const htmlBody = `<div style="white-space:pre-wrap;font-size:14px;line-height:1.6;">${escapeHtml(linhas)}</div>`
+      + `<div style="margin-top:16px;">`
+      +   `<div style="font-weight:600;margin-bottom:6px;color:var(--gray-700);">🖼️ Imagem do desenvolvimento</div>`
+      +   `<img src="${imgSrc}" alt="Imagem do planejamento" style="max-width:100%;border-radius:8px;border:1px solid #e5e7eb;">`
+      + `</div>`;
+    // Só atualiza se o modal ainda estiver mostrando este mesmo planejamento
+    const tituloEl = document.getElementById('modal-visualizar-titulo');
+    const overlay = document.getElementById('modal-visualizar-overlay');
+    if (overlay && overlay.style.display === 'block' && tituloEl && tituloEl.textContent === titulo) {
+      abrirModalVisualizar(titulo, linhas, p.docUrl, htmlBody);
+    }
+  }
 }
 
 async function imprimirPlanejamentoDoDocs(p) {
