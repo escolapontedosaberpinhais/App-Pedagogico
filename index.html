@@ -3858,6 +3858,10 @@ const SyncStatus = (() => {
     saved:   { cls: 'sync-saved',  icon: '✓',   spin: false, label: 'Salvo',      ttl: 3000 },
     error:   { cls: 'sync-error',  icon: '⚠️',  spin: false, label: 'Erro ao salvar', ttl: 6000 },
     offline: { cls: 'sync-offline',icon: '📶',  spin: false, label: 'Offline',    ttl: 0    },
+    // Fica FIXO na tela enquanto houver dados criados neste aparelho que ainda
+    // não chegaram ao servidor. Antes isso era silencioso e a professora
+    // achava que tinha salvo (o item some quando o servidor responde).
+    pendente:{ cls: 'sync-error',  icon: '⚠️',  spin: false, label: 'NÃO enviado ao servidor', ttl: 0 },
   };
 
   function _set(state) {
@@ -3889,6 +3893,7 @@ const SyncStatus = (() => {
     saved:   () => _set('saved'),
     error:   () => _set('error'),
     offline: () => _set('offline'),
+    pendente:() => _set('pendente'),
     clear:   () => { clearTimeout(_timer); const c = _chip(); if (c) c.classList.remove('visible'); },
   };
 })();
@@ -4110,6 +4115,53 @@ async function loadFromFirestore() {
 // Referência do listener de planejamentos — permite desligar/religar durante exclusão
 let _unsubPlanejamentos = null;
 
+// ── SINCRONIZAÇÃO PENDENTE ───────────────────────────────────────────────────
+// Antes, quando o carregamento inicial do servidor falhava (rede instável), o
+// app seguia funcionando com os dados do localStorage e TODA gravação era
+// descartada em silêncio. A professora criava o planejamento, via na lista e
+// recebia "salvo!" — mas nada chegava ao servidor. Quando o listener conectava,
+// a lista do servidor sobrescrevia a local e o item "sumia". A pedagoga nunca
+// via nada. Agora: nada é descartado, o aviso é visível e há retentativa.
+let _pendenteSync     = false;      // há alterações locais não confirmadas no servidor
+let _planejPendentes  = new Set();  // ids criados neste aparelho ainda não confirmados
+let _parecerPendentes = new Set();
+let _flushTimer       = null;
+
+function marcarPendencia(motivo) {
+  _pendenteSync = true;
+  try { SyncStatus.pendente(); } catch(e) {}
+  logger.warn({ module: 'firestore', action: 'save-pendente', message: motivo || 'Gravação não confirmada no servidor' });
+  agendarFlushSync();
+}
+
+// Tenta reenviar periodicamente enquanto houver pendências
+function agendarFlushSync() {
+  if (_flushTimer) return;
+  _flushTimer = setInterval(() => {
+    if (!_pendenteSync) { clearInterval(_flushTimer); _flushTimer = null; return; }
+    if (_firestoreOk && navigator.onLine) saveToFirestore();
+  }, 15000);
+}
+
+// Ao recuperar a conexão, tenta enviar imediatamente
+window.addEventListener('online', () => {
+  if (_pendenteSync && _firestoreOk) saveToFirestore();
+});
+
+// Avisa a usuária quando o item ficou só no aparelho (não some mais em silêncio)
+function avisarSePendente() {
+  if (_pendenteSync || !_firestoreOk || !navigator.onLine) {
+    showToast('⚠️ Salvo NESTE APARELHO, mas ainda não enviado ao servidor. Mantenha o app aberto com internet — o envio é automático.', 10000);
+    return true;
+  }
+  return false;
+}
+
+// Evita que o app feche/recarregue com dados ainda não enviados sem avisar
+window.addEventListener('beforeunload', (e) => {
+  if (_pendenteSync) { e.preventDefault(); e.returnValue = ''; return ''; }
+});
+
 // IDs excluídos em memória — carregados do Firestore no init e atualizados a cada exclusão.
 // Garante que mesmo que um dispositivo antigo regrave a lista, os excluídos são filtrados.
 let _planejDeletedIds = new Set();
@@ -4168,7 +4220,7 @@ async function registrarParecerDeletedIds(ids) {
 // usuária (que ainda não chegou no nosso snapshot) não é apagado quando
 // salvamos. Itens excluídos (tombstone) nunca são ressuscitados.
 async function savePareceresMerged() {
-  if (!navigator.onLine) return;
+  if (!navigator.onLine) { marcarPendencia('Sem conexão — pareceres não enviados'); return; }
   try {
     await fstore.runTransaction(async (tx) => {
       const ref = FSREF('pareceres');
@@ -4191,9 +4243,17 @@ async function savePareceresMerged() {
       }
       tx.set(ref, { data: merged });
     });
+    // Confirmado no servidor: os itens locais deixam de ser "pendentes"
+    _parecerPendentes.clear();
+    if (_planejPendentes.size === 0) { _pendenteSync = false; SyncStatus.saved(); }
   } catch(e) {
     // fallback: gravação simples (comportamento antigo) para não perder o save
-    try { await FSREF('pareceres').set({ data: db.pareceres }); } catch(_) {}
+    try {
+      await FSREF('pareceres').set({ data: db.pareceres });
+      _parecerPendentes.clear();
+    } catch(_) {
+      marcarPendencia('Pareceres não enviados ao servidor — será reenviado');
+    }
     logger.warn({ module: 'firestore', action: 'save-pareceres-merge', message: 'Merge transacional de pareceres falhou; usado overwrite', error: e });
   }
 }
@@ -4203,7 +4263,7 @@ async function savePareceresMerged() {
 // ao mesmo tempo, a última gravação apaga o planejamento recém-criado pela outra
 // (era a causa de planejamentos "sumindo"). Itens excluídos nunca ressuscitam.
 async function savePlanejamentosMerged() {
-  if (!navigator.onLine) return;
+  if (!navigator.onLine) { marcarPendencia('Sem conexão — planejamentos não enviados'); return; }
   try {
     await fstore.runTransaction(async (tx) => {
       const ref = FSREF('planejamentos');
@@ -4226,9 +4286,17 @@ async function savePlanejamentosMerged() {
       }
       tx.set(ref, { data: merged });
     });
+    // Confirmado no servidor: os itens locais deixam de ser "pendentes"
+    _planejPendentes.clear();
+    if (_parecerPendentes.size === 0) { _pendenteSync = false; SyncStatus.saved(); }
   } catch(e) {
     // fallback: gravação simples para não perder o save
-    try { await FSREF('planejamentos').set({ data: db.planejamentos }); } catch(_) {}
+    try {
+      await FSREF('planejamentos').set({ data: db.planejamentos });
+      _planejPendentes.clear();
+    } catch(_) {
+      marcarPendencia('Planejamentos não enviados ao servidor — será reenviado');
+    }
     logger.warn({ module: 'firestore', action: 'save-planejamentos-merge', message: 'Merge transacional de planejamentos falhou; usado overwrite', error: e });
   }
 }
@@ -4247,6 +4315,21 @@ function resubscribePlanejamentos() {
         FSREF('planejamentos').set({ data }).catch(() => {});
       }
     }
+    // PROTEÇÃO: itens criados neste aparelho que ainda não chegaram ao servidor
+    // NÃO podem ser apagados da tela pela resposta do servidor. Antes, era aqui
+    // que o planejamento recém-criado "sumia" diante da professora.
+    if (_planejPendentes.size > 0) {
+      const idsServidor = new Set(data.map(p => String(p.id)));
+      const naoEnviados = db.planejamentos.filter(p =>
+        _planejPendentes.has(String(p.id)) && !idsServidor.has(String(p.id))
+      );
+      if (naoEnviados.length) {
+        data = [...naoEnviados, ...data];
+        marcarPendencia(naoEnviados.length + ' planejamento(s) ainda não enviados — reenviando');
+      } else {
+        _planejPendentes.clear();
+      }
+    }
     db.planejamentos = data;
     LS.set('ps_planejamentos', data);
     refreshCurrentView();
@@ -4259,10 +4342,11 @@ function saveToFirestore() {
   // fallback do localStorage, possivelmente vazio) sobrescreveria TODAS as
   // coleções do servidor com arrays vazios — perda de dados global.
   if (!_firestoreOk) {
-    logger.warn({ module: 'firestore', action: 'save-bloqueado', message: 'Gravação bloqueada: dados ainda não carregados do servidor' });
+    // NÃO descarta em silêncio: marca pendência, avisa na tela e reenvia depois.
+    marcarPendencia('Gravação adiada: dados ainda não carregados do servidor');
     return;
   }
-  if (!navigator.onLine) { SyncStatus.offline(); return; }
+  if (!navigator.onLine) { marcarPendencia('Sem conexão — gravação adiada'); return; }
   SyncStatus.saving();
   const batch = fstore.batch();
   batch.set(FSREF('turmas'),        { data: db.turmas });
@@ -4283,10 +4367,16 @@ function saveToFirestore() {
   batch.set(FSREF('diasSemAula'), { data: db.diasSemAula });
   batch.set(FSREF('entregasPareceres'), { data: db.entregasPareceres });
   batch.commit()
-    .then(() => SyncStatus.saved())
+    .then(() => {
+      // Só limpa a pendência se planejamentos/pareceres também confirmaram
+      if (_planejPendentes.size === 0 && _parecerPendentes.size === 0) {
+        _pendenteSync = false;
+        SyncStatus.saved();
+      }
+    })
     .catch(e => {
-      SyncStatus.error();
       logger.error({ module: 'firestore', action: 'batch-commit', message: 'Erro ao commitar batch no Firestore', error: e });
+      marcarPendencia('Falha ao gravar no servidor — será reenviado');
     });
 }
 
@@ -4304,8 +4394,13 @@ function setupSync() {
 
     // Recebemos dados autoritativos do servidor via snapshot — mesmo que o
     // load inicial tenha falhado, agora é seguro voltar a gravar.
+    const _eraBloqueado = !_firestoreOk;
     _firestoreOk = true;
     if (field === 'usuarios') _usuariosCarregado = true;
+
+    // O servidor voltou a responder depois de um período bloqueado: envia
+    // agora tudo o que foi criado offline em vez de deixar só no aparelho.
+    if (_eraBloqueado && _pendenteSync) setTimeout(() => saveToFirestore(), 500);
 
     // O servidor é a fonte da verdade. Não há mais "anti-rollback" que regrava
     // dados antigos por cima — esse mecanismo ressuscitava itens excluídos.
@@ -4347,6 +4442,20 @@ function setupSync() {
       const antes = data.length;
       data = data.filter(p => !_parecerDeletedIds.has(String(p.id)));
       if (data.length < antes) FSREF('pareceres').set({ data }).catch(() => {});
+    }
+    // Mesma proteção dos planejamentos: não apaga da tela o parecer criado
+    // neste aparelho que ainda não foi confirmado pelo servidor.
+    if (_parecerPendentes.size > 0) {
+      const idsServidor = new Set(data.map(p => String(p.id)));
+      const naoEnviados = db.pareceres.filter(p =>
+        _parecerPendentes.has(String(p.id)) && !idsServidor.has(String(p.id))
+      );
+      if (naoEnviados.length) {
+        data = [...naoEnviados, ...data];
+        marcarPendencia(naoEnviados.length + ' parecer(es) ainda não enviados — reenviando');
+      } else {
+        _parecerPendentes.clear();
+      }
     }
     db.pareceres = data;
     LS.set('ps_pareceres', data);
@@ -5276,6 +5385,54 @@ function getModel() {
   return localStorage.getItem('ps_gemini_model') || 'llama-3.3-70b-versatile';
 }
 
+// ── RESGATE DE ITENS QUE FICARAM SÓ NO APARELHO ──────────────────────────────
+// Versões antigas descartavam a gravação em silêncio quando o carregamento
+// inicial falhava: a professora via o planejamento/parecer na tela, mas ele
+// nunca chegava ao servidor (e a pedagoga nunca via). Este resgate compara o
+// backup local com o servidor e reenvia o que ficou para trás. Roda ANTES do
+// setupSync(), porque é ele que sobrescreve o backup local com os dados do
+// servidor. Itens excluídos de propósito (tombstones) nunca voltam.
+async function resgatarLocaisNaoSincronizados() {
+  if (!_firestoreOk) return;   // sem servidor confiável, não há o que comparar
+  try {
+    let resgatados = 0;
+
+    const lsPl = LS.get('ps_planejamentos', []);
+    if (Array.isArray(lsPl) && lsPl.length) {
+      const idsServidor = new Set(db.planejamentos.map(p => String(p.id)));
+      const faltando = lsPl.filter(p =>
+        p && p.id && !idsServidor.has(String(p.id)) && !_planejDeletedIds.has(String(p.id))
+      );
+      if (faltando.length) {
+        db.planejamentos.unshift(...faltando);
+        faltando.forEach(p => _planejPendentes.add(String(p.id)));
+        resgatados += faltando.length;
+      }
+    }
+
+    const lsPar = LS.get('ps_pareceres', []);
+    if (Array.isArray(lsPar) && lsPar.length) {
+      const idsServidor = new Set(db.pareceres.map(p => String(p.id)));
+      const faltando = lsPar.filter(p =>
+        p && p.id && !idsServidor.has(String(p.id)) && !_parecerDeletedIds.has(String(p.id))
+      );
+      if (faltando.length) {
+        db.pareceres.unshift(...faltando);
+        faltando.forEach(p => _parecerPendentes.add(String(p.id)));
+        resgatados += faltando.length;
+      }
+    }
+
+    if (resgatados) {
+      logger.warn({ module: 'recovery', action: 'resgate-local', message: `Resgatados ${resgatados} item(ns) que estavam só neste aparelho`, meta: { resgatados } });
+      saveToFirestore();
+      showToast(`🔄 ${resgatados} item(ns) que estavam só neste aparelho foram enviados ao servidor.`, 9000);
+    }
+  } catch (e) {
+    logger.error({ module: 'recovery', action: 'resgate-local', message: 'Falha no resgate de itens locais', error: e });
+  }
+}
+
 // Init
 window.addEventListener('DOMContentLoaded', async () => {
   // Carrega dados do Firestore
@@ -5283,6 +5440,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   await migrarImagensPlanej();   // move fotos antigas para fora do doc principal (idempotente)
   await carregarDeletedIds();    // carrega IDs excluídos — proteção contra dispositivos antigos
   await carregarParecerDeletedIds(); // idem para pareceres
+  await resgatarLocaisNaoSincronizados();  // reenvia o que ficou só no aparelho
   setupSync();
   document.getElementById('loading-screen').style.display = 'none';
 
@@ -5592,7 +5750,9 @@ function salvarPlanejamento() {
     historico: [{ acao: 'criado', por: currentUser?.nome || 'Professora', em: new Date().toISOString() }],
   };
   db.planejamentos.unshift(pl);
+  _planejPendentes.add(String(pl.id));   // só sai daqui quando o servidor confirmar
   save();
+  avisarSePendente();
   if (imgBase64) salvarImagemPlanej(pl.id, imgBase64);   // foto vai para doc separado
   logger.audit({ module: 'planejamento', action: 'create', message: `Planejamento criado: ${conteudos}`, after: { turmaId, data, prof, conteudos, bimestre, direitos, campos } });
   limparFormPlanejamento();
@@ -5748,7 +5908,9 @@ function salvarPlanejamentoSemanal() {
   if (!algumDia) { alert('Marque pelo menos um dia com aula e preencha os campos.'); return; }
 
   db.planejamentos.unshift(...criados);
+  criados.forEach(c => _planejPendentes.add(String(c.id)));
   save();
+  avisarSePendente();
   imagensParaSalvar.forEach(x => salvarImagemPlanej(x.id, x.img));   // fotos vão para docs separados
   limparFormSemanal();
   renderPlanejamentos();
@@ -7834,7 +7996,9 @@ function salvarParecer() {
     historico: [{ acao: 'criado', por: currentUser?.nome || 'Professora', em: new Date().toISOString() }],
   };
   db.pareceres.unshift(p);
+  _parecerPendentes.add(String(p.id));   // só sai daqui quando o servidor confirmar
   save();
+  avisarSePendente();
   logger.audit({ module: 'parecer', action: 'create', message: `Parecer criado para ${aluno.nome}`, after: { alunoNome: aluno.nome, turmaId, periodo, tom: selectedTone } });
   renderPareceres();
   document.getElementById('card-resultado').style.display = 'none';
@@ -8012,7 +8176,9 @@ async function subirPlanejamentoArquivo() {
 
     await salvarPlanejArquivo(pl.id, dataUrl, nome, tipo);   // arquivo em doc separado
     db.planejamentos.unshift(pl);
+    _planejPendentes.add(String(pl.id));
     save();                                                   // usa merge transacional
+    avisarSePendente();
     renderPlanejamentos();
     if (input) input.value = '';
 
@@ -11791,6 +11957,7 @@ async function recuperarPlanejamentosDrive() {
     delete pl._turmaNome;
     if (existentes.has(chave(pl))) { ignorados++; continue; }
     existentes.add(chave(pl));
+    _planejPendentes.add(String(pl.id));
     db.planejamentos.unshift(pl);
     novos++;
   }
