@@ -1808,6 +1808,20 @@ function _listarPlanejamentos() {
   </div>
 
   <!-- BACKUP E RESTAURAÇÃO -->
+  <div class="card" id="card-vinculo-prof" style="display:none;">
+    <div class="card-title">🔗 Vincular professoras aos registros</div>
+    <p style="font-size:13px;color:var(--gray-600);margin-bottom:14px;">
+      Registros antigos guardam a professora apenas como texto digitado. Quando o nome foi escrito
+      de formas diferentes, a mesma pessoa aparece duas vezes nos relatórios. Esta ferramenta liga
+      cada registro ao cadastro de usuário e padroniza a grafia do nome.
+    </p>
+    <div class="btn-row" style="margin-bottom:12px;">
+      <button class="btn btn-secondary" onclick="analisarVinculoProf()">🔎 Analisar</button>
+      <button class="btn btn-primary" id="btn-aplicar-vinculo" onclick="aplicarVinculoProf()" style="display:none;">🔗 Aplicar vínculos</button>
+    </div>
+    <div id="vinculo-prof-resultado" style="font-size:13px;"></div>
+  </div>
+
   <div class="card" id="card-backup" style="display:none;">
     <div class="card-title">💾 Backup e Restauração</div>
     <p style="font-size:13px;color:var(--gray-600);margin-bottom:16px;">
@@ -3901,7 +3915,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.10.0';
+const APP_VERSION = 'v2.10.1';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -4849,6 +4863,8 @@ function aplicarPapel() {
   // Card de backup: só diretor
   const cardBkp = document.getElementById('card-backup');
   if (cardBkp) cardBkp.style.display = isDiretor ? '' : 'none';
+  const cardVinc = document.getElementById('card-vinculo-prof');
+  if (cardVinc) cardVinc.style.display = isDiretor ? '' : 'none';
 
   // ── MATRIZ DE VISIBILIDADE POR PAPEL ─────────────────────────
   // Diretor    : tudo
@@ -5000,6 +5016,157 @@ function aplicarPapel() {
 }
 
 // turmas visíveis para o usuário atual
+// ── FERRAMENTA: vincular registros antigos ao cadastro de usuário ────────────
+// Percorre planejamentos e observações, encontra o usuário correspondente pelo
+// nome e mostra uma PRÉVIA antes de alterar qualquer coisa. Só o diretor usa.
+function _levantarVinculoProf() {
+  const alvos = [
+    { lista: db.planejamentos, rotulo: 'planejamento' },
+    { lista: db.observacoes,   rotulo: 'observação' },
+  ];
+  const vincular = [];   // ganham profId
+  const corrigir = [];   // já têm vínculo, mas a grafia do nome difere
+  const semUsuario = {}; // nome digitado → quantidade
+  let jaOk = 0;
+
+  for (const { lista, rotulo } of alvos) {
+    for (const reg of (lista || [])) {
+      const u = acharUsuarioPorNome(reg.prof);
+      if (!u) {
+        const nome = (reg.prof || '(em branco)').trim() || '(em branco)';
+        semUsuario[nome] = (semUsuario[nome] || 0) + 1;
+        continue;
+      }
+      if (reg.profId === u.id && reg.prof === u.nome) { jaOk++; continue; }
+      const item = { reg, usuario: u, rotulo, nomeAntigo: reg.prof };
+      if (reg.profId === u.id) corrigir.push(item); else vincular.push(item);
+    }
+  }
+  return { vincular, corrigir, semUsuario, jaOk };
+}
+
+function analisarVinculoProf() {
+  const el = document.getElementById('vinculo-prof-resultado');
+  const btn = document.getElementById('btn-aplicar-vinculo');
+  if (!el) return;
+  const { vincular, corrigir, semUsuario, jaOk } = _levantarVinculoProf();
+  const totalMudar = vincular.length + corrigir.length;
+
+  // Agrupa por professora para a prévia ficar legível
+  const porProf = {};
+  [...vincular, ...corrigir].forEach(i => {
+    const k = i.usuario.nome;
+    porProf[k] = porProf[k] || { total: 0, grafias: {} };
+    porProf[k].total++;
+    const g = (i.nomeAntigo || '').trim();
+    if (g && g !== i.usuario.nome) porProf[k].grafias[g] = (porProf[k].grafias[g] || 0) + 1;
+  });
+
+  let html = '';
+  if (totalMudar === 0 && !Object.keys(semUsuario).length) {
+    html = `<div style="color:#059669;">✅ Tudo certo — os ${jaOk} registros já estão vinculados corretamente.</div>`;
+    if (btn) btn.style.display = 'none';
+  } else {
+    if (totalMudar > 0) {
+      html += `<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px 14px;margin-bottom:10px;">
+        <strong style="color:#065f46;">${totalMudar} registro(s) serão vinculados</strong>`;
+      html += '<ul style="margin:8px 0 0 18px;padding:0;">';
+      Object.keys(porProf).sort().forEach(nome => {
+        const p = porProf[nome];
+        const grafias = Object.keys(p.grafias);
+        const detalhe = grafias.length
+          ? ` <span style="color:var(--gray-500);">— corrige ${grafias.map(g => `"${escapeHtml(g)}"`).join(', ')}</span>`
+          : '';
+        html += `<li style="margin-bottom:4px;">${escapeHtml(nome)}: <strong>${p.total}</strong>${detalhe}</li>`;
+      });
+      html += '</ul></div>';
+    }
+    const semNomes = Object.keys(semUsuario);
+    if (semNomes.length) {
+      html += `<div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:12px 14px;margin-bottom:10px;">
+        <strong style="color:#92400e;">Sem cadastro correspondente — não serão alterados</strong>
+        <ul style="margin:8px 0 0 18px;padding:0;">`;
+      semNomes.sort().forEach(n => {
+        html += `<li style="margin-bottom:4px;">"${escapeHtml(n)}": <strong>${semUsuario[n]}</strong> registro(s)</li>`;
+      });
+      html += `</ul><div style="margin-top:8px;font-size:12.5px;color:#78350f;">
+        Se for uma professora real, cadastre-a em Usuários e analise de novo. Se for teste, os registros podem ser excluídos.
+        </div></div>`;
+    }
+    if (jaOk) html += `<div style="color:var(--gray-500);">${jaOk} registro(s) já estavam corretos.</div>`;
+    if (btn) btn.style.display = totalMudar > 0 ? '' : 'none';
+  }
+  el.innerHTML = html;
+}
+
+function aplicarVinculoProf() {
+  const { vincular, corrigir } = _levantarVinculoProf();
+  const total = vincular.length + corrigir.length;
+  if (!total) { showToast('Nada a vincular.'); return; }
+
+  showConfirmModal(
+    `Vincular ${total} registro(s) ao cadastro de professoras?<br>` +
+    `<small style="color:#888;font-weight:400;">O nome também será padronizado. Os dados em si não mudam.</small>`,
+    () => {
+      [...vincular, ...corrigir].forEach(({ reg, usuario }) => {
+        reg.profId = usuario.id;
+        reg.prof   = usuario.nome;   // padroniza a grafia
+      });
+      save();
+      analisarVinculoProf();
+      renderPlanejamentos();
+      if (typeof renderObservacoes === 'function') renderObservacoes();
+      showToast(`🔗 ${total} registro(s) vinculados!`, 5000);
+      logger.audit({ module: 'usuarios', action: 'vincular-prof', message: `${total} registro(s) vinculados ao cadastro de professoras`, meta: { total } });
+    }
+  );
+}
+
+// ── VÍNCULO PROFESSORA → USUÁRIO ─────────────────────────────────────────────
+// Até a v2.10.0 a professora era gravada só como texto livre no campo `prof`.
+// Isso fazia a mesma pessoa contar como duas quando o nome era digitado com
+// grafia diferente ("Fabiane  Eudoxia Franca Gusso" x "Fabiane Eudoxia de
+// Franca Gusso"). Agora todo registro guarda também `profId`, que aponta para
+// o cadastro de usuário — é ele que os painéis usam para agrupar.
+function normalizarNome(s) {
+  return String(s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')   // remove acentos
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w && !['de', 'da', 'do', 'dos', 'das', 'e'].includes(w))
+    .join(' ');
+}
+
+// Encontra o usuário correspondente a um nome digitado. Retorna null se não houver.
+function acharUsuarioPorNome(nome) {
+  const alvo = normalizarNome(nome);
+  if (!alvo) return null;
+  return db.usuarios.find(u => normalizarNome(u.nome) === alvo) || null;
+}
+
+// Id do usuário para gravar junto do registro ('' quando não há correspondência)
+function resolverProfId(nome) {
+  const u = acharUsuarioPorNome(nome);
+  return u ? u.id : '';
+}
+
+// Chave de agrupamento por professora: usa o vínculo quando existe e cai no
+// nome normalizado quando o registro é antigo e ainda não foi vinculado.
+function chaveProf(reg) {
+  if (reg && reg.profId) return 'id:' + reg.profId;
+  return 'nome:' + normalizarNome(reg && reg.prof);
+}
+
+// Nome de exibição: prefere o cadastro (grafia oficial) e cai no texto gravado
+function nomeProfExibicao(reg) {
+  if (reg && reg.profId) {
+    const u = db.usuarios.find(x => x.id === reg.profId);
+    if (u) return u.nome;
+  }
+  return (reg && reg.prof) || '—';
+}
+
 function getUsrTurmaIds(u) {
   if (!u) return [];
   if (Array.isArray(u.turmaIds)) return u.turmaIds;
@@ -5843,6 +6010,7 @@ function salvarPlanejamento() {
     data,
     bimestre,
     prof,
+    profId: resolverProfId(prof),   // vínculo com o cadastro de usuário
     direitos,
     campos,
     bncc,
@@ -5994,7 +6162,7 @@ function salvarPlanejamentoSemanal() {
     const imgDia = window._plsDiasImagens?.[i] || null;
     if (imgDia) imagensParaSalvar.push({ id: novoId, img: imgDia });
     criados.push({
-      id: novoId, turmaId, bimestre, prof, direitos, campos,
+      id: novoId, turmaId, bimestre, prof, profId: resolverProfId(prof), direitos, campos,
       data: dataStr,
       bncc: document.getElementById(`pls-bncc-${i}`)?.value.trim() || '',
       conteudos, desenvolvimento,
@@ -8264,6 +8432,7 @@ async function subirPlanejamentoArquivo() {
       data,
       bimestre,
       prof,
+      profId: resolverProfId(prof),
       direitos: [],
       campos: [],
       bncc: '',
@@ -8634,6 +8803,7 @@ function salvarObservacao() {
   const obs = {
     id: uid(),
     prof,
+    profId: resolverProfId(prof),
     turmaId,
     data,
     ...notas,
@@ -8779,16 +8949,20 @@ function renderObservacoes() {
   // ── Panorama por professora: média, evolução e último acompanhamento ──
   const pan = document.getElementById('obs-panorama');
   if (pan) {
+    // Agrupa pelo vínculo com o cadastro; registros antigos caem no nome normalizado
     const porProf = {};
-    db.observacoes.forEach(o => { (porProf[o.prof] = porProf[o.prof] || []).push(o); });
-    const nomes = Object.keys(porProf).sort((a, b) => a.localeCompare(b));
+    db.observacoes.forEach(o => {
+      const k = chaveProf(o);
+      (porProf[k] = porProf[k] || { nome: nomeProfExibicao(o), itens: [] }).itens.push(o);
+    });
+    const nomes = Object.keys(porProf).sort((a, b) => porProf[a].nome.localeCompare(porProf[b].nome));
 
     if (!nomes.length) {
       pan.innerHTML = '<div class="empty"><div class="icon">📈</div><p>Nenhuma observação registrada ainda. Ao salvar a primeira, a média e o gráfico de evolução aparecem aqui.</p></div>';
     } else {
       pan.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;">`
         + nomes.map(nome => {
-          const lista = porProf[nome].slice().sort((a, b) => String(a.data).localeCompare(String(b.data)));
+          const lista = porProf[nome].itens.slice().sort((a, b) => String(a.data).localeCompare(String(b.data)));
           const medias = lista.map(o => Number(o.media) || 0);
           const geral = medias.reduce((s, m) => s + m, 0) / medias.length;
           const ultima = lista[lista.length - 1];
@@ -8803,7 +8977,7 @@ function renderObservacoes() {
             : 'Sem próximo acompanhamento';
           const cor = geral >= 4 ? 'var(--green-dark)' : geral >= 3 ? '#b45309' : '#b91c1c';
           return `<div style="border:1px solid var(--gray-200);border-radius:10px;padding:14px;background:#fff;">
-              <div style="font-weight:600;font-size:14px;margin-bottom:8px;">${escapeHtml(nome)}</div>
+              <div style="font-weight:600;font-size:14px;margin-bottom:8px;">${escapeHtml(porProf[nome].nome)}</div>
               <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:10px;">
                 <div>
                   <div style="font-size:26px;font-weight:700;line-height:1;color:${cor};font-variant-numeric:tabular-nums;">${geral.toFixed(1)}<span style="font-size:13px;font-weight:400;color:var(--gray-400);">/5</span></div>
@@ -8822,7 +8996,7 @@ function renderObservacoes() {
   if (!el) return;
   const filtro = document.getElementById('obs-filtro-prof')?.value || '';
   let lista = db.observacoes.slice();
-  if (filtro) lista = lista.filter(o => o.prof === filtro);
+  if (filtro) lista = lista.filter(o => normalizarNome(o.prof) === normalizarNome(filtro));
   lista.sort((a, b) => String(b.data).localeCompare(String(a.data)));
 
   if (!lista.length) {
@@ -8840,7 +9014,7 @@ function renderObservacoes() {
     const resumo = o.pontosFortes || o.pontosMelhoria || '';
     return `<div class="item-card">
       <div class="info">
-        <strong>${escapeHtml(o.prof)}</strong>
+        <strong>${escapeHtml(nomeProfExibicao(o))}</strong>
         <span>
           <span class="badge badge-green">${escapeHtml(turma ? turma.nome : '—')}</span>
           <span class="badge ${cor}">Média ${media.toFixed(1)}/5</span>
@@ -12320,6 +12494,7 @@ function parsePlanejamentoRecuperado(item) {
     data,
     bimestre,
     prof,
+    profId: resolverProfId(prof),
     direitos,
     campos,
     bncc: sec.bncc || '',
