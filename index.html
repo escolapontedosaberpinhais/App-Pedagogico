@@ -1232,6 +1232,9 @@
     <button class="dnav-btn" id="dnav-impressao" onclick="drawerNav('impressao')" style="display:none;">
       <span class="di">&#x1F5A8;</span> Impress&atilde;o
     </button>
+    <button class="dnav-btn" id="dnav-copias" onclick="drawerNav('copias')" style="display:none;">
+      <span class="di">&#x1F4C4;</span> Solicita&ccedil;&otilde;es de c&oacute;pia
+    </button>
 
     <!-- 📚 Pedagógico -->
     <div class="dnav-group-label">📚 Pedag&oacute;gico</div>
@@ -1290,6 +1293,7 @@
   <button id="nav-dashboard" onclick="showTab('dashboard')" data-tab="dashboard" style="display:none;">🏠 Dashboard</button>
   <button onclick="showTab('cadastro')" data-tab="cadastro" id="nav-cadastro">📝 Cadastro</button>
   <button id="nav-impressao" onclick="showTab('impressao')" data-tab="impressao" style="display:none;">🖨️ Impressão</button>
+  <button id="nav-copias" onclick="showTab('copias')" data-tab="copias" style="display:none;">📄 Solicitações de cópia</button>
   <button id="nav-planejamento" onclick="showTab('planejamento')" data-tab="planejamento">📋 Planejamentos</button>
   <button id="nav-pareceres" onclick="showTab('pareceres')" data-tab="pareceres">✨ Pareceres IA</button>
   <button id="nav-avaliacoes" onclick="showTab('avaliacoes')" data-tab="avaliacoes">📊 Avaliações</button>
@@ -1323,6 +1327,7 @@
     <div class="nav-grp-drop" id="navdrop-gestao">
       <button data-tab="cadastro" onclick="showTab('cadastro');closeNavGrp()">📝 Cadastro</button>
       <button data-tab="impressao" onclick="showTab('impressao');closeNavGrp()">🖨️ Impressão</button>
+      <button data-tab="copias" onclick="showTab('copias');closeNavGrp()">📄 Solicitações de cópia</button>
     </div>
   </div>
   <!-- 📚 Pedagógico -->
@@ -2988,6 +2993,94 @@ function _listarPlanejamentos() {
 </div>
 
 <!-- ===================== FORMAÇÃO PEDAGÓGICA ===================== -->
+<!-- ===================== SOLICITAÇÕES DE CÓPIA ===================== -->
+<div id="tab-copias" class="section">
+
+  <div class="section-header">
+    <h2>📄 Solicitações de Cópia</h2>
+    <button class="btn btn-secondary" onclick="exportarCopias()">⬇️ Exportar .txt</button>
+  </div>
+
+  <!-- Lançamento rápido -->
+  <div class="card">
+    <div class="card-title" style="margin-bottom:4px;">⚡ Lançar solicitação</div>
+    <div style="font-size:13px;color:var(--gray-600);margin-bottom:14px;">
+      Registre o que foi pedido pelo WhatsApp assim que imprimir. A professora fica selecionada
+      para o próximo lançamento — dá para registrar vários seguidos.
+    </div>
+
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Professora *</label>
+        <select id="cop-prof" onchange="copProfMudou()"></select>
+      </div>
+      <div class="form-group">
+        <label>Turma</label>
+        <select id="cop-turma"></select>
+      </div>
+      <div class="form-group">
+        <label>Data</label>
+        <input type="date" id="cop-data" />
+      </div>
+      <div class="form-group full">
+        <label>O que foi impresso *</label>
+        <input type="text" id="cop-desc" placeholder="Ex: atividade de coordenação motora"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('cop-paginas').focus();}" />
+      </div>
+      <div class="form-group">
+        <label>Páginas por cópia *</label>
+        <input type="number" id="cop-paginas" min="1" step="1" value="1" oninput="copCalcularTotal()" />
+      </div>
+      <div class="form-group">
+        <label>Quantidade de cópias *</label>
+        <input type="number" id="cop-copias" min="1" step="1" value="1" oninput="copCalcularTotal()"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();salvarCopia();}" />
+      </div>
+      <div class="form-group">
+        <label>Origem</label>
+        <select id="cop-origem">
+          <option value="externa">Material de fora (internet)</option>
+          <option value="sistema">Banco de atividades do sistema</option>
+          <option value="outro">Outro</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="background:var(--green-light);border:1.5px solid var(--green-mid);border-radius:8px;
+                padding:12px 16px;margin:6px 0 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <span style="font-size:13px;color:var(--green-dark);font-weight:600;">Total desta solicitação</span>
+      <span id="cop-total" style="font-size:22px;font-weight:700;color:var(--green-dark);font-variant-numeric:tabular-nums;">1 página</span>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="salvarCopia()">💾 Registrar</button>
+      <button class="btn btn-secondary" onclick="limparFormCopia()">🗑️ Limpar</button>
+    </div>
+    <div id="cop-status" style="margin-top:10px;font-size:13px;"></div>
+  </div>
+
+  <!-- Consumo do mês -->
+  <div class="card">
+    <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <span>📊 Consumo por professora</span>
+      <input type="month" id="cop-mes" onchange="renderCopias()" style="font-size:13px;max-width:180px;">
+    </div>
+    <div id="cop-consumo"></div>
+  </div>
+
+  <!-- Histórico -->
+  <div class="card">
+    <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <span>🗂️ Lançamentos do mês</span>
+      <select id="cop-filtro-prof" onchange="renderCopias()" style="max-width:260px;font-size:13px;">
+        <option value="">Todas as professoras</option>
+      </select>
+    </div>
+    <div id="cop-lista" class="item-list"></div>
+  </div>
+
+</div>
+
 <!-- ===================== OBSERVAÇÃO EM SALA ===================== -->
 <div id="tab-observacoes" class="section">
 
@@ -3915,7 +4008,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.10.1';
+const APP_VERSION = 'v2.11.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -4053,7 +4146,7 @@ async function migrarImagensPlanej() {
 async function loadFromFirestore() {
   const _t = logger.timer('firestore', 'load-initial');
   try {
-    const [rT, rA, rP, rPar, rAv, rU, rCfg, rNot, rHa, rRot, rAtiv, rDSA, rEP, rOc, rFm, rCal, rChat, rObs] = await Promise.all([
+    const [rT, rA, rP, rPar, rAv, rU, rCfg, rNot, rHa, rRot, rAtiv, rDSA, rEP, rOc, rFm, rCal, rChat, rObs, rImp] = await Promise.all([
       FSREF('turmas').get(), FSREF('alunos').get(),
       FSREF('planejamentos').get(), FSREF('pareceres').get(),
       FSREF('avaliacoes').get(), FSREF('usuarios').get(),
@@ -4062,7 +4155,7 @@ async function loadFromFirestore() {
       FSREF('atividades').get(), FSREF('diasSemAula').get(),
       FSREF('entregasPareceres').get(), FSREF('ocorrencias').get(),
       FSREF('agendaFormacao').get(), FSREF('calendarioEscolar').get(),
-      FSREF('observacoes').get(),
+      FSREF('observacoes').get(), FSREF('impressoes').get(),
       FSREF('chatGeral').get(),
     ]);
     if (rT.exists)   db.turmas        = rT.data().data   ?? [];
@@ -4111,6 +4204,8 @@ async function loadFromFirestore() {
     _ocorrenciasCarregadas = true;
     if (rObs && rObs.exists) db.observacoes = rObs.data().data ?? [];
     _observacoesCarregadas = true;
+    if (rImp && rImp.exists) db.impressoes = rImp.data().data ?? [];
+    _impressoesCarregadas = true;
     if (rFm.exists) {
       db.agendaFormacao = rFm.data().data ?? [];
     } else {
@@ -4463,6 +4558,7 @@ function saveToFirestore() {
   if (_atividadesCarregadas)  batch.set(FSREF('atividades'),  { data: db.atividades });
   if (_ocorrenciasCarregadas)   batch.set(FSREF('ocorrencias'),    { data: db.ocorrencias });
   if (_observacoesCarregadas)   batch.set(FSREF('observacoes'),    { data: db.observacoes });
+  if (_impressoesCarregadas)    batch.set(FSREF('impressoes'),     { data: db.impressoes });
   if (_agendaFormacaoCarregada) batch.set(FSREF('agendaFormacao'), { data: db.agendaFormacao });
   if (_calendarioEscolarCarregado && db.calendarioEscolar) batch.set(FSREF('calendarioEscolar'), { data: db.calendarioEscolar });
   batch.set(FSREF('diasSemAula'), { data: db.diasSemAula });
@@ -4596,6 +4692,14 @@ function setupSync() {
       refreshCurrentView();
     }
   });
+  FSREF('impressoes').onSnapshot((doc) => {
+    if (doc.exists && !doc.metadata.hasPendingWrites) {
+      db.impressoes = doc.data().data ?? [];
+      _impressoesCarregadas = true;
+      LS.set('ps_impressoes', db.impressoes);
+      refreshCurrentView();
+    }
+  });
   FSREF('observacoes').onSnapshot((doc) => {
     if (doc.exists && !doc.metadata.hasPendingWrites) {
       db.observacoes = doc.data().data ?? [];
@@ -4675,6 +4779,7 @@ function refreshCurrentView() {
   if (id === 'tab-auditoria')       { carregarAuditoria(); }
   if (id === 'tab-ocorrencias')     { renderOcorrencias(); }
   if (id === 'tab-observacoes')     { popularSelectsObservacao(); renderObservacoes(); }
+  if (id === 'tab-copias')          { popularSelectsCopias(); renderCopias(); }
   if (id === 'tab-formacao')        { renderFormacao(); }
   if (id === 'tab-calendario')      { renderCalendario(); }
 }
@@ -4698,6 +4803,7 @@ let db = {
   entregasPareceres: { b1: '', b2: '', b3: '', b4: '' },
   ocorrencias: [],
   observacoes: [],
+  impressoes: [],
   agendaFormacao: [],
   calendarioEscolar: null,
   chatGeral: [],
@@ -4709,6 +4815,7 @@ let _rotinasCarregadas            = false;
 let _atividadesCarregadas         = false;
 let _ocorrenciasCarregadas        = false;
 let _observacoesCarregadas        = false;
+let _impressoesCarregadas         = false;
 let _agendaFormacaoCarregada      = false;
 let _calendarioEscolarCarregado   = false;
 let _chatGeralCarregado           = false;
@@ -4737,6 +4844,7 @@ function save() {
   LS.set('ps_entregas_pareceres', db.entregasPareceres);
   LS.set('ps_ocorrencias', db.ocorrencias);
   LS.set('ps_observacoes', db.observacoes);
+  LS.set('ps_impressoes', db.impressoes);
   LS.set('ps_agenda_formacao', db.agendaFormacao);
   if (db.calendarioEscolar) LS.set('ps_calendario_escolar', db.calendarioEscolar);
   // Firestore
@@ -4890,6 +4998,9 @@ function aplicarPapel() {
   // Impressão
   nav('nav-impressao',      isDiretor || isSecretaria || isPedagoga);
   nav('dnav-impressao',     isDiretor || isSecretaria || isPedagoga);
+
+  nav('nav-copias',         isDiretor || isSecretaria);
+  nav('dnav-copias',        isDiretor || isSecretaria);
 
   // Planejamentos
   nav('nav-planejamento',   isDiretor || isPedagoga || isProfessora);
@@ -5417,7 +5528,7 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 // =====================================================================
 const _TAB_GRUPOS = {
   dashboard: 'inicio',
-  cadastro: 'gestao', impressao: 'gestao',
+  cadastro: 'gestao', impressao: 'gestao', copias: 'gestao',
   rotina: 'pedagogico', avaliacoes: 'pedagogico', correcao: 'pedagogico', formacao: 'pedagogico',
   observacoes: 'pedagogico',
   'hora-atividade': 'docentes', planejamento: 'docentes', pareceres: 'docentes', atividades: 'docentes',
@@ -5479,6 +5590,7 @@ function showTab(tab) {
   if (tab === 'config')         { renderUsuarios(); atualizarStatusFdSync(); }
   if (tab === 'ocorrencias')    { renderOcorrencias(); }
   if (tab === 'observacoes')    { popularSelectsObservacao(); renderObservacoes(); }
+  if (tab === 'copias')         { popularSelectsCopias(); renderCopias(); }
   if (tab === 'calendario')     { renderCalendario(); }
 }
 
@@ -8714,6 +8826,239 @@ function deleteOcorrencia(id) {
     renderOcorrencias();
     showToast('🗑️ Ocorrência excluída.');
   });
+}
+
+// =====================================================================
+// SOLICITAÇÕES DE CÓPIA — contagem real de papel (secretaria + direção)
+// =====================================================================
+// A maior parte do que se imprime na escola vem de material que as professoras
+// baixam de fora e mandam pelo WhatsApp; quem imprime é a secretaria. Como tudo
+// passa por ela, o registro aqui é CONTAGEM REAL — não estimativa do navegador.
+// O que importa é o total: páginas por cópia × quantidade de cópias.
+
+function copMesAtual() {
+  const el = document.getElementById('cop-mes');
+  if (el && el.value) return el.value;
+  return new Date().toISOString().slice(0, 7);   // AAAA-MM
+}
+
+function copCalcularTotal() {
+  const pag = Math.max(1, Number(document.getElementById('cop-paginas')?.value || 1));
+  const cop = Math.max(1, Number(document.getElementById('cop-copias')?.value || 1));
+  const total = pag * cop;
+  const el = document.getElementById('cop-total');
+  if (el) el.textContent = total === 1 ? '1 página' : total.toLocaleString('pt-BR') + ' páginas';
+  return total;
+}
+
+// Ao escolher a professora, já sugere a turma dela — menos um campo a preencher
+function copProfMudou() {
+  const sel = document.getElementById('cop-prof');
+  const selT = document.getElementById('cop-turma');
+  if (!sel || !selT) return;
+  const u = db.usuarios.find(x => x.id === sel.value);
+  if (!u) return;
+  const ids = getUsrTurmaIds(u);
+  if (ids.length) selT.value = ids[0];
+}
+
+function popularSelectsCopias() {
+  const profs = db.usuarios.filter(u => u.papel === 'professora');
+
+  const sel = document.getElementById('cop-prof');
+  if (sel) {
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">— Selecione —</option>'
+      + profs.map(u => `<option value="${u.id}">${escapeHtml(u.nome)}</option>`).join('');
+    if (prev) sel.value = prev;
+  }
+
+  const selT = document.getElementById('cop-turma');
+  if (selT) {
+    const prev = selT.value;
+    selT.innerHTML = '<option value="">— Sem turma —</option>'
+      + db.turmas.map(t => `<option value="${t.id}">${escapeHtml(t.nome)}</option>`).join('');
+    if (prev) selT.value = prev;
+  }
+
+  const selF = document.getElementById('cop-filtro-prof');
+  if (selF) {
+    const prev = selF.value;
+    selF.innerHTML = '<option value="">Todas as professoras</option>'
+      + profs.map(u => `<option value="${u.id}">${escapeHtml(u.nome)}</option>`).join('');
+    if (prev) selF.value = prev;
+  }
+
+  const dt = document.getElementById('cop-data');
+  if (dt && !dt.value) dt.value = new Date().toISOString().slice(0, 10);
+  const mes = document.getElementById('cop-mes');
+  if (mes && !mes.value) mes.value = new Date().toISOString().slice(0, 7);
+  copCalcularTotal();
+}
+
+function limparFormCopia() {
+  ['cop-desc'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const pg = document.getElementById('cop-paginas'); if (pg) pg.value = 1;
+  const cp = document.getElementById('cop-copias');  if (cp) cp.value = 1;
+  copCalcularTotal();
+  const st = document.getElementById('cop-status'); if (st) st.textContent = '';
+}
+
+function salvarCopia() {
+  const st = document.getElementById('cop-status');
+  const aviso = (m, c) => { if (st) { st.textContent = m; st.style.color = c || 'var(--gray-600)'; } };
+
+  const profId = document.getElementById('cop-prof')?.value || '';
+  const desc   = document.getElementById('cop-desc')?.value.trim() || '';
+  if (!profId) { aviso('⚠️ Selecione a professora.', '#b45309'); return; }
+  if (!desc)   { aviso('⚠️ Escreva o que foi impresso.', '#b45309'); return; }
+
+  const u = db.usuarios.find(x => x.id === profId);
+  const paginas = Math.max(1, Number(document.getElementById('cop-paginas')?.value || 1));
+  const copias  = Math.max(1, Number(document.getElementById('cop-copias')?.value || 1));
+
+  const reg = {
+    id: uid(),
+    profId,
+    prof: u ? u.nome : '',
+    turmaId: document.getElementById('cop-turma')?.value || '',
+    data: document.getElementById('cop-data')?.value || new Date().toISOString().slice(0, 10),
+    descricao: desc,
+    paginas,
+    copias,
+    total: paginas * copias,
+    origem: document.getElementById('cop-origem')?.value || 'externa',
+    registradoPor: currentUser?.nome || currentUser?.usuario || '',
+    criadoEm: new Date().toISOString(),
+  };
+
+  db.impressoes.unshift(reg);
+  _impressoesCarregadas = true;
+  save();
+  renderCopias();
+
+  // Mantém professora, turma e data para o próximo lançamento; limpa só o resto
+  limparFormCopia();
+  document.getElementById('cop-desc')?.focus();
+
+  if (!avisarSePendente()) showToast(`✅ ${reg.total} página(s) registradas para ${reg.prof}.`);
+  aviso(`✅ Registrado: ${reg.total} página(s). Pode lançar a próxima.`, '#059669');
+}
+
+function deleteCopia(id) {
+  const r = db.impressoes.find(x => String(x.id) === String(id));
+  if (!r) return;
+  showConfirmModal('Excluir este lançamento?', () => {
+    db.impressoes = db.impressoes.filter(x => String(x.id) !== String(id));
+    save(); renderCopias();
+    showToast('🗑️ Lançamento excluído.');
+  });
+}
+
+function exportarCopias() {
+  const mes = copMesAtual();
+  const lista = db.impressoes.filter(r => String(r.data || '').startsWith(mes));
+  if (!lista.length) { showToast('Nenhum lançamento neste mês.'); return; }
+  const porProf = {};
+  lista.forEach(r => { porProf[r.prof || '—'] = (porProf[r.prof || '—'] || 0) + (Number(r.total) || 0); });
+  const totalGeral = lista.reduce((s, r) => s + (Number(r.total) || 0), 0);
+  const linhas = [
+    `RELATÓRIO DE CÓPIAS — ESCOLA PONTE DO SABER`,
+    `Mês de referência: ${mes}`,
+    ``,
+    `TOTAL DO MÊS: ${totalGeral} páginas em ${lista.length} solicitações`,
+    ``,
+    `POR PROFESSORA`,
+    ...Object.entries(porProf).sort((a, b) => b[1] - a[1]).map(([n, t]) => `${n}: ${t} páginas`),
+    ``,
+    `DETALHAMENTO`,
+    ...lista.slice().sort((a, b) => String(a.data).localeCompare(String(b.data))).map(r => {
+      const t = db.turmas.find(x => x.id === r.turmaId);
+      const d = r.data ? new Date(r.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+      return `${d} · ${r.prof} · ${t ? t.nome : '—'} · ${r.descricao} · ${r.paginas}p × ${r.copias} = ${r.total}`;
+    }),
+  ];
+  downloadTxt(linhas.join('\n'), `copias_${mes}.txt`);
+  showToast('⬇️ Relatório gerado!');
+}
+
+function renderCopias() {
+  const mes = copMesAtual();
+  const doMes = db.impressoes.filter(r => String(r.data || '').startsWith(mes));
+
+  // ── Consumo por professora ──
+  const cons = document.getElementById('cop-consumo');
+  if (cons) {
+    const porProf = {};
+    doMes.forEach(r => {
+      const k = r.profId || ('nome:' + normalizarNome(r.prof));
+      porProf[k] = porProf[k] || { nome: r.prof || '—', total: 0, itens: 0 };
+      porProf[k].total += Number(r.total) || 0;
+      porProf[k].itens++;
+    });
+    const chaves = Object.keys(porProf).sort((a, b) => porProf[b].total - porProf[a].total);
+    const totalGeral = doMes.reduce((s, r) => s + (Number(r.total) || 0), 0);
+
+    if (!chaves.length) {
+      cons.innerHTML = '<div class="empty"><div class="icon">📊</div><p>Nenhuma cópia registrada neste mês. Lance a primeira acima e o consumo aparece aqui.</p></div>';
+    } else {
+      const maior = porProf[chaves[0]].total || 1;
+      cons.innerHTML = `<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--gray-200);">
+          <span style="font-size:30px;font-weight:700;color:var(--green-dark);font-variant-numeric:tabular-nums;">${totalGeral.toLocaleString('pt-BR')}</span>
+          <span style="font-size:13px;color:var(--gray-500);">páginas no mês · ${doMes.length} solicitaç${doMes.length > 1 ? 'ões' : 'ão'}</span>
+        </div>`
+        + chaves.map(k => {
+          const p = porProf[k];
+          const pct = Math.round((p.total / maior) * 100);
+          return `<div style="margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:4px;">
+              <span style="font-size:13.5px;font-weight:600;">${escapeHtml(p.nome)}</span>
+              <span style="font-size:13px;color:var(--gray-500);font-variant-numeric:tabular-nums;">
+                <strong style="color:var(--gray-800);font-size:15px;">${p.total.toLocaleString('pt-BR')}</strong> págs · ${p.itens} pedido(s)</span>
+            </div>
+            <div style="height:9px;background:var(--gray-100);border-radius:5px;overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:var(--green);border-radius:5px;"></div>
+            </div>
+          </div>`;
+        }).join('');
+    }
+  }
+
+  // ── Histórico ──
+  const el = document.getElementById('cop-lista');
+  if (!el) return;
+  const filtro = document.getElementById('cop-filtro-prof')?.value || '';
+  let lista = doMes.slice();
+  if (filtro) lista = lista.filter(r => r.profId === filtro);
+  lista.sort((a, b) => String(b.data).localeCompare(String(a.data)) || String(b.criadoEm).localeCompare(String(a.criadoEm)));
+
+  if (!lista.length) {
+    el.innerHTML = '<div class="empty"><div class="icon">📄</div><p>Nenhum lançamento neste mês.</p></div>';
+    return;
+  }
+  const ORIGEM = { externa: 'Material de fora', sistema: 'Banco de atividades', outro: 'Outro' };
+  el.innerHTML = lista.map(r => {
+    const t = db.turmas.find(x => x.id === r.turmaId);
+    const d = r.data ? new Date(r.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+    return `<div class="item-card">
+      <div class="info">
+        <strong>${escapeHtml(r.descricao || '—')}</strong>
+        <span>
+          <span class="badge badge-green">${escapeHtml(r.prof || '—')}</span>
+          ${t ? `<span class="badge badge-gray">${escapeHtml(t.nome)}</span>` : ''}
+          &nbsp;📅 ${d}
+        </span>
+        <span style="font-size:12px;color:var(--gray-500);">
+          ${r.paginas} pág × ${r.copias} cópia(s) = <strong style="color:var(--green-dark);">${r.total} páginas</strong>
+          &nbsp;·&nbsp; ${ORIGEM[r.origem] || r.origem || '—'}
+          ${r.registradoPor ? ' · lançado por ' + escapeHtml(r.registradoPor) : ''}
+        </span>
+      </div>
+      <div class="actions">
+        <button class="btn btn-danger btn-sm" onclick="deleteCopia('${r.id}')" title="Excluir">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // =====================================================================
