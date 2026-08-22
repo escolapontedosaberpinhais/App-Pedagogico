@@ -1739,7 +1739,7 @@ function _listarPlanejamentos() {
       <button class="btn btn-secondary btn-sm" id="btn-testar" onclick="testarConexao()" style="display:none;">🧪 Testar conexão</button>
     </div>
     <div id="drive-folder-info" style="margin-top:10px;font-size:13px;color:var(--gray-600);display:none;">
-      📁 Estrutura no Drive: <code>Escola Ponte do Saber / {Turma} / {Bimestre} / Pareceres|Planejamentos</code>
+      📁 Estrutura no Drive: <code>Escola Ponte do Saber / {Turma} / {Período} / Pareceres|Planejamentos</code>
     </div>
 
     <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--gray-200);">
@@ -1813,6 +1813,33 @@ function _listarPlanejamentos() {
   </div>
 
   <!-- BACKUP E RESTAURAÇÃO -->
+  <div class="card" id="card-regime" style="display:none;">
+    <div class="card-title">🗓️ Divisão do ano letivo</div>
+    <p style="font-size:13px;color:var(--gray-600);margin-bottom:14px;">
+      Define como o ano é dividido em <strong>todo o sistema</strong>: planejamentos, pareceres,
+      avaliações, calendário escolar, filtros e prazos de entrega passam a usar o regime escolhido.
+      Pode ser alterado a qualquer momento.
+    </p>
+
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Regime</label>
+        <select id="cfg-regime">
+          <option value="bimestral">Bimestral — 4 períodos</option>
+          <option value="trimestral">Trimestral — 3 períodos</option>
+          <option value="semestral">Semestral — 2 períodos</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="cfg-regime-previa" style="margin:10px 0 14px;font-size:13px;"></div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="salvarRegimePeriodos()">💾 Salvar regime</button>
+    </div>
+    <div id="cfg-regime-status" style="margin-top:10px;font-size:13px;"></div>
+  </div>
+
   <div class="card" id="card-vinculo-prof" style="display:none;">
     <div class="card-title">🔗 Vincular professoras aos registros</div>
     <p style="font-size:13px;color:var(--gray-600);margin-bottom:14px;">
@@ -1912,25 +1939,8 @@ function _listarPlanejamentos() {
   <div id="cad-entregas-section">
     <div class="card" style="margin-top:16px;">
       <div class="card-title">📅 Calendário de Entregas de Pareceres</div>
-      <p style="font-size:13px;color:var(--gray-400);margin-bottom:12px;">Defina a data de entrega de cada bimestre. Ela aparecerá automaticamente na impressão dos pareceres.</p>
-      <div class="form-grid">
-        <div class="form-group">
-          <label>1º Bimestre</label>
-          <input type="date" id="entrega-b1" />
-        </div>
-        <div class="form-group">
-          <label>2º Bimestre</label>
-          <input type="date" id="entrega-b2" />
-        </div>
-        <div class="form-group">
-          <label>3º Bimestre</label>
-          <input type="date" id="entrega-b3" />
-        </div>
-        <div class="form-group">
-          <label>4º Bimestre</label>
-          <input type="date" id="entrega-b4" />
-        </div>
-      </div>
+      <p style="font-size:13px;color:var(--gray-400);margin-bottom:12px;">Defina a data de entrega de cada período. Ela aparecerá automaticamente na impressão dos pareceres.</p>
+      <div class="form-grid" id="entregas-grid"></div>
       <div class="btn-row">
         <button class="btn btn-primary" onclick="salvarEntregasPareceres()">💾 Salvar datas</button>
       </div>
@@ -1993,7 +2003,7 @@ function _listarPlanejamentos() {
         <select id="plarq-turma"></select>
       </div>
       <div class="form-group">
-        <label>Bimestre *</label>
+        <label data-rotulo-periodo="*">Bimestre *</label>
         <select id="plarq-bimestre">
           <option>1º Bimestre</option>
           <option>2º Bimestre</option>
@@ -2041,7 +2051,7 @@ function _listarPlanejamentos() {
           <input type="date" id="pl-data" />
         </div>
         <div class="form-group">
-          <label>Bimestre *</label>
+          <label data-rotulo-periodo="*">Bimestre *</label>
           <select id="pl-bimestre">
             <option>1º Bimestre</option>
             <option>2º Bimestre</option>
@@ -2130,7 +2140,7 @@ function _listarPlanejamentos() {
           <div style="font-size:11px;color:var(--gray-400);margin-top:3px;">Selecione qualquer dia — o sistema usa a semana inteira (Seg–Sex)</div>
         </div>
         <div class="form-group">
-          <label>Bimestre *</label>
+          <label data-rotulo-periodo="*">Bimestre *</label>
           <select id="pls-bimestre">
             <option>1º Bimestre</option>
             <option>2º Bimestre</option>
@@ -2331,7 +2341,7 @@ function _listarPlanejamentos() {
         <select id="par-turma" onchange="populateAlunosParecer()"></select>
       </div>
       <div class="form-group">
-        <label>Bimestre</label>
+        <label data-rotulo-periodo="">Bimestre</label>
         <select id="par-periodo">
           <option>1º Bimestre</option>
           <option>2º Bimestre</option>
@@ -2437,7 +2447,7 @@ function _listarPlanejamentos() {
         <select id="av-turma" onchange="renderTabelaAvaliacoes()"></select>
       </div>
       <div class="form-group">
-        <label>Período / Bimestre</label>
+        <label>Período / <span data-rotulo-periodo="">Bimestre</span></label>
         <select id="av-periodo" onchange="renderTabelaAvaliacoes()">
           <option>1º Semestre</option>
           <option>2º Semestre</option>
@@ -3412,7 +3422,7 @@ function _listarPlanejamentos() {
       </div>
       <div style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap;">
         <button class="btn btn-secondary btn-sm" onclick="calAbrirFormEvento(null)">➕ Novo Evento</button>
-        <button class="btn btn-secondary btn-sm" onclick="calAbrirBimestres()">📊 Bimestres</button>
+        <button class="btn btn-secondary btn-sm" onclick="calAbrirBimestres()">📊 <span data-rotulo-periodo="plural">Bimestres</span></button>
         <button class="btn btn-primary btn-sm" onclick="imprimirCalendario()">🖨️ Imprimir</button>
       </div>
     </div>
@@ -3430,8 +3440,8 @@ function _listarPlanejamentos() {
           <option value="formacao">🟣 Formação</option>
           <option value="colonia">🔵 Colônia de Férias</option>
           <option value="vox_dei">🌊 Vox Dei</option>
-          <option value="inicio_bimestre">🟢 Início de Bimestre</option>
-          <option value="fim_bimestre">🟤 Fim de Bimestre</option>
+          <option value="inicio_bimestre">🟢 Início de Período</option>
+          <option value="fim_bimestre">🟤 Fim de Período</option>
           <option value="entrega_parecer">🟡 Entrega de Pareceres</option>
           <option value="reuniao_pais">💜 Reunião de Pais</option>
           <option value="comemoracao">🩵 Comemoração</option>
@@ -3467,12 +3477,12 @@ function _listarPlanejamentos() {
 
   <!-- Form: Configurar Bimestres -->
   <div id="cal-form-bimestres" class="card cal-no-print" style="display:none;margin-bottom:14px;border:2px solid var(--green);">
-    <div class="card-title">📊 Configurar Bimestres</div>
+    <div class="card-title">📊 Configurar <span data-rotulo-periodo="plural">Bimestres</span></div>
     <div style="overflow-x:auto;margin-top:10px;">
       <table style="width:100%;border-collapse:collapse;font-size:13px;" id="cal-bim-form-table">
         <thead>
           <tr>
-            <th style="padding:8px;background:var(--green-light);color:var(--green-dark);text-align:left;">Bimestre</th>
+            <th style="padding:8px;background:var(--green-light);color:var(--green-dark);text-align:left;"><span data-rotulo-periodo="">Bimestre</span></th>
             <th style="padding:8px;background:var(--green-light);color:var(--green-dark);">Início</th>
             <th style="padding:8px;background:var(--green-light);color:var(--green-dark);">Fim</th>
           </tr>
@@ -3480,9 +3490,10 @@ function _listarPlanejamentos() {
         <tbody id="cal-bim-tbody"></tbody>
       </table>
     </div>
-    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">
+    <div id="cal-bim-aviso-regime" style="display:none;margin-top:12px;"></div>
+    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap;">
       <button class="btn btn-secondary btn-sm" onclick="calFecharBimestres()">Cancelar</button>
-      <button class="btn btn-primary btn-sm" onclick="calSalvarBimestres()">💾 Salvar Bimestres</button>
+      <button class="btn btn-primary btn-sm" onclick="calSalvarBimestres()">💾 Salvar <span data-rotulo-periodo="plural">Bimestres</span></button>
     </div>
   </div>
 
@@ -4008,7 +4019,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.11.0';
+const APP_VERSION = 'v2.12.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -4234,6 +4245,10 @@ async function loadFromFirestore() {
     _chatGeralCarregado = true;
     if (rCfg.exists) {
       db.apiKey = rCfg.data().apiKey ?? '';
+      if (rCfg.data().regimePeriodos) {
+        db.regimePeriodos = rCfg.data().regimePeriodos;
+        LS.set('ps_regime_periodos', db.regimePeriodos);
+      }
       if (rCfg.data().model) localStorage.setItem('ps_gemini_model', rCfg.data().model);
       // Sincroniza URL do Apps Script do Firestore → todos os dispositivos usam a mesma URL
       if (rCfg.data().appsScriptUrl) {
@@ -4767,7 +4782,7 @@ function refreshCurrentView() {
   if (!active) return;
   const id = active.id;
   if (id === 'tab-dashboard')    renderDashboard();
-  if (id === 'tab-config')       { renderUsuarios(); atualizarStatusFdSync(); }
+  if (id === 'tab-config')       { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); }
   if (id === 'tab-planejamento') { populateSelects(); renderPlanejamentos(); }
   if (id === 'tab-pareceres')    { populateSelects(); renderPareceres(); }
   if (id === 'tab-avaliacoes')   { populateSelects(); renderTabelaAvaliacoes(); }
@@ -4801,6 +4816,7 @@ let db = {
   atividades: [],
   diasSemAula: [],
   entregasPareceres: { b1: '', b2: '', b3: '', b4: '' },
+  regimePeriodos: LS.get('ps_regime_periodos', 'bimestral'),   // bimestral | trimestral | semestral
   ocorrencias: [],
   observacoes: [],
   impressoes: [],
@@ -4973,6 +4989,8 @@ function aplicarPapel() {
   if (cardBkp) cardBkp.style.display = isDiretor ? '' : 'none';
   const cardVinc = document.getElementById('card-vinculo-prof');
   if (cardVinc) cardVinc.style.display = isDiretor ? '' : 'none';
+  const cardReg = document.getElementById('card-regime');
+  if (cardReg) cardReg.style.display = isDiretor ? '' : 'none';
 
   // ── MATRIZ DE VISIBILIDADE POR PAPEL ─────────────────────────
   // Diretor    : tudo
@@ -5587,7 +5605,7 @@ function showTab(tab) {
   if (tab === 'hora-atividade') { renderHoraAtividade(); }
   if (tab === 'rotina')         { renderRotina(); }
   if (tab === 'atividades')     { renderAtividades(); }
-  if (tab === 'config')         { renderUsuarios(); atualizarStatusFdSync(); }
+  if (tab === 'config')         { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); }
   if (tab === 'ocorrencias')    { renderOcorrencias(); }
   if (tab === 'observacoes')    { popularSelectsObservacao(); renderObservacoes(); }
   if (tab === 'copias')         { popularSelectsCopias(); renderCopias(); }
@@ -5634,6 +5652,170 @@ function mostrarPushNotif(titulo, corpo) {
 }
 
 // =====================================================================
+// REGIME DE PERÍODOS — bimestral, trimestral ou semestral
+// =====================================================================
+// A escola escolhe o regime em Configuracoes (so o diretor). Todo o sistema
+// — planejamentos, pareceres, avaliacoes, calendario, filtros e entregas —
+// passa a usar o rotulo e a quantidade de periodos do regime escolhido.
+// Registros antigos guardam o rotulo do regime em que foram criados; por isso
+// as listas sempre incluem tambem os valores ja usados nos dados (legado).
+const REGIMES = {
+  bimestral:  { rotulo: 'Bimestre',  plural: 'Bimestres',  qtd: 4 },
+  trimestral: { rotulo: 'Trimestre', plural: 'Trimestres', qtd: 3 },
+  semestral:  { rotulo: 'Semestre',  plural: 'Semestres',  qtd: 2 },
+};
+
+function regimeAtual()  { return REGIMES[db.regimePeriodos] ? db.regimePeriodos : 'bimestral'; }
+function regimeInfo()   { return REGIMES[regimeAtual()]; }
+function rotuloPeriodo(){ return regimeInfo().rotulo; }
+
+// Rotulos do regime vigente: ['1º Bimestre', '2º Bimestre', ...]
+function periodosDoRegime() {
+  const r = regimeInfo();
+  return Array.from({ length: r.qtd }, (_, i) => `${i + 1}º ${r.rotulo}`);
+}
+
+// Periodos do regime + os que ja aparecem nos dados (para nao esconder o historico)
+function periodosComLegado() {
+  const lista = periodosDoRegime();
+  const vistos = new Set(lista);
+  const juntar = (v) => {
+    const t = String(v || '').trim();
+    if (t && !vistos.has(t)) { vistos.add(t); lista.push(t); }
+  };
+  (db.planejamentos || []).forEach(p => juntar(p.bimestre));
+  (db.pareceres || []).forEach(p => juntar(p.periodo));
+  (db.observacoes || []).forEach(o => juntar(o.periodo));
+  return lista;
+}
+
+// Prepara o cartao de configuracao do regime (aba Configuracoes, so direcao)
+function renderCardRegime() {
+  const card = document.getElementById('card-regime');
+  const sel  = document.getElementById('cfg-regime');
+  if (!card || !sel) return;
+  if (currentUser?.papel !== 'diretor') { card.style.display = 'none'; return; }
+  card.style.display = '';
+  sel.value = regimeAtual();
+  sel.onchange = previewRegime;
+  const st = document.getElementById('cfg-regime-status');
+  if (st) st.textContent = '';
+  previewRegime();
+}
+
+// Mostra o que o regime selecionado vai produzir, antes de salvar
+function previewRegime() {
+  const sel = document.getElementById('cfg-regime');
+  const el  = document.getElementById('cfg-regime-previa');
+  if (!sel || !el) return;
+  const r = REGIMES[sel.value] || REGIMES.bimestral;
+  const lista = Array.from({ length: r.qtd }, (_, i) => `${i + 1}º ${r.rotulo}`);
+  const mudou = sel.value !== regimeAtual();
+
+  let html = `<div style="background:var(--green-light);border:1.5px solid var(--green-mid);border-radius:8px;padding:12px 14px;">
+      <strong style="color:var(--green-dark);font-size:13px;">O ano passará a ter ${r.qtd} períodos:</strong>
+      <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
+        ${lista.map(o => `<span class="badge badge-green">${escapeHtml(o)}</span>`).join('')}
+      </div>
+    </div>`;
+
+  if (mudou) {
+    // Quantos registros usam rótulos que não existem no novo regime
+    const novos = new Set(lista);
+    let antigos = 0;
+    (db.planejamentos || []).forEach(p => { if (p.bimestre && !novos.has(p.bimestre)) antigos++; });
+    (db.pareceres || []).forEach(p => { if (p.periodo && !novos.has(p.periodo)) antigos++; });
+    if (antigos) {
+      html += `<div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:12px 14px;margin-top:10px;">
+          <strong style="color:#92400e;font-size:13px;">⚠️ ${antigos} registro(s) já existentes usam a divisão atual</strong>
+          <div style="font-size:12.5px;color:#78350f;margin-top:5px;">
+            Eles <strong>não serão apagados nem alterados</strong> — continuam visíveis com o rótulo antigo,
+            e os filtros seguem mostrando essas opções. Só os registros novos usarão a divisão escolhida.
+          </div>
+        </div>`;
+    }
+    if (db.calendarioEscolar) {
+      html += `<div style="font-size:12.5px;color:var(--gray-600);margin-top:10px;">
+          📅 O calendário escolar de ${db.calendarioEscolar.ano} continua com os períodos já cadastrados.
+          Depois de salvar, abra a aba <strong>Calendário</strong> → <strong>${escapeHtml(r.plural)}</strong>
+          e use <strong>Redividir</strong> para refazer as datas. Feriados e eventos são mantidos.
+        </div>`;
+    }
+  }
+  el.innerHTML = html;
+}
+
+function salvarRegimePeriodos() {
+  const sel = document.getElementById('cfg-regime');
+  const st  = document.getElementById('cfg-regime-status');
+  const aviso = (m, c) => { if (st) { st.textContent = m; st.style.color = c || 'var(--gray-600)'; } };
+  if (!sel) return;
+
+  const novo = sel.value;
+  if (!REGIMES[novo]) { aviso('⚠️ Regime inválido.', '#b45309'); return; }
+  if (novo === regimeAtual()) { aviso('Este já é o regime em uso.', 'var(--gray-500)'); return; }
+
+  const r = REGIMES[novo];
+  showConfirmModal(
+    `Mudar a divisão do ano para <strong>${r.rotulo.toLowerCase()}</strong> (${r.qtd} períodos)?<br>` +
+    `<small style="color:#888;font-weight:400;">Nenhum registro existente é apagado ou alterado.</small>`,
+    () => {
+      db.regimePeriodos = novo;
+      LS.set('ps_regime_periodos', novo);
+      FSREF('config').set({ regimePeriodos: novo, apiKey: db.apiKey }, { merge: true })
+        .then(() => aviso(`✅ Regime salvo: ${r.rotulo.toLowerCase()} (${r.qtd} períodos).`, '#059669'))
+        .catch(e => aviso('⚠️ Salvo neste aparelho, mas não enviado ao servidor: ' + e.message, '#b45309'));
+      aplicarRegimePeriodos();
+      renderEntregasPareceres();
+      previewRegime();
+      refreshCurrentView();
+      showToast(`🗓️ Ano letivo agora é ${r.rotulo.toLowerCase()} — ${r.qtd} períodos.`, 6000);
+      logger.audit({ module: 'config', action: 'regime-periodos', message: `Regime alterado para ${novo}`, after: { regime: novo } });
+    }
+  );
+}
+
+// Preenche todos os seletores de periodo do sistema e ajusta os rotulos.
+// Chamada sempre que o regime muda ou os dados sao recarregados.
+function aplicarRegimePeriodos() {
+  const opts       = periodosDoRegime();
+  const optsLegado = periodosComLegado();
+  const rot        = rotuloPeriodo();
+
+  // id -> { legado: inclui valores antigos, todos: opcao "todos" no topo }
+  const SELECTS = {
+    'pl-bimestre':        { legado: false },
+    'pls-bimestre':       { legado: false },
+    'plarq-bimestre':     { legado: false },
+    'par-periodo':        { legado: false },
+    'av-periodo':         { legado: false },
+    'dash-bimestre':      { legado: true, todos: 'Todos os ' + regimeInfo().plural.toLowerCase() },
+    'dash-periodo':       { legado: true, todos: 'Todos os ' + regimeInfo().plural.toLowerCase() },
+    'imp-filtro-bimestre':{ legado: true, todos: 'Todos os ' + regimeInfo().plural.toLowerCase() },
+    'corr-filtro':        { legado: true, todos: 'Todos os ' + regimeInfo().plural.toLowerCase() },
+  };
+
+  for (const [id, cfg] of Object.entries(SELECTS)) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const anterior = el.value;
+    const lista = cfg.legado ? optsLegado : opts;
+    let html = cfg.todos ? `<option value="">${escapeHtml(cfg.todos)}</option>` : '';
+    html += lista.map(o => `<option>${escapeHtml(o)}</option>`).join('');
+    el.innerHTML = html;
+    // Mantem a selecao anterior quando ela ainda existir na lista
+    if (anterior && lista.includes(anterior)) el.value = anterior;
+  }
+
+  // Rotulos que citam o regime
+  document.querySelectorAll('[data-rotulo-periodo]').forEach(el => {
+    const sufixo = el.getAttribute('data-rotulo-periodo');   // '', '*' ou 'plural'
+    if (sufixo === 'plural') el.textContent = regimeInfo().plural;
+    else el.textContent = rot + (sufixo === '*' ? ' *' : '');
+  });
+}
+
+// =====================================================================
 // POPULATE SELECTS
 // =====================================================================
 function populateSelects() {
@@ -5665,6 +5847,7 @@ function populateSelects() {
     }
   }
 
+  aplicarRegimePeriodos();
   renderProfField();
   populateAlunosParecer();
 }
@@ -5914,25 +6097,41 @@ function ordemTurma(nome) {
 }
 
 function renderEntregasPareceres() {
-  const ep = db.entregasPareceres || {};
+  const ep  = db.entregasPareceres || {};
   const sec = document.getElementById('cad-entregas-section');
   const isGestao = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga' || currentUser?.papel === 'secretaria';
   if (sec) sec.style.display = isGestao ? '' : 'none';
-  ['b1','b2','b3','b4'].forEach(k => {
-    const el = document.getElementById(`entrega-${k}`);
-    if (el && ep[k]) el.value = ep[k];
-  });
+  if (!isGestao) return;
+
+  // Um campo de data por periodo do regime vigente
+  const grid = document.getElementById('entregas-grid');
+  if (!grid) return;
+  grid.innerHTML = periodosDoRegime().map((rotulo, i) => {
+    const k = 'b' + (i + 1);
+    return `<div class="form-group">
+        <label>${escapeHtml(rotulo)}</label>
+        <input type="date" id="entrega-${k}" value="${escapeHtml(ep[k] || '')}" />
+      </div>`;
+  }).join('');
 }
 
 function salvarEntregasPareceres() {
-  db.entregasPareceres = {
-    b1: document.getElementById('entrega-b1')?.value || '',
-    b2: document.getElementById('entrega-b2')?.value || '',
-    b3: document.getElementById('entrega-b3')?.value || '',
-    b4: document.getElementById('entrega-b4')?.value || '',
-  };
+  // Preserva datas de periodos que nao existem no regime atual (ex.: 4o bimestre
+  // apos migrar para trimestral) — nada e apagado silenciosamente.
+  const novo = Object.assign({}, db.entregasPareceres || {});
+  periodosDoRegime().forEach((_, i) => {
+    const k = 'b' + (i + 1);
+    novo[k] = document.getElementById('entrega-' + k)?.value || '';
+  });
+  db.entregasPareceres = novo;
   save();
   showToast('✅ Datas de entrega salvas!');
+}
+
+// '2º Trimestre' -> 'b2'. Funciona para qualquer regime, inclusive rotulos antigos.
+function chaveEntrega(rotulo) {
+  const m = String(rotulo || '').match(/(\d+)/);
+  return m ? 'b' + m[1] : '';
 }
 
 function renderTurmas() {
@@ -9569,8 +9768,7 @@ function imprimirListaComparecimento() {
   const logoSrc = logoEl ? logoEl.src : '';
 
   // Data de entrega do bimestre selecionado (fallback: hoje)
-  const _bimMap = { '1º bimestre': 'b1', '2º bimestre': 'b2', '3º bimestre': 'b3', '4º bimestre': 'b4' };
-  const _bKey   = _bimMap[(bimFiltro || '').toLowerCase()];
+  const _bKey   = chaveEntrega(bimFiltro);
   const _entVal = _bKey && db.entregasPareceres?.[_bKey];
   const dataHoje = _entVal
     ? new Date(_entVal + 'T12:00:00').toLocaleDateString('pt-BR')
@@ -9913,8 +10111,7 @@ async function imprimirParecer(id) {
 
 function montarHtmlParecer(p, __corpo) {
   const turma = db.turmas.find(t => t.id === p.turmaId);
-  const _entregaMap = { '1º bimestre': 'b1', '2º bimestre': 'b2', '3º bimestre': 'b3', '4º bimestre': 'b4' };
-  const _bKey = _entregaMap[(p.periodo || '').toLowerCase()];
+  const _bKey = chaveEntrega(p.periodo);
   const _entregaVal = _bKey && db.entregasPareceres?.[_bKey];
   const dataImpressao = _entregaVal
     ? new Date(_entregaVal + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -12762,8 +12959,7 @@ function sanitizeName(str) {
 
 function buildParecerTxt(p) {
   const turma = db.turmas.find(t => t.id === p.turmaId);
-  const _entregaMap = { '1º bimestre': 'b1', '2º bimestre': 'b2', '3º bimestre': 'b3', '4º bimestre': 'b4' };
-  const _bKey = _entregaMap[(p.periodo || '').toLowerCase()];
+  const _bKey = chaveEntrega(p.periodo);
   const _entregaVal = _bKey && db.entregasPareceres?.[_bKey];
   const dataDoc = _entregaVal
     ? new Date(_entregaVal + 'T12:00:00').toLocaleDateString('pt-BR')
@@ -13857,8 +14053,8 @@ const CAL_TIPOS = {
   colonia:         { label: 'Colônia de Férias',   cor: '#0891b2', prioridade: 3 },
   formacao:        { label: 'Formação',             cor: '#7c3aed', prioridade: 4 },
   vox_dei:         { label: 'Vox Dei',             cor: '#1e3a8a', prioridade: 5 },
-  inicio_bimestre: { label: 'Início de Bimestre',  cor: '#16a34a', prioridade: 6 },
-  fim_bimestre:    { label: 'Fim de Bimestre',     cor: '#991b1b', prioridade: 7 },
+  inicio_bimestre: { label: 'Início de Período',   cor: '#16a34a', prioridade: 6 },
+  fim_bimestre:    { label: 'Fim de Período',      cor: '#991b1b', prioridade: 7 },
   entrega_parecer: { label: 'Entrega de Pareceres',cor: '#d97706', prioridade: 8 },
   reuniao_pais:    { label: 'Reunião de Pais',     cor: '#9333ea', prioridade: 9 },
   comemoracao:     { label: 'Comemoração',         cor: '#0d9488', prioridade: 10 },
@@ -13866,19 +14062,78 @@ const CAL_TIPOS = {
   evento:          { label: 'Evento Escolar',      cor: '#059669', prioridade: 12 },
 };
 
+// Divisao padrao do ano letivo (04/02 a 18/12) para cada regime.
+// Sao apenas sugestoes iniciais — a direcao pode editar em "Configurar periodos".
+const CAL_DIVISAO_PADRAO = {
+  bimestral:  [['02-04','04-17'], ['04-22','07-03'], ['07-07','10-01'], ['10-02','12-18']],
+  trimestral: [['02-04','05-08'], ['05-11','08-28'], ['08-31','12-18']],
+  semestral:  [['02-04','07-03'], ['07-07','12-18']],
+};
+
+// Monta a lista de periodos do calendario seguindo o regime vigente
+function _calPeriodosPadrao(ano) {
+  const a   = String(ano);
+  const reg = regimeAtual();
+  const rot = REGIMES[reg].rotulo;
+  return (CAL_DIVISAO_PADRAO[reg] || CAL_DIVISAO_PADRAO.bimestral).map((par, i) => ({
+    num: i + 1,
+    label: `${i + 1}º ${rot}`,
+    inicio: `${a}-${par[0]}`,
+    fim:    `${a}-${par[1]}`,
+  }));
+}
+
+// Eventos de inicio/fim gerados a partir dos periodos (usado fora do padrao 2026)
+function _calEventosDosPeriodos(periodos) {
+  const evs = [];
+  periodos.forEach((b, i) => {
+    evs.push({ id: 'p' + (i * 2 + 1), tipo: 'inicio_bimestre', descricao: 'Início do ' + b.label, data: b.inicio });
+    evs.push({ id: 'p' + (i * 2 + 2), tipo: 'fim_bimestre',    descricao: 'Fim do '    + b.label, data: b.fim });
+  });
+  return evs;
+}
+
 function _calDefaultData(ano) {
-  const a = String(ano);
+  const periodos = _calPeriodosPadrao(ano);
+  // O calendario 2026 tem feriados e recessos ja conferidos manualmente; so
+  // reaproveitamos a lista completa quando a escola esta em regime bimestral,
+  // que e o regime para o qual aqueles inicios/fins de periodo foram escritos.
+  const eventos = (ano === 2026 && regimeAtual() === 'bimestral')
+    ? _calEventos2026()
+    : (ano === 2026 ? _calEventos2026().filter(e => e.tipo !== 'inicio_bimestre' && e.tipo !== 'fim_bimestre' && e.tipo !== 'entrega_parecer').concat(_calEventosDosPeriodos(periodos))
+                    : _calEventosDosPeriodos(periodos));
   return {
     ano,
-    bimestres: [
-      { num: 1, label: '1º Bimestre', inicio: `${a}-02-04`, fim: `${a}-04-17` },
-      { num: 2, label: '2º Bimestre', inicio: `${a}-04-22`, fim: `${a}-07-03` },
-      { num: 3, label: '3º Bimestre', inicio: `${a}-07-07`, fim: `${a}-10-01` },
-      { num: 4, label: '4º Bimestre', inicio: `${a}-10-02`, fim: `${a}-12-18` },
-    ],
-    eventos: ano === 2026 ? _calEventos2026() : [],
+    bimestres: periodos,
+    eventos,
     _nextId: 100,
   };
+}
+
+// Redivide o calendario existente quando o regime muda, preservando os eventos
+// que nao sao de inicio/fim de periodo.
+function calRedividirPorRegime() {
+  const cal = db.calendarioEscolar;
+  if (!cal) { showToast('❗ Crie o calendário primeiro.'); return; }
+  const r = regimeInfo();
+  showConfirmModal(
+    `Redividir o calendário de ${cal.ano} em <strong>${r.qtd} ${r.plural.toLowerCase()}</strong>?<br>` +
+    `<small style="color:#888;font-weight:400;">Feriados, recessos e demais eventos são mantidos. ` +
+    `Só as datas de início e fim de período são refeitas — e você pode ajustá-las depois.</small>`,
+    () => {
+      const periodos = _calPeriodosPadrao(cal.ano);
+      cal.bimestres = periodos;
+      cal.eventos = (cal.eventos || [])
+        .filter(e => e.tipo !== 'inicio_bimestre' && e.tipo !== 'fim_bimestre')
+        .concat(_calEventosDosPeriodos(periodos));
+      _calendarioEscolarCarregado = true;
+      save();
+      renderCalendario();
+      calAbrirBimestres();
+      showToast(`✅ Calendário redividido em ${r.qtd} ${r.plural.toLowerCase()}.`);
+      logger.audit({ module: 'calendario', action: 'redividir-regime', message: `Calendário ${cal.ano} redividido em ${regimeAtual()}` });
+    }
+  );
 }
 
 function _calEventos2026() {
@@ -14125,11 +14380,11 @@ function renderCalendario() {
       </tr>`;
     }).join('');
     bimDiv.innerHTML = `
-      <div class="card-title" style="margin-bottom:10px;">📊 Resumo dos Bimestres — ${ano}</div>
+      <div class="card-title" style="margin-bottom:10px;">📊 Resumo dos ${regimeInfo().plural} — ${ano}</div>
       <div style="overflow-x:auto;">
         <table class="cal-bim-table">
           <thead>
-            <tr><th>Bimestre</th><th>Início</th><th>Fim</th><th style="text-align:center;">Dias Letivos</th></tr>
+            <tr><th>${rotuloPeriodo()}</th><th>Início</th><th>Fim</th><th style="text-align:center;">Dias Letivos</th></tr>
           </thead>
           <tbody>
             ${rows}
@@ -14293,6 +14548,27 @@ function calAbrirBimestres() {
     `).join('');
   }
 
+  // Se o regime mudou depois que o calendario foi criado, oferece a redivisao
+  const aviso = document.getElementById('cal-bim-aviso-regime');
+  if (aviso) {
+    const r    = regimeInfo();
+    const bate = (db.calendarioEscolar.bimestres || []).length === r.qtd;
+    if (bate) {
+      aviso.style.display = 'none';
+      aviso.innerHTML = '';
+    } else {
+      aviso.style.display = '';
+      aviso.innerHTML = `<div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:12px 14px;">
+          <strong style="color:#92400e;font-size:13px;">⚠️ O ano letivo está configurado como ${escapeHtml(r.rotulo.toLowerCase())}</strong>
+          <div style="font-size:12.5px;color:#78350f;margin:5px 0 10px;">
+            Este calendário ainda tem ${(db.calendarioEscolar.bimestres || []).length} período(s).
+            Redividir cria os ${r.qtd} ${escapeHtml(r.plural.toLowerCase())} com datas sugeridas — feriados e demais eventos são mantidos.
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="calRedividirPorRegime()">🔄 Redividir em ${r.qtd} ${escapeHtml(r.plural.toLowerCase())}</button>
+        </div>`;
+    }
+  }
+
   form.style.display = '';
   form.scrollIntoView({ behavior: 'smooth', block: 'start' });
   document.getElementById('cal-form-evento').style.display = 'none';
@@ -14322,7 +14598,7 @@ function calSalvarBimestres() {
   save();
   calFecharBimestres();
   renderCalendario();
-  showToast('✅ Bimestres salvos!');
+  showToast('✅ ' + regimeInfo().plural + ' salvos!');
 }
 
 function imprimirCalendario() {
@@ -14478,7 +14754,7 @@ function imprimirCalendario() {
   const bimHtml = `
     <div class="bim-section">
       <table class="bim-table">
-        <thead><tr><th>Bimestre</th><th>Início</th><th>Fim</th><th>Dias Letivos</th></tr></thead>
+        <thead><tr><th>${rotuloPeriodo()}</th><th>Início</th><th>Fim</th><th>Dias Letivos</th></tr></thead>
         <tbody>
           ${bimRows}
           <tr class="total-row"><td colspan="3">TOTAL DE DIAS LETIVOS</td><td class="num">${totalLetivos}</td></tr>
