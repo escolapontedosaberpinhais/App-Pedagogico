@@ -1232,6 +1232,9 @@
     <button class="dnav-btn" id="dnav-impressao" onclick="drawerNav('impressao')" style="display:none;">
       <span class="di">&#x1F5A8;</span> Impress&atilde;o
     </button>
+    <button class="dnav-btn" id="dnav-copias" onclick="drawerNav('copias')" style="display:none;">
+      <span class="di">&#x1F4C4;</span> Solicita&ccedil;&otilde;es de c&oacute;pia
+    </button>
 
     <!-- 📚 Pedagógico -->
     <div class="dnav-group-label">📚 Pedag&oacute;gico</div>
@@ -1246,6 +1249,9 @@
     </button>
     <button class="dnav-btn" id="dnav-formacao" onclick="drawerNav('formacao')" style="display:none;">
       <span class="di">&#x1F393;</span> Forma&ccedil;&atilde;o
+    </button>
+    <button class="dnav-btn" id="dnav-observacoes" onclick="drawerNav('observacoes')" style="display:none;">
+      <span class="di">&#x1F50D;</span> Observa&ccedil;&atilde;o em sala
     </button>
 
     <!-- ⏰ Docentes -->
@@ -1287,6 +1293,7 @@
   <button id="nav-dashboard" onclick="showTab('dashboard')" data-tab="dashboard" style="display:none;">🏠 Dashboard</button>
   <button onclick="showTab('cadastro')" data-tab="cadastro" id="nav-cadastro">📝 Cadastro</button>
   <button id="nav-impressao" onclick="showTab('impressao')" data-tab="impressao" style="display:none;">🖨️ Impressão</button>
+  <button id="nav-copias" onclick="showTab('copias')" data-tab="copias" style="display:none;">📄 Solicitações de cópia</button>
   <button id="nav-planejamento" onclick="showTab('planejamento')" data-tab="planejamento">📋 Planejamentos</button>
   <button id="nav-pareceres" onclick="showTab('pareceres')" data-tab="pareceres">✨ Pareceres IA</button>
   <button id="nav-avaliacoes" onclick="showTab('avaliacoes')" data-tab="avaliacoes">📊 Avaliações</button>
@@ -1297,6 +1304,7 @@
   <button id="nav-auditoria" onclick="showTab('auditoria')" data-tab="auditoria" style="display:none;">📜 Auditoria</button>
   <button id="nav-ocorrencias" onclick="showTab('ocorrencias')" data-tab="ocorrencias" style="display:none;">📋 Ocorrências</button>
   <button id="nav-formacao" onclick="showTab('formacao')" data-tab="formacao" style="display:none;">🎓 Formação</button>
+  <button id="nav-observacoes" onclick="showTab('observacoes')" data-tab="observacoes" style="display:none;">🔍 Observação em sala</button>
   <button id="nav-calendario" onclick="showTab('calendario')" data-tab="calendario" style="display:none;">📅 Calendário</button>
 </nav>
 
@@ -1319,6 +1327,7 @@
     <div class="nav-grp-drop" id="navdrop-gestao">
       <button data-tab="cadastro" onclick="showTab('cadastro');closeNavGrp()">📝 Cadastro</button>
       <button data-tab="impressao" onclick="showTab('impressao');closeNavGrp()">🖨️ Impressão</button>
+      <button data-tab="copias" onclick="showTab('copias');closeNavGrp()">📄 Solicitações de cópia</button>
     </div>
   </div>
   <!-- 📚 Pedagógico -->
@@ -1331,6 +1340,7 @@
       <button data-tab="avaliacoes" onclick="showTab('avaliacoes');closeNavGrp()">📊 Avaliações</button>
       <button data-tab="correcao" onclick="showTab('correcao');closeNavGrp()">✅ Correção</button>
       <button data-tab="formacao" onclick="showTab('formacao');closeNavGrp()">🎓 Formação</button>
+      <button data-tab="observacoes" onclick="showTab('observacoes');closeNavGrp()">🔍 Observação em sala</button>
     </div>
   </div>
   <!-- ⏰ Docentes -->
@@ -1729,7 +1739,7 @@ function _listarPlanejamentos() {
       <button class="btn btn-secondary btn-sm" id="btn-testar" onclick="testarConexao()" style="display:none;">🧪 Testar conexão</button>
     </div>
     <div id="drive-folder-info" style="margin-top:10px;font-size:13px;color:var(--gray-600);display:none;">
-      📁 Estrutura no Drive: <code>Escola Ponte do Saber / {Turma} / {Bimestre} / Pareceres|Planejamentos</code>
+      📁 Estrutura no Drive: <code>Escola Ponte do Saber / {Turma} / {Período} / Pareceres|Planejamentos</code>
     </div>
 
     <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--gray-200);">
@@ -1803,6 +1813,83 @@ function _listarPlanejamentos() {
   </div>
 
   <!-- BACKUP E RESTAURAÇÃO -->
+  <div class="card" id="card-regime" style="display:none;">
+    <div class="card-title">🗓️ Divisão do ano letivo</div>
+    <p style="font-size:13px;color:var(--gray-600);margin-bottom:14px;">
+      Define como o ano é dividido em <strong>todo o sistema</strong>: planejamentos, pareceres,
+      avaliações, calendário escolar, filtros e prazos de entrega passam a usar o regime escolhido.
+      Pode ser alterado a qualquer momento.
+    </p>
+
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Regime</label>
+        <select id="cfg-regime">
+          <option value="bimestral">Bimestral — 4 períodos</option>
+          <option value="trimestral">Trimestral — 3 períodos</option>
+          <option value="semestral">Semestral — 2 períodos</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="cfg-regime-previa" style="margin:10px 0 14px;font-size:13px;"></div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="salvarRegimePeriodos()">💾 Salvar regime</button>
+    </div>
+    <div id="cfg-regime-status" style="margin-top:10px;font-size:13px;"></div>
+  </div>
+
+  <div class="card" id="card-cotas" style="display:none;">
+    <div class="card-title">🖨️ Cota de cópias</div>
+    <p style="font-size:13px;color:var(--gray-600);margin-bottom:14px;">
+      Define quantas páginas cada pessoa pode mandar imprimir por mês. A secretaria vê o quanto
+      já foi usado na hora de lançar a solicitação, e a barra de consumo passa a medir contra a cota.
+      Deixe <strong>0</strong> para não limitar.
+    </p>
+
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Cota mensal padrão (páginas)</label>
+        <input type="number" id="cfg-cota-padrao" min="0" step="10" placeholder="0 = sem limite" />
+      </div>
+      <div class="form-group">
+        <label>Ao ultrapassar a cota</label>
+        <select id="cfg-cota-acao">
+          <option value="avisar">Avisar, mas deixar registrar</option>
+          <option value="bloquear">Bloquear o lançamento</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div style="font-size:13px;font-weight:600;color:var(--gray-700);margin-bottom:4px;">Cota individual</div>
+    <div style="font-size:12.5px;color:var(--gray-500);margin-bottom:12px;">
+      Em branco, a pessoa usa a cota padrão. Preencha só quem precisa de um teto diferente —
+      e use <strong>0</strong> para deixar alguém sem limite nenhum, mesmo havendo cota padrão.
+    </div>
+    <div id="cfg-cota-lista"></div>
+
+    <div class="btn-row" style="margin-top:14px;">
+      <button class="btn btn-primary" onclick="salvarCotasCopias()">💾 Salvar cotas</button>
+    </div>
+    <div id="cfg-cota-status" style="margin-top:10px;font-size:13px;"></div>
+  </div>
+
+  <div class="card" id="card-vinculo-prof" style="display:none;">
+    <div class="card-title">🔗 Vincular professoras aos registros</div>
+    <p style="font-size:13px;color:var(--gray-600);margin-bottom:14px;">
+      Registros antigos guardam a professora apenas como texto digitado. Quando o nome foi escrito
+      de formas diferentes, a mesma pessoa aparece duas vezes nos relatórios. Esta ferramenta liga
+      cada registro ao cadastro de usuário e padroniza a grafia do nome.
+    </p>
+    <div class="btn-row" style="margin-bottom:12px;">
+      <button class="btn btn-secondary" onclick="analisarVinculoProf()">🔎 Analisar</button>
+      <button class="btn btn-primary" id="btn-aplicar-vinculo" onclick="aplicarVinculoProf()" style="display:none;">🔗 Aplicar vínculos</button>
+    </div>
+    <div id="vinculo-prof-resultado" style="font-size:13px;"></div>
+  </div>
+
   <div class="card" id="card-backup" style="display:none;">
     <div class="card-title">💾 Backup e Restauração</div>
     <p style="font-size:13px;color:var(--gray-600);margin-bottom:16px;">
@@ -1888,25 +1975,8 @@ function _listarPlanejamentos() {
   <div id="cad-entregas-section">
     <div class="card" style="margin-top:16px;">
       <div class="card-title">📅 Calendário de Entregas de Pareceres</div>
-      <p style="font-size:13px;color:var(--gray-400);margin-bottom:12px;">Defina a data de entrega de cada bimestre. Ela aparecerá automaticamente na impressão dos pareceres.</p>
-      <div class="form-grid">
-        <div class="form-group">
-          <label>1º Bimestre</label>
-          <input type="date" id="entrega-b1" />
-        </div>
-        <div class="form-group">
-          <label>2º Bimestre</label>
-          <input type="date" id="entrega-b2" />
-        </div>
-        <div class="form-group">
-          <label>3º Bimestre</label>
-          <input type="date" id="entrega-b3" />
-        </div>
-        <div class="form-group">
-          <label>4º Bimestre</label>
-          <input type="date" id="entrega-b4" />
-        </div>
-      </div>
+      <p style="font-size:13px;color:var(--gray-400);margin-bottom:12px;">Defina a data de entrega de cada período. Ela aparecerá automaticamente na impressão dos pareceres.</p>
+      <div class="form-grid" id="entregas-grid"></div>
       <div class="btn-row">
         <button class="btn btn-primary" onclick="salvarEntregasPareceres()">💾 Salvar datas</button>
       </div>
@@ -1969,7 +2039,7 @@ function _listarPlanejamentos() {
         <select id="plarq-turma"></select>
       </div>
       <div class="form-group">
-        <label>Bimestre *</label>
+        <label data-rotulo-periodo="*">Bimestre *</label>
         <select id="plarq-bimestre">
           <option>1º Bimestre</option>
           <option>2º Bimestre</option>
@@ -2017,7 +2087,7 @@ function _listarPlanejamentos() {
           <input type="date" id="pl-data" />
         </div>
         <div class="form-group">
-          <label>Bimestre *</label>
+          <label data-rotulo-periodo="*">Bimestre *</label>
           <select id="pl-bimestre">
             <option>1º Bimestre</option>
             <option>2º Bimestre</option>
@@ -2106,7 +2176,7 @@ function _listarPlanejamentos() {
           <div style="font-size:11px;color:var(--gray-400);margin-top:3px;">Selecione qualquer dia — o sistema usa a semana inteira (Seg–Sex)</div>
         </div>
         <div class="form-group">
-          <label>Bimestre *</label>
+          <label data-rotulo-periodo="*">Bimestre *</label>
           <select id="pls-bimestre">
             <option>1º Bimestre</option>
             <option>2º Bimestre</option>
@@ -2307,7 +2377,7 @@ function _listarPlanejamentos() {
         <select id="par-turma" onchange="populateAlunosParecer()"></select>
       </div>
       <div class="form-group">
-        <label>Bimestre</label>
+        <label data-rotulo-periodo="">Bimestre</label>
         <select id="par-periodo">
           <option>1º Bimestre</option>
           <option>2º Bimestre</option>
@@ -2413,7 +2483,7 @@ function _listarPlanejamentos() {
         <select id="av-turma" onchange="renderTabelaAvaliacoes()"></select>
       </div>
       <div class="form-group">
-        <label>Período / Bimestre</label>
+        <label>Período / <span data-rotulo-periodo="">Bimestre</span></label>
         <select id="av-periodo" onchange="renderTabelaAvaliacoes()">
           <option>1º Semestre</option>
           <option>2º Semestre</option>
@@ -2969,6 +3039,174 @@ function _listarPlanejamentos() {
 </div>
 
 <!-- ===================== FORMAÇÃO PEDAGÓGICA ===================== -->
+<!-- ===================== SOLICITAÇÕES DE CÓPIA ===================== -->
+<div id="tab-copias" class="section">
+
+  <div class="section-header">
+    <h2>📄 Solicitações de Cópia</h2>
+    <button class="btn btn-secondary" onclick="exportarCopias()">⬇️ Exportar .txt</button>
+  </div>
+
+  <!-- Lançamento rápido -->
+  <div class="card">
+    <div class="card-title" style="margin-bottom:4px;">⚡ Lançar solicitação</div>
+    <div style="font-size:13px;color:var(--gray-600);margin-bottom:14px;">
+      Registre o que foi pedido pelo WhatsApp assim que imprimir. O solicitante fica selecionado
+      para o próximo lançamento — dá para registrar vários seguidos.
+    </div>
+
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Solicitante *</label>
+        <select id="cop-prof" onchange="copProfMudou()"></select>
+      </div>
+      <div class="form-group">
+        <label>Turma</label>
+        <select id="cop-turma"></select>
+      </div>
+      <div class="form-group">
+        <label>Data</label>
+        <input type="date" id="cop-data" onchange="copAtualizarCota()" />
+      </div>
+      <div class="form-group full">
+        <label>O que foi impresso *</label>
+        <input type="text" id="cop-desc" placeholder="Ex: atividade de coordenação motora"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('cop-paginas').focus();}" />
+      </div>
+      <div class="form-group">
+        <label>Páginas por cópia *</label>
+        <input type="number" id="cop-paginas" min="1" step="1" value="1" oninput="copRecalcular()" />
+      </div>
+      <div class="form-group">
+        <label>Quantidade de cópias *</label>
+        <input type="number" id="cop-copias" min="1" step="1" value="1" oninput="copRecalcular()"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();salvarCopia();}" />
+      </div>
+      <div class="form-group">
+        <label>Origem</label>
+        <select id="cop-origem">
+          <option value="externa">Material de fora (internet)</option>
+          <option value="sistema">Banco de atividades do sistema</option>
+          <option value="outro">Outro</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="background:var(--green-light);border:1.5px solid var(--green-mid);border-radius:8px;
+                padding:12px 16px;margin:6px 0 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <span style="font-size:13px;color:var(--green-dark);font-weight:600;">Total desta solicitação</span>
+      <span id="cop-total" style="font-size:22px;font-weight:700;color:var(--green-dark);font-variant-numeric:tabular-nums;">1 página</span>
+    </div>
+
+    <div id="cop-cota-meter" style="display:none;margin:0 0 14px;"></div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="salvarCopia()">💾 Registrar</button>
+      <button class="btn btn-secondary" onclick="limparFormCopia()">🗑️ Limpar</button>
+    </div>
+    <div id="cop-status" style="margin-top:10px;font-size:13px;"></div>
+  </div>
+
+  <!-- Consumo do mês -->
+  <div class="card">
+    <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <span>📊 Consumo por solicitante</span>
+      <input type="month" id="cop-mes" onchange="renderCopias()" style="font-size:13px;max-width:180px;">
+    </div>
+    <div id="cop-consumo"></div>
+  </div>
+
+  <!-- Histórico -->
+  <div class="card">
+    <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <span>🗂️ Lançamentos do mês</span>
+      <select id="cop-filtro-prof" onchange="renderCopias()" style="max-width:260px;font-size:13px;">
+        <option value="">Todos os solicitantes</option>
+      </select>
+    </div>
+    <div id="cop-lista" class="item-list"></div>
+  </div>
+
+</div>
+
+<!-- ===================== OBSERVAÇÃO EM SALA ===================== -->
+<div id="tab-observacoes" class="section">
+
+  <div class="section-header">
+    <h2>🔍 Observação em Sala</h2>
+    <button class="btn btn-secondary" onclick="exportarObservacoes()">⬇️ Exportar .txt</button>
+  </div>
+
+  <!-- Formulário de registro -->
+  <div class="card">
+    <div class="card-title" style="margin-bottom:4px;">📝 Nova observação</div>
+    <div style="font-size:13px;color:var(--gray-600);margin-bottom:16px;">
+      Registro rápido para acompanhamento da professora. Ao salvar, o sistema calcula a média,
+      guarda no histórico, atualiza o gráfico de evolução e monta a devolutiva.
+    </div>
+
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Professora *</label>
+        <select id="obs-prof"></select>
+      </div>
+      <div class="form-group">
+        <label>Turma *</label>
+        <select id="obs-turma"></select>
+      </div>
+      <div class="form-group">
+        <label>Data da observação *</label>
+        <input type="date" id="obs-data" />
+      </div>
+      <div class="form-group">
+        <label>Próximo acompanhamento</label>
+        <input type="date" id="obs-proximo" />
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div id="obs-criterios"></div>
+
+    <div class="divider"></div>
+
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Pontos fortes</label>
+        <textarea id="obs-fortes" placeholder="Descreva os pontos fortes observados…"></textarea>
+      </div>
+      <div class="form-group full">
+        <label>Pontos de melhoria</label>
+        <textarea id="obs-melhoria" placeholder="Descreva os pontos de melhoria…"></textarea>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="salvarObservacao()">💾 Salvar observação</button>
+      <button class="btn btn-secondary" onclick="limparFormObservacao()">🗑️ Limpar</button>
+    </div>
+    <div id="obs-form-status" style="margin-top:10px;font-size:13px;"></div>
+  </div>
+
+  <!-- Acompanhamento por professora -->
+  <div class="card">
+    <div class="card-title">📈 Acompanhamento por professora</div>
+    <div id="obs-panorama"></div>
+  </div>
+
+  <!-- Histórico -->
+  <div class="card">
+    <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <span>🗂️ Histórico de observações</span>
+      <select id="obs-filtro-prof" onchange="renderObservacoes()" style="max-width:260px;font-size:13px;">
+        <option value="">Todas as professoras</option>
+      </select>
+    </div>
+    <div id="obs-lista" class="item-list"></div>
+  </div>
+
+</div>
+
 <div id="tab-formacao" class="section">
   <div class="section-header">
     <h2>🎓 Agenda de Formação Pedagógica</h2>
@@ -3222,7 +3460,7 @@ function _listarPlanejamentos() {
       </div>
       <div style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap;">
         <button class="btn btn-secondary btn-sm" onclick="calAbrirFormEvento(null)">➕ Novo Evento</button>
-        <button class="btn btn-secondary btn-sm" onclick="calAbrirBimestres()">📊 Bimestres</button>
+        <button class="btn btn-secondary btn-sm" onclick="calAbrirBimestres()">📊 <span data-rotulo-periodo="plural">Bimestres</span></button>
         <button class="btn btn-primary btn-sm" onclick="imprimirCalendario()">🖨️ Imprimir</button>
       </div>
     </div>
@@ -3240,8 +3478,8 @@ function _listarPlanejamentos() {
           <option value="formacao">🟣 Formação</option>
           <option value="colonia">🔵 Colônia de Férias</option>
           <option value="vox_dei">🌊 Vox Dei</option>
-          <option value="inicio_bimestre">🟢 Início de Bimestre</option>
-          <option value="fim_bimestre">🟤 Fim de Bimestre</option>
+          <option value="inicio_bimestre">🟢 Início de Período</option>
+          <option value="fim_bimestre">🟤 Fim de Período</option>
           <option value="entrega_parecer">🟡 Entrega de Pareceres</option>
           <option value="reuniao_pais">💜 Reunião de Pais</option>
           <option value="comemoracao">🩵 Comemoração</option>
@@ -3277,12 +3515,12 @@ function _listarPlanejamentos() {
 
   <!-- Form: Configurar Bimestres -->
   <div id="cal-form-bimestres" class="card cal-no-print" style="display:none;margin-bottom:14px;border:2px solid var(--green);">
-    <div class="card-title">📊 Configurar Bimestres</div>
+    <div class="card-title">📊 Configurar <span data-rotulo-periodo="plural">Bimestres</span></div>
     <div style="overflow-x:auto;margin-top:10px;">
       <table style="width:100%;border-collapse:collapse;font-size:13px;" id="cal-bim-form-table">
         <thead>
           <tr>
-            <th style="padding:8px;background:var(--green-light);color:var(--green-dark);text-align:left;">Bimestre</th>
+            <th style="padding:8px;background:var(--green-light);color:var(--green-dark);text-align:left;"><span data-rotulo-periodo="">Bimestre</span></th>
             <th style="padding:8px;background:var(--green-light);color:var(--green-dark);">Início</th>
             <th style="padding:8px;background:var(--green-light);color:var(--green-dark);">Fim</th>
           </tr>
@@ -3290,9 +3528,10 @@ function _listarPlanejamentos() {
         <tbody id="cal-bim-tbody"></tbody>
       </table>
     </div>
-    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">
+    <div id="cal-bim-aviso-regime" style="display:none;margin-top:12px;"></div>
+    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap;">
       <button class="btn btn-secondary btn-sm" onclick="calFecharBimestres()">Cancelar</button>
-      <button class="btn btn-primary btn-sm" onclick="calSalvarBimestres()">💾 Salvar Bimestres</button>
+      <button class="btn btn-primary btn-sm" onclick="calSalvarBimestres()">💾 Salvar <span data-rotulo-periodo="plural">Bimestres</span></button>
     </div>
   </div>
 
@@ -3818,7 +4057,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.9.40';
+const APP_VERSION = 'v2.13.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -3858,6 +4097,10 @@ const SyncStatus = (() => {
     saved:   { cls: 'sync-saved',  icon: '✓',   spin: false, label: 'Salvo',      ttl: 3000 },
     error:   { cls: 'sync-error',  icon: '⚠️',  spin: false, label: 'Erro ao salvar', ttl: 6000 },
     offline: { cls: 'sync-offline',icon: '📶',  spin: false, label: 'Offline',    ttl: 0    },
+    // Fica FIXO na tela enquanto houver dados criados neste aparelho que ainda
+    // não chegaram ao servidor. Antes isso era silencioso e a professora
+    // achava que tinha salvo (o item some quando o servidor responde).
+    pendente:{ cls: 'sync-error',  icon: '⚠️',  spin: false, label: 'NÃO enviado ao servidor', ttl: 0 },
   };
 
   function _set(state) {
@@ -3889,6 +4132,7 @@ const SyncStatus = (() => {
     saved:   () => _set('saved'),
     error:   () => _set('error'),
     offline: () => _set('offline'),
+    pendente:() => _set('pendente'),
     clear:   () => { clearTimeout(_timer); const c = _chip(); if (c) c.classList.remove('visible'); },
   };
 })();
@@ -3951,7 +4195,7 @@ async function migrarImagensPlanej() {
 async function loadFromFirestore() {
   const _t = logger.timer('firestore', 'load-initial');
   try {
-    const [rT, rA, rP, rPar, rAv, rU, rCfg, rNot, rHa, rRot, rAtiv, rDSA, rEP, rOc, rFm, rCal, rChat] = await Promise.all([
+    const [rT, rA, rP, rPar, rAv, rU, rCfg, rNot, rHa, rRot, rAtiv, rDSA, rEP, rOc, rFm, rCal, rChat, rObs, rImp] = await Promise.all([
       FSREF('turmas').get(), FSREF('alunos').get(),
       FSREF('planejamentos').get(), FSREF('pareceres').get(),
       FSREF('avaliacoes').get(), FSREF('usuarios').get(),
@@ -3960,6 +4204,7 @@ async function loadFromFirestore() {
       FSREF('atividades').get(), FSREF('diasSemAula').get(),
       FSREF('entregasPareceres').get(), FSREF('ocorrencias').get(),
       FSREF('agendaFormacao').get(), FSREF('calendarioEscolar').get(),
+      FSREF('observacoes').get(), FSREF('impressoes').get(),
       FSREF('chatGeral').get(),
     ]);
     if (rT.exists)   db.turmas        = rT.data().data   ?? [];
@@ -4006,6 +4251,10 @@ async function loadFromFirestore() {
       }
     }
     _ocorrenciasCarregadas = true;
+    if (rObs && rObs.exists) db.observacoes = rObs.data().data ?? [];
+    _observacoesCarregadas = true;
+    if (rImp && rImp.exists) db.impressoes = rImp.data().data ?? [];
+    _impressoesCarregadas = true;
     if (rFm.exists) {
       db.agendaFormacao = rFm.data().data ?? [];
     } else {
@@ -4034,6 +4283,14 @@ async function loadFromFirestore() {
     _chatGeralCarregado = true;
     if (rCfg.exists) {
       db.apiKey = rCfg.data().apiKey ?? '';
+      if (rCfg.data().regimePeriodos) {
+        db.regimePeriodos = rCfg.data().regimePeriodos;
+        LS.set('ps_regime_periodos', db.regimePeriodos);
+      }
+      if (rCfg.data().cotasCopias) {
+        db.cotasCopias = rCfg.data().cotasCopias;
+        LS.set('ps_cotas_copias', db.cotasCopias);
+      }
       if (rCfg.data().model) localStorage.setItem('ps_gemini_model', rCfg.data().model);
       // Sincroniza URL do Apps Script do Firestore → todos os dispositivos usam a mesma URL
       if (rCfg.data().appsScriptUrl) {
@@ -4110,6 +4367,53 @@ async function loadFromFirestore() {
 // Referência do listener de planejamentos — permite desligar/religar durante exclusão
 let _unsubPlanejamentos = null;
 
+// ── SINCRONIZAÇÃO PENDENTE ───────────────────────────────────────────────────
+// Antes, quando o carregamento inicial do servidor falhava (rede instável), o
+// app seguia funcionando com os dados do localStorage e TODA gravação era
+// descartada em silêncio. A professora criava o planejamento, via na lista e
+// recebia "salvo!" — mas nada chegava ao servidor. Quando o listener conectava,
+// a lista do servidor sobrescrevia a local e o item "sumia". A pedagoga nunca
+// via nada. Agora: nada é descartado, o aviso é visível e há retentativa.
+let _pendenteSync     = false;      // há alterações locais não confirmadas no servidor
+let _planejPendentes  = new Set();  // ids criados neste aparelho ainda não confirmados
+let _parecerPendentes = new Set();
+let _flushTimer       = null;
+
+function marcarPendencia(motivo) {
+  _pendenteSync = true;
+  try { SyncStatus.pendente(); } catch(e) {}
+  logger.warn({ module: 'firestore', action: 'save-pendente', message: motivo || 'Gravação não confirmada no servidor' });
+  agendarFlushSync();
+}
+
+// Tenta reenviar periodicamente enquanto houver pendências
+function agendarFlushSync() {
+  if (_flushTimer) return;
+  _flushTimer = setInterval(() => {
+    if (!_pendenteSync) { clearInterval(_flushTimer); _flushTimer = null; return; }
+    if (_firestoreOk && navigator.onLine) saveToFirestore();
+  }, 15000);
+}
+
+// Ao recuperar a conexão, tenta enviar imediatamente
+window.addEventListener('online', () => {
+  if (_pendenteSync && _firestoreOk) saveToFirestore();
+});
+
+// Avisa a usuária quando o item ficou só no aparelho (não some mais em silêncio)
+function avisarSePendente() {
+  if (_pendenteSync || !_firestoreOk || !navigator.onLine) {
+    showToast('⚠️ Salvo NESTE APARELHO, mas ainda não enviado ao servidor. Mantenha o app aberto com internet — o envio é automático.', 10000);
+    return true;
+  }
+  return false;
+}
+
+// Evita que o app feche/recarregue com dados ainda não enviados sem avisar
+window.addEventListener('beforeunload', (e) => {
+  if (_pendenteSync) { e.preventDefault(); e.returnValue = ''; return ''; }
+});
+
 // IDs excluídos em memória — carregados do Firestore no init e atualizados a cada exclusão.
 // Garante que mesmo que um dispositivo antigo regrave a lista, os excluídos são filtrados.
 let _planejDeletedIds = new Set();
@@ -4168,7 +4472,7 @@ async function registrarParecerDeletedIds(ids) {
 // usuária (que ainda não chegou no nosso snapshot) não é apagado quando
 // salvamos. Itens excluídos (tombstone) nunca são ressuscitados.
 async function savePareceresMerged() {
-  if (!navigator.onLine) return;
+  if (!navigator.onLine) { marcarPendencia('Sem conexão — pareceres não enviados'); return; }
   try {
     await fstore.runTransaction(async (tx) => {
       const ref = FSREF('pareceres');
@@ -4191,9 +4495,17 @@ async function savePareceresMerged() {
       }
       tx.set(ref, { data: merged });
     });
+    // Confirmado no servidor: os itens locais deixam de ser "pendentes"
+    _parecerPendentes.clear();
+    if (_planejPendentes.size === 0) { _pendenteSync = false; SyncStatus.saved(); }
   } catch(e) {
     // fallback: gravação simples (comportamento antigo) para não perder o save
-    try { await FSREF('pareceres').set({ data: db.pareceres }); } catch(_) {}
+    try {
+      await FSREF('pareceres').set({ data: db.pareceres });
+      _parecerPendentes.clear();
+    } catch(_) {
+      marcarPendencia('Pareceres não enviados ao servidor — será reenviado');
+    }
     logger.warn({ module: 'firestore', action: 'save-pareceres-merge', message: 'Merge transacional de pareceres falhou; usado overwrite', error: e });
   }
 }
@@ -4203,7 +4515,7 @@ async function savePareceresMerged() {
 // ao mesmo tempo, a última gravação apaga o planejamento recém-criado pela outra
 // (era a causa de planejamentos "sumindo"). Itens excluídos nunca ressuscitam.
 async function savePlanejamentosMerged() {
-  if (!navigator.onLine) return;
+  if (!navigator.onLine) { marcarPendencia('Sem conexão — planejamentos não enviados'); return; }
   try {
     await fstore.runTransaction(async (tx) => {
       const ref = FSREF('planejamentos');
@@ -4226,9 +4538,17 @@ async function savePlanejamentosMerged() {
       }
       tx.set(ref, { data: merged });
     });
+    // Confirmado no servidor: os itens locais deixam de ser "pendentes"
+    _planejPendentes.clear();
+    if (_parecerPendentes.size === 0) { _pendenteSync = false; SyncStatus.saved(); }
   } catch(e) {
     // fallback: gravação simples para não perder o save
-    try { await FSREF('planejamentos').set({ data: db.planejamentos }); } catch(_) {}
+    try {
+      await FSREF('planejamentos').set({ data: db.planejamentos });
+      _planejPendentes.clear();
+    } catch(_) {
+      marcarPendencia('Planejamentos não enviados ao servidor — será reenviado');
+    }
     logger.warn({ module: 'firestore', action: 'save-planejamentos-merge', message: 'Merge transacional de planejamentos falhou; usado overwrite', error: e });
   }
 }
@@ -4247,6 +4567,21 @@ function resubscribePlanejamentos() {
         FSREF('planejamentos').set({ data }).catch(() => {});
       }
     }
+    // PROTEÇÃO: itens criados neste aparelho que ainda não chegaram ao servidor
+    // NÃO podem ser apagados da tela pela resposta do servidor. Antes, era aqui
+    // que o planejamento recém-criado "sumia" diante da professora.
+    if (_planejPendentes.size > 0) {
+      const idsServidor = new Set(data.map(p => String(p.id)));
+      const naoEnviados = db.planejamentos.filter(p =>
+        _planejPendentes.has(String(p.id)) && !idsServidor.has(String(p.id))
+      );
+      if (naoEnviados.length) {
+        data = [...naoEnviados, ...data];
+        marcarPendencia(naoEnviados.length + ' planejamento(s) ainda não enviados — reenviando');
+      } else {
+        _planejPendentes.clear();
+      }
+    }
     db.planejamentos = data;
     LS.set('ps_planejamentos', data);
     refreshCurrentView();
@@ -4259,10 +4594,11 @@ function saveToFirestore() {
   // fallback do localStorage, possivelmente vazio) sobrescreveria TODAS as
   // coleções do servidor com arrays vazios — perda de dados global.
   if (!_firestoreOk) {
-    logger.warn({ module: 'firestore', action: 'save-bloqueado', message: 'Gravação bloqueada: dados ainda não carregados do servidor' });
+    // NÃO descarta em silêncio: marca pendência, avisa na tela e reenvia depois.
+    marcarPendencia('Gravação adiada: dados ainda não carregados do servidor');
     return;
   }
-  if (!navigator.onLine) { SyncStatus.offline(); return; }
+  if (!navigator.onLine) { marcarPendencia('Sem conexão — gravação adiada'); return; }
   SyncStatus.saving();
   const batch = fstore.batch();
   batch.set(FSREF('turmas'),        { data: db.turmas });
@@ -4278,15 +4614,23 @@ function saveToFirestore() {
   if (_rotinasCarregadas)     batch.set(FSREF('rotinas'),     { data: db.rotinas });
   if (_atividadesCarregadas)  batch.set(FSREF('atividades'),  { data: db.atividades });
   if (_ocorrenciasCarregadas)   batch.set(FSREF('ocorrencias'),    { data: db.ocorrencias });
+  if (_observacoesCarregadas)   batch.set(FSREF('observacoes'),    { data: db.observacoes });
+  if (_impressoesCarregadas)    batch.set(FSREF('impressoes'),     { data: db.impressoes });
   if (_agendaFormacaoCarregada) batch.set(FSREF('agendaFormacao'), { data: db.agendaFormacao });
   if (_calendarioEscolarCarregado && db.calendarioEscolar) batch.set(FSREF('calendarioEscolar'), { data: db.calendarioEscolar });
   batch.set(FSREF('diasSemAula'), { data: db.diasSemAula });
   batch.set(FSREF('entregasPareceres'), { data: db.entregasPareceres });
   batch.commit()
-    .then(() => SyncStatus.saved())
+    .then(() => {
+      // Só limpa a pendência se planejamentos/pareceres também confirmaram
+      if (_planejPendentes.size === 0 && _parecerPendentes.size === 0) {
+        _pendenteSync = false;
+        SyncStatus.saved();
+      }
+    })
     .catch(e => {
-      SyncStatus.error();
       logger.error({ module: 'firestore', action: 'batch-commit', message: 'Erro ao commitar batch no Firestore', error: e });
+      marcarPendencia('Falha ao gravar no servidor — será reenviado');
     });
 }
 
@@ -4304,8 +4648,13 @@ function setupSync() {
 
     // Recebemos dados autoritativos do servidor via snapshot — mesmo que o
     // load inicial tenha falhado, agora é seguro voltar a gravar.
+    const _eraBloqueado = !_firestoreOk;
     _firestoreOk = true;
     if (field === 'usuarios') _usuariosCarregado = true;
+
+    // O servidor voltou a responder depois de um período bloqueado: envia
+    // agora tudo o que foi criado offline em vez de deixar só no aparelho.
+    if (_eraBloqueado && _pendenteSync) setTimeout(() => saveToFirestore(), 500);
 
     // O servidor é a fonte da verdade. Não há mais "anti-rollback" que regrava
     // dados antigos por cima — esse mecanismo ressuscitava itens excluídos.
@@ -4348,6 +4697,20 @@ function setupSync() {
       data = data.filter(p => !_parecerDeletedIds.has(String(p.id)));
       if (data.length < antes) FSREF('pareceres').set({ data }).catch(() => {});
     }
+    // Mesma proteção dos planejamentos: não apaga da tela o parecer criado
+    // neste aparelho que ainda não foi confirmado pelo servidor.
+    if (_parecerPendentes.size > 0) {
+      const idsServidor = new Set(data.map(p => String(p.id)));
+      const naoEnviados = db.pareceres.filter(p =>
+        _parecerPendentes.has(String(p.id)) && !idsServidor.has(String(p.id))
+      );
+      if (naoEnviados.length) {
+        data = [...naoEnviados, ...data];
+        marcarPendencia(naoEnviados.length + ' parecer(es) ainda não enviados — reenviando');
+      } else {
+        _parecerPendentes.clear();
+      }
+    }
     db.pareceres = data;
     LS.set('ps_pareceres', data);
     refreshCurrentView();
@@ -4383,6 +4746,22 @@ function setupSync() {
       db.ocorrencias = doc.data().data ?? [];
       _ocorrenciasCarregadas = true;
       LS.set('ps_ocorrencias', db.ocorrencias);
+      refreshCurrentView();
+    }
+  });
+  FSREF('impressoes').onSnapshot((doc) => {
+    if (doc.exists && !doc.metadata.hasPendingWrites) {
+      db.impressoes = doc.data().data ?? [];
+      _impressoesCarregadas = true;
+      LS.set('ps_impressoes', db.impressoes);
+      refreshCurrentView();
+    }
+  });
+  FSREF('observacoes').onSnapshot((doc) => {
+    if (doc.exists && !doc.metadata.hasPendingWrites) {
+      db.observacoes = doc.data().data ?? [];
+      _observacoesCarregadas = true;
+      LS.set('ps_observacoes', db.observacoes);
       refreshCurrentView();
     }
   });
@@ -4445,7 +4824,7 @@ function refreshCurrentView() {
   if (!active) return;
   const id = active.id;
   if (id === 'tab-dashboard')    renderDashboard();
-  if (id === 'tab-config')       { renderUsuarios(); atualizarStatusFdSync(); }
+  if (id === 'tab-config')       { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); renderCardCotas(); }
   if (id === 'tab-planejamento') { populateSelects(); renderPlanejamentos(); }
   if (id === 'tab-pareceres')    { populateSelects(); renderPareceres(); }
   if (id === 'tab-avaliacoes')   { populateSelects(); renderTabelaAvaliacoes(); }
@@ -4456,6 +4835,8 @@ function refreshCurrentView() {
   if (id === 'tab-atividades')      { renderAtividades(); }
   if (id === 'tab-auditoria')       { carregarAuditoria(); }
   if (id === 'tab-ocorrencias')     { renderOcorrencias(); }
+  if (id === 'tab-observacoes')     { popularSelectsObservacao(); renderObservacoes(); }
+  if (id === 'tab-copias')          { popularSelectsCopias(); renderCopias(); }
   if (id === 'tab-formacao')        { renderFormacao(); }
   if (id === 'tab-calendario')      { renderCalendario(); }
 }
@@ -4477,7 +4858,11 @@ let db = {
   atividades: [],
   diasSemAula: [],
   entregasPareceres: { b1: '', b2: '', b3: '', b4: '' },
+  regimePeriodos: LS.get('ps_regime_periodos', 'bimestral'),   // bimestral | trimestral | semestral
+  cotasCopias: LS.get('ps_cotas_copias', { padrao: 0, porUsuario: {}, bloquear: false }),
   ocorrencias: [],
+  observacoes: [],
+  impressoes: [],
   agendaFormacao: [],
   calendarioEscolar: null,
   chatGeral: [],
@@ -4488,6 +4873,8 @@ let _usuariosCarregado            = false;
 let _rotinasCarregadas            = false;
 let _atividadesCarregadas         = false;
 let _ocorrenciasCarregadas        = false;
+let _observacoesCarregadas        = false;
+let _impressoesCarregadas         = false;
 let _agendaFormacaoCarregada      = false;
 let _calendarioEscolarCarregado   = false;
 let _chatGeralCarregado           = false;
@@ -4515,6 +4902,8 @@ function save() {
   LS.set('ps_dias_sem_aula', db.diasSemAula);
   LS.set('ps_entregas_pareceres', db.entregasPareceres);
   LS.set('ps_ocorrencias', db.ocorrencias);
+  LS.set('ps_observacoes', db.observacoes);
+  LS.set('ps_impressoes', db.impressoes);
   LS.set('ps_agenda_formacao', db.agendaFormacao);
   if (db.calendarioEscolar) LS.set('ps_calendario_escolar', db.calendarioEscolar);
   // Firestore
@@ -4641,6 +5030,12 @@ function aplicarPapel() {
   // Card de backup: só diretor
   const cardBkp = document.getElementById('card-backup');
   if (cardBkp) cardBkp.style.display = isDiretor ? '' : 'none';
+  const cardVinc = document.getElementById('card-vinculo-prof');
+  if (cardVinc) cardVinc.style.display = isDiretor ? '' : 'none';
+  const cardReg = document.getElementById('card-regime');
+  if (cardReg) cardReg.style.display = isDiretor ? '' : 'none';
+  const cardCota = document.getElementById('card-cotas');
+  if (cardCota) cardCota.style.display = isDiretor ? '' : 'none';
 
   // ── MATRIZ DE VISIBILIDADE POR PAPEL ─────────────────────────
   // Diretor    : tudo
@@ -4666,6 +5061,9 @@ function aplicarPapel() {
   // Impressão
   nav('nav-impressao',      isDiretor || isSecretaria || isPedagoga);
   nav('dnav-impressao',     isDiretor || isSecretaria || isPedagoga);
+
+  nav('nav-copias',         isDiretor || isSecretaria);
+  nav('dnav-copias',        isDiretor || isSecretaria);
 
   // Planejamentos
   nav('nav-planejamento',   isDiretor || isPedagoga || isProfessora);
@@ -4706,6 +5104,9 @@ function aplicarPapel() {
   // Formação Pedagógica: gestão (diretor + pedagoga)
   nav('nav-formacao',  isGestao);
   nav('dnav-formacao', isGestao);
+
+  nav('nav-observacoes',  isGestao);
+  nav('dnav-observacoes', isGestao);
 
   // Calendário: gestão (diretor + pedagoga)
   nav('nav-calendario',    isGestao);
@@ -4789,6 +5190,157 @@ function aplicarPapel() {
 }
 
 // turmas visíveis para o usuário atual
+// ── FERRAMENTA: vincular registros antigos ao cadastro de usuário ────────────
+// Percorre planejamentos e observações, encontra o usuário correspondente pelo
+// nome e mostra uma PRÉVIA antes de alterar qualquer coisa. Só o diretor usa.
+function _levantarVinculoProf() {
+  const alvos = [
+    { lista: db.planejamentos, rotulo: 'planejamento' },
+    { lista: db.observacoes,   rotulo: 'observação' },
+  ];
+  const vincular = [];   // ganham profId
+  const corrigir = [];   // já têm vínculo, mas a grafia do nome difere
+  const semUsuario = {}; // nome digitado → quantidade
+  let jaOk = 0;
+
+  for (const { lista, rotulo } of alvos) {
+    for (const reg of (lista || [])) {
+      const u = acharUsuarioPorNome(reg.prof);
+      if (!u) {
+        const nome = (reg.prof || '(em branco)').trim() || '(em branco)';
+        semUsuario[nome] = (semUsuario[nome] || 0) + 1;
+        continue;
+      }
+      if (reg.profId === u.id && reg.prof === u.nome) { jaOk++; continue; }
+      const item = { reg, usuario: u, rotulo, nomeAntigo: reg.prof };
+      if (reg.profId === u.id) corrigir.push(item); else vincular.push(item);
+    }
+  }
+  return { vincular, corrigir, semUsuario, jaOk };
+}
+
+function analisarVinculoProf() {
+  const el = document.getElementById('vinculo-prof-resultado');
+  const btn = document.getElementById('btn-aplicar-vinculo');
+  if (!el) return;
+  const { vincular, corrigir, semUsuario, jaOk } = _levantarVinculoProf();
+  const totalMudar = vincular.length + corrigir.length;
+
+  // Agrupa por professora para a prévia ficar legível
+  const porProf = {};
+  [...vincular, ...corrigir].forEach(i => {
+    const k = i.usuario.nome;
+    porProf[k] = porProf[k] || { total: 0, grafias: {} };
+    porProf[k].total++;
+    const g = (i.nomeAntigo || '').trim();
+    if (g && g !== i.usuario.nome) porProf[k].grafias[g] = (porProf[k].grafias[g] || 0) + 1;
+  });
+
+  let html = '';
+  if (totalMudar === 0 && !Object.keys(semUsuario).length) {
+    html = `<div style="color:#059669;">✅ Tudo certo — os ${jaOk} registros já estão vinculados corretamente.</div>`;
+    if (btn) btn.style.display = 'none';
+  } else {
+    if (totalMudar > 0) {
+      html += `<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px 14px;margin-bottom:10px;">
+        <strong style="color:#065f46;">${totalMudar} registro(s) serão vinculados</strong>`;
+      html += '<ul style="margin:8px 0 0 18px;padding:0;">';
+      Object.keys(porProf).sort().forEach(nome => {
+        const p = porProf[nome];
+        const grafias = Object.keys(p.grafias);
+        const detalhe = grafias.length
+          ? ` <span style="color:var(--gray-500);">— corrige ${grafias.map(g => `"${escapeHtml(g)}"`).join(', ')}</span>`
+          : '';
+        html += `<li style="margin-bottom:4px;">${escapeHtml(nome)}: <strong>${p.total}</strong>${detalhe}</li>`;
+      });
+      html += '</ul></div>';
+    }
+    const semNomes = Object.keys(semUsuario);
+    if (semNomes.length) {
+      html += `<div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:12px 14px;margin-bottom:10px;">
+        <strong style="color:#92400e;">Sem cadastro correspondente — não serão alterados</strong>
+        <ul style="margin:8px 0 0 18px;padding:0;">`;
+      semNomes.sort().forEach(n => {
+        html += `<li style="margin-bottom:4px;">"${escapeHtml(n)}": <strong>${semUsuario[n]}</strong> registro(s)</li>`;
+      });
+      html += `</ul><div style="margin-top:8px;font-size:12.5px;color:#78350f;">
+        Se for uma professora real, cadastre-a em Usuários e analise de novo. Se for teste, os registros podem ser excluídos.
+        </div></div>`;
+    }
+    if (jaOk) html += `<div style="color:var(--gray-500);">${jaOk} registro(s) já estavam corretos.</div>`;
+    if (btn) btn.style.display = totalMudar > 0 ? '' : 'none';
+  }
+  el.innerHTML = html;
+}
+
+function aplicarVinculoProf() {
+  const { vincular, corrigir } = _levantarVinculoProf();
+  const total = vincular.length + corrigir.length;
+  if (!total) { showToast('Nada a vincular.'); return; }
+
+  showConfirmModal(
+    `Vincular ${total} registro(s) ao cadastro de professoras?<br>` +
+    `<small style="color:#888;font-weight:400;">O nome também será padronizado. Os dados em si não mudam.</small>`,
+    () => {
+      [...vincular, ...corrigir].forEach(({ reg, usuario }) => {
+        reg.profId = usuario.id;
+        reg.prof   = usuario.nome;   // padroniza a grafia
+      });
+      save();
+      analisarVinculoProf();
+      renderPlanejamentos();
+      if (typeof renderObservacoes === 'function') renderObservacoes();
+      showToast(`🔗 ${total} registro(s) vinculados!`, 5000);
+      logger.audit({ module: 'usuarios', action: 'vincular-prof', message: `${total} registro(s) vinculados ao cadastro de professoras`, meta: { total } });
+    }
+  );
+}
+
+// ── VÍNCULO PROFESSORA → USUÁRIO ─────────────────────────────────────────────
+// Até a v2.10.0 a professora era gravada só como texto livre no campo `prof`.
+// Isso fazia a mesma pessoa contar como duas quando o nome era digitado com
+// grafia diferente ("Fabiane  Eudoxia Franca Gusso" x "Fabiane Eudoxia de
+// Franca Gusso"). Agora todo registro guarda também `profId`, que aponta para
+// o cadastro de usuário — é ele que os painéis usam para agrupar.
+function normalizarNome(s) {
+  return String(s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')   // remove acentos
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w && !['de', 'da', 'do', 'dos', 'das', 'e'].includes(w))
+    .join(' ');
+}
+
+// Encontra o usuário correspondente a um nome digitado. Retorna null se não houver.
+function acharUsuarioPorNome(nome) {
+  const alvo = normalizarNome(nome);
+  if (!alvo) return null;
+  return db.usuarios.find(u => normalizarNome(u.nome) === alvo) || null;
+}
+
+// Id do usuário para gravar junto do registro ('' quando não há correspondência)
+function resolverProfId(nome) {
+  const u = acharUsuarioPorNome(nome);
+  return u ? u.id : '';
+}
+
+// Chave de agrupamento por professora: usa o vínculo quando existe e cai no
+// nome normalizado quando o registro é antigo e ainda não foi vinculado.
+function chaveProf(reg) {
+  if (reg && reg.profId) return 'id:' + reg.profId;
+  return 'nome:' + normalizarNome(reg && reg.prof);
+}
+
+// Nome de exibição: prefere o cadastro (grafia oficial) e cai no texto gravado
+function nomeProfExibicao(reg) {
+  if (reg && reg.profId) {
+    const u = db.usuarios.find(x => x.id === reg.profId);
+    if (u) return u.nome;
+  }
+  return (reg && reg.prof) || '—';
+}
+
 function getUsrTurmaIds(u) {
   if (!u) return [];
   if (Array.isArray(u.turmaIds)) return u.turmaIds;
@@ -5039,8 +5591,9 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 // =====================================================================
 const _TAB_GRUPOS = {
   dashboard: 'inicio',
-  cadastro: 'gestao', impressao: 'gestao',
+  cadastro: 'gestao', impressao: 'gestao', copias: 'gestao',
   rotina: 'pedagogico', avaliacoes: 'pedagogico', correcao: 'pedagogico', formacao: 'pedagogico',
+  observacoes: 'pedagogico',
   'hora-atividade': 'docentes', planejamento: 'docentes', pareceres: 'docentes', atividades: 'docentes',
   auditoria: 'controle', ocorrencias: 'controle', calendario: 'controle',
 };
@@ -5097,8 +5650,10 @@ function showTab(tab) {
   if (tab === 'hora-atividade') { renderHoraAtividade(); }
   if (tab === 'rotina')         { renderRotina(); }
   if (tab === 'atividades')     { renderAtividades(); }
-  if (tab === 'config')         { renderUsuarios(); atualizarStatusFdSync(); }
+  if (tab === 'config')         { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); renderCardCotas(); }
   if (tab === 'ocorrencias')    { renderOcorrencias(); }
+  if (tab === 'observacoes')    { popularSelectsObservacao(); renderObservacoes(); }
+  if (tab === 'copias')         { popularSelectsCopias(); renderCopias(); }
   if (tab === 'calendario')     { renderCalendario(); }
 }
 
@@ -5142,6 +5697,249 @@ function mostrarPushNotif(titulo, corpo) {
 }
 
 // =====================================================================
+// REGIME DE PERÍODOS — bimestral, trimestral ou semestral
+// =====================================================================
+// A escola escolhe o regime em Configuracoes (so o diretor). Todo o sistema
+// — planejamentos, pareceres, avaliacoes, calendario, filtros e entregas —
+// passa a usar o rotulo e a quantidade de periodos do regime escolhido.
+// Registros antigos guardam o rotulo do regime em que foram criados; por isso
+// as listas sempre incluem tambem os valores ja usados nos dados (legado).
+const REGIMES = {
+  bimestral:  { rotulo: 'Bimestre',  plural: 'Bimestres',  qtd: 4 },
+  trimestral: { rotulo: 'Trimestre', plural: 'Trimestres', qtd: 3 },
+  semestral:  { rotulo: 'Semestre',  plural: 'Semestres',  qtd: 2 },
+};
+
+function regimeAtual()  { return REGIMES[db.regimePeriodos] ? db.regimePeriodos : 'bimestral'; }
+function regimeInfo()   { return REGIMES[regimeAtual()]; }
+function rotuloPeriodo(){ return regimeInfo().rotulo; }
+
+// Rotulos do regime vigente: ['1º Bimestre', '2º Bimestre', ...]
+function periodosDoRegime() {
+  const r = regimeInfo();
+  return Array.from({ length: r.qtd }, (_, i) => `${i + 1}º ${r.rotulo}`);
+}
+
+// Periodos do regime + os que ja aparecem nos dados (para nao esconder o historico)
+function periodosComLegado() {
+  const lista = periodosDoRegime();
+  const vistos = new Set(lista);
+  const juntar = (v) => {
+    const t = String(v || '').trim();
+    if (t && !vistos.has(t)) { vistos.add(t); lista.push(t); }
+  };
+  (db.planejamentos || []).forEach(p => juntar(p.bimestre));
+  (db.pareceres || []).forEach(p => juntar(p.periodo));
+  (db.observacoes || []).forEach(o => juntar(o.periodo));
+  return lista;
+}
+
+// Prepara o cartao de configuracao do regime (aba Configuracoes, so direcao)
+function renderCardRegime() {
+  const card = document.getElementById('card-regime');
+  const sel  = document.getElementById('cfg-regime');
+  if (!card || !sel) return;
+  if (currentUser?.papel !== 'diretor') { card.style.display = 'none'; return; }
+  card.style.display = '';
+  sel.value = regimeAtual();
+  sel.onchange = previewRegime;
+  const st = document.getElementById('cfg-regime-status');
+  if (st) st.textContent = '';
+  previewRegime();
+}
+
+// ── Cotas de cópia: cartão de configuração (aba Configurações, só direção) ──
+function renderCardCotas() {
+  const card = document.getElementById('card-cotas');
+  if (!card) return;
+  if (currentUser?.papel !== 'diretor') { card.style.display = 'none'; return; }
+  card.style.display = '';
+
+  const c = cotasCopias();
+  const pad = document.getElementById('cfg-cota-padrao');
+  if (pad) pad.value = c.padrao || '';
+  const acao = document.getElementById('cfg-cota-acao');
+  if (acao) acao.value = c.bloquear ? 'bloquear' : 'avisar';
+  const st = document.getElementById('cfg-cota-status');
+  if (st) st.textContent = '';
+
+  const lista = document.getElementById('cfg-cota-lista');
+  if (!lista) return;
+  const pessoas = copSolicitantes();
+  if (!pessoas.length) {
+    lista.innerHTML = '<div class="empty"><div class="icon">👥</div><p>Cadastre as professoras primeiro.</p></div>';
+    return;
+  }
+
+  const mes = new Date().toISOString().slice(0, 7);
+  lista.innerHTML = pessoas.map(u => {
+    const usado = copUsadoNoMes(u.id, mes);
+    const esp   = c.porUsuario ? c.porUsuario[u.id] : '';
+    return `<div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--gray-100);flex-wrap:wrap;">
+        <span style="flex:1;min-width:170px;font-size:13.5px;font-weight:500;">
+          ${escapeHtml(copNomeComPapel(u))}
+          <span style="display:block;font-size:12px;color:var(--gray-500);font-weight:400;">
+            ${usado.toLocaleString('pt-BR')} página(s) neste mês
+          </span>
+        </span>
+        <input type="number" min="0" step="10" id="cfg-cota-u-${u.id}"
+               value="${esp === undefined || esp === null ? '' : escapeHtml(String(esp))}"
+               placeholder="padrão"
+               style="width:110px;padding:6px 9px;border:1.5px solid var(--gray-200);border-radius:6px;font-size:13px;" />
+      </div>`;
+  }).join('');
+}
+
+function salvarCotasCopias() {
+  const st = document.getElementById('cfg-cota-status');
+  const aviso = (m, cor) => { if (st) { st.textContent = m; st.style.color = cor || 'var(--gray-600)'; } };
+
+  const padrao = Math.max(0, Number(document.getElementById('cfg-cota-padrao')?.value || 0));
+  const bloquear = document.getElementById('cfg-cota-acao')?.value === 'bloquear';
+
+  const porUsuario = {};
+  copSolicitantes().forEach(u => {
+    const v = document.getElementById('cfg-cota-u-' + u.id)?.value;
+    // String vazia = "usa a padrão"; não guardamos a chave nesse caso
+    if (v !== undefined && String(v).trim() !== '') porUsuario[u.id] = Math.max(0, Number(v) || 0);
+  });
+
+  if (bloquear && !padrao && !Object.keys(porUsuario).length) {
+    aviso('⚠️ Para bloquear é preciso definir ao menos uma cota — hoje ninguém tem limite.', '#b45309');
+    return;
+  }
+
+  db.cotasCopias = { padrao, porUsuario, bloquear };
+  LS.set('ps_cotas_copias', db.cotasCopias);
+  FSREF('config').set({ cotasCopias: db.cotasCopias, apiKey: db.apiKey }, { merge: true })
+    .then(() => aviso('✅ Cotas salvas.', '#059669'))
+    .catch(e => aviso('⚠️ Salvo neste aparelho, mas não enviado ao servidor: ' + e.message, '#b45309'));
+
+  const indiv = Object.keys(porUsuario).length;
+  showToast(padrao || indiv
+    ? `🖨️ Cota salva: ${padrao ? padrao.toLocaleString('pt-BR') + ' páginas/mês padrão' : 'sem padrão'}`
+      + `${indiv ? ' · ' + indiv + ' cota(s) individual(is)' : ''}`
+      + `${bloquear ? ' · bloqueia ao estourar' : ''}`
+    : '🖨️ Cotas removidas — sem limite de cópias.', 6000);
+
+  renderCardCotas();
+  copAtualizarCota();
+  logger.audit({ module: 'config', action: 'cotas-copias', message: 'Cotas de cópia atualizadas', after: db.cotasCopias });
+}
+
+// Mostra o que o regime selecionado vai produzir, antes de salvar
+function previewRegime() {
+  const sel = document.getElementById('cfg-regime');
+  const el  = document.getElementById('cfg-regime-previa');
+  if (!sel || !el) return;
+  const r = REGIMES[sel.value] || REGIMES.bimestral;
+  const lista = Array.from({ length: r.qtd }, (_, i) => `${i + 1}º ${r.rotulo}`);
+  const mudou = sel.value !== regimeAtual();
+
+  let html = `<div style="background:var(--green-light);border:1.5px solid var(--green-mid);border-radius:8px;padding:12px 14px;">
+      <strong style="color:var(--green-dark);font-size:13px;">O ano passará a ter ${r.qtd} períodos:</strong>
+      <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
+        ${lista.map(o => `<span class="badge badge-green">${escapeHtml(o)}</span>`).join('')}
+      </div>
+    </div>`;
+
+  if (mudou) {
+    // Quantos registros usam rótulos que não existem no novo regime
+    const novos = new Set(lista);
+    let antigos = 0;
+    (db.planejamentos || []).forEach(p => { if (p.bimestre && !novos.has(p.bimestre)) antigos++; });
+    (db.pareceres || []).forEach(p => { if (p.periodo && !novos.has(p.periodo)) antigos++; });
+    if (antigos) {
+      html += `<div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:12px 14px;margin-top:10px;">
+          <strong style="color:#92400e;font-size:13px;">⚠️ ${antigos} registro(s) já existentes usam a divisão atual</strong>
+          <div style="font-size:12.5px;color:#78350f;margin-top:5px;">
+            Eles <strong>não serão apagados nem alterados</strong> — continuam visíveis com o rótulo antigo,
+            e os filtros seguem mostrando essas opções. Só os registros novos usarão a divisão escolhida.
+          </div>
+        </div>`;
+    }
+    if (db.calendarioEscolar) {
+      html += `<div style="font-size:12.5px;color:var(--gray-600);margin-top:10px;">
+          📅 O calendário escolar de ${db.calendarioEscolar.ano} continua com os períodos já cadastrados.
+          Depois de salvar, abra a aba <strong>Calendário</strong> → <strong>${escapeHtml(r.plural)}</strong>
+          e use <strong>Redividir</strong> para refazer as datas. Feriados e eventos são mantidos.
+        </div>`;
+    }
+  }
+  el.innerHTML = html;
+}
+
+function salvarRegimePeriodos() {
+  const sel = document.getElementById('cfg-regime');
+  const st  = document.getElementById('cfg-regime-status');
+  const aviso = (m, c) => { if (st) { st.textContent = m; st.style.color = c || 'var(--gray-600)'; } };
+  if (!sel) return;
+
+  const novo = sel.value;
+  if (!REGIMES[novo]) { aviso('⚠️ Regime inválido.', '#b45309'); return; }
+  if (novo === regimeAtual()) { aviso('Este já é o regime em uso.', 'var(--gray-500)'); return; }
+
+  const r = REGIMES[novo];
+  showConfirmModal(
+    `Mudar a divisão do ano para <strong>${r.rotulo.toLowerCase()}</strong> (${r.qtd} períodos)?<br>` +
+    `<small style="color:#888;font-weight:400;">Nenhum registro existente é apagado ou alterado.</small>`,
+    () => {
+      db.regimePeriodos = novo;
+      LS.set('ps_regime_periodos', novo);
+      FSREF('config').set({ regimePeriodos: novo, apiKey: db.apiKey }, { merge: true })
+        .then(() => aviso(`✅ Regime salvo: ${r.rotulo.toLowerCase()} (${r.qtd} períodos).`, '#059669'))
+        .catch(e => aviso('⚠️ Salvo neste aparelho, mas não enviado ao servidor: ' + e.message, '#b45309'));
+      aplicarRegimePeriodos();
+      renderEntregasPareceres();
+      previewRegime();
+      refreshCurrentView();
+      showToast(`🗓️ Ano letivo agora é ${r.rotulo.toLowerCase()} — ${r.qtd} períodos.`, 6000);
+      logger.audit({ module: 'config', action: 'regime-periodos', message: `Regime alterado para ${novo}`, after: { regime: novo } });
+    }
+  );
+}
+
+// Preenche todos os seletores de periodo do sistema e ajusta os rotulos.
+// Chamada sempre que o regime muda ou os dados sao recarregados.
+function aplicarRegimePeriodos() {
+  const opts       = periodosDoRegime();
+  const optsLegado = periodosComLegado();
+  const rot        = rotuloPeriodo();
+
+  // id -> { legado: inclui valores antigos, todos: opcao "todos" no topo }
+  const SELECTS = {
+    'pl-bimestre':        { legado: false },
+    'pls-bimestre':       { legado: false },
+    'plarq-bimestre':     { legado: false },
+    'par-periodo':        { legado: false },
+    'av-periodo':         { legado: false },
+    'dash-bimestre':      { legado: true, todos: 'Todos os ' + regimeInfo().plural.toLowerCase() },
+    'dash-periodo':       { legado: true, todos: 'Todos os ' + regimeInfo().plural.toLowerCase() },
+    'imp-filtro-bimestre':{ legado: true, todos: 'Todos os ' + regimeInfo().plural.toLowerCase() },
+    'corr-filtro':        { legado: true, todos: 'Todos os ' + regimeInfo().plural.toLowerCase() },
+  };
+
+  for (const [id, cfg] of Object.entries(SELECTS)) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const anterior = el.value;
+    const lista = cfg.legado ? optsLegado : opts;
+    let html = cfg.todos ? `<option value="">${escapeHtml(cfg.todos)}</option>` : '';
+    html += lista.map(o => `<option>${escapeHtml(o)}</option>`).join('');
+    el.innerHTML = html;
+    // Mantem a selecao anterior quando ela ainda existir na lista
+    if (anterior && lista.includes(anterior)) el.value = anterior;
+  }
+
+  // Rotulos que citam o regime
+  document.querySelectorAll('[data-rotulo-periodo]').forEach(el => {
+    const sufixo = el.getAttribute('data-rotulo-periodo');   // '', '*' ou 'plural'
+    if (sufixo === 'plural') el.textContent = regimeInfo().plural;
+    else el.textContent = rot + (sufixo === '*' ? ' *' : '');
+  });
+}
+
+// =====================================================================
 // POPULATE SELECTS
 // =====================================================================
 function populateSelects() {
@@ -5173,6 +5971,7 @@ function populateSelects() {
     }
   }
 
+  aplicarRegimePeriodos();
   renderProfField();
   populateAlunosParecer();
 }
@@ -5276,6 +6075,54 @@ function getModel() {
   return localStorage.getItem('ps_gemini_model') || 'llama-3.3-70b-versatile';
 }
 
+// ── RESGATE DE ITENS QUE FICARAM SÓ NO APARELHO ──────────────────────────────
+// Versões antigas descartavam a gravação em silêncio quando o carregamento
+// inicial falhava: a professora via o planejamento/parecer na tela, mas ele
+// nunca chegava ao servidor (e a pedagoga nunca via). Este resgate compara o
+// backup local com o servidor e reenvia o que ficou para trás. Roda ANTES do
+// setupSync(), porque é ele que sobrescreve o backup local com os dados do
+// servidor. Itens excluídos de propósito (tombstones) nunca voltam.
+async function resgatarLocaisNaoSincronizados() {
+  if (!_firestoreOk) return;   // sem servidor confiável, não há o que comparar
+  try {
+    let resgatados = 0;
+
+    const lsPl = LS.get('ps_planejamentos', []);
+    if (Array.isArray(lsPl) && lsPl.length) {
+      const idsServidor = new Set(db.planejamentos.map(p => String(p.id)));
+      const faltando = lsPl.filter(p =>
+        p && p.id && !idsServidor.has(String(p.id)) && !_planejDeletedIds.has(String(p.id))
+      );
+      if (faltando.length) {
+        db.planejamentos.unshift(...faltando);
+        faltando.forEach(p => _planejPendentes.add(String(p.id)));
+        resgatados += faltando.length;
+      }
+    }
+
+    const lsPar = LS.get('ps_pareceres', []);
+    if (Array.isArray(lsPar) && lsPar.length) {
+      const idsServidor = new Set(db.pareceres.map(p => String(p.id)));
+      const faltando = lsPar.filter(p =>
+        p && p.id && !idsServidor.has(String(p.id)) && !_parecerDeletedIds.has(String(p.id))
+      );
+      if (faltando.length) {
+        db.pareceres.unshift(...faltando);
+        faltando.forEach(p => _parecerPendentes.add(String(p.id)));
+        resgatados += faltando.length;
+      }
+    }
+
+    if (resgatados) {
+      logger.warn({ module: 'recovery', action: 'resgate-local', message: `Resgatados ${resgatados} item(ns) que estavam só neste aparelho`, meta: { resgatados } });
+      saveToFirestore();
+      showToast(`🔄 ${resgatados} item(ns) que estavam só neste aparelho foram enviados ao servidor.`, 9000);
+    }
+  } catch (e) {
+    logger.error({ module: 'recovery', action: 'resgate-local', message: 'Falha no resgate de itens locais', error: e });
+  }
+}
+
 // Init
 window.addEventListener('DOMContentLoaded', async () => {
   // Carrega dados do Firestore
@@ -5283,6 +6130,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   await migrarImagensPlanej();   // move fotos antigas para fora do doc principal (idempotente)
   await carregarDeletedIds();    // carrega IDs excluídos — proteção contra dispositivos antigos
   await carregarParecerDeletedIds(); // idem para pareceres
+  await resgatarLocaisNaoSincronizados();  // reenvia o que ficou só no aparelho
   setupSync();
   document.getElementById('loading-screen').style.display = 'none';
 
@@ -5373,25 +6221,41 @@ function ordemTurma(nome) {
 }
 
 function renderEntregasPareceres() {
-  const ep = db.entregasPareceres || {};
+  const ep  = db.entregasPareceres || {};
   const sec = document.getElementById('cad-entregas-section');
   const isGestao = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga' || currentUser?.papel === 'secretaria';
   if (sec) sec.style.display = isGestao ? '' : 'none';
-  ['b1','b2','b3','b4'].forEach(k => {
-    const el = document.getElementById(`entrega-${k}`);
-    if (el && ep[k]) el.value = ep[k];
-  });
+  if (!isGestao) return;
+
+  // Um campo de data por periodo do regime vigente
+  const grid = document.getElementById('entregas-grid');
+  if (!grid) return;
+  grid.innerHTML = periodosDoRegime().map((rotulo, i) => {
+    const k = 'b' + (i + 1);
+    return `<div class="form-group">
+        <label>${escapeHtml(rotulo)}</label>
+        <input type="date" id="entrega-${k}" value="${escapeHtml(ep[k] || '')}" />
+      </div>`;
+  }).join('');
 }
 
 function salvarEntregasPareceres() {
-  db.entregasPareceres = {
-    b1: document.getElementById('entrega-b1')?.value || '',
-    b2: document.getElementById('entrega-b2')?.value || '',
-    b3: document.getElementById('entrega-b3')?.value || '',
-    b4: document.getElementById('entrega-b4')?.value || '',
-  };
+  // Preserva datas de periodos que nao existem no regime atual (ex.: 4o bimestre
+  // apos migrar para trimestral) — nada e apagado silenciosamente.
+  const novo = Object.assign({}, db.entregasPareceres || {});
+  periodosDoRegime().forEach((_, i) => {
+    const k = 'b' + (i + 1);
+    novo[k] = document.getElementById('entrega-' + k)?.value || '';
+  });
+  db.entregasPareceres = novo;
   save();
   showToast('✅ Datas de entrega salvas!');
+}
+
+// '2º Trimestre' -> 'b2'. Funciona para qualquer regime, inclusive rotulos antigos.
+function chaveEntrega(rotulo) {
+  const m = String(rotulo || '').match(/(\d+)/);
+  return m ? 'b' + m[1] : '';
 }
 
 function renderTurmas() {
@@ -5581,6 +6445,7 @@ function salvarPlanejamento() {
     data,
     bimestre,
     prof,
+    profId: resolverProfId(prof),   // vínculo com o cadastro de usuário
     direitos,
     campos,
     bncc,
@@ -5592,7 +6457,9 @@ function salvarPlanejamento() {
     historico: [{ acao: 'criado', por: currentUser?.nome || 'Professora', em: new Date().toISOString() }],
   };
   db.planejamentos.unshift(pl);
+  _planejPendentes.add(String(pl.id));   // só sai daqui quando o servidor confirmar
   save();
+  avisarSePendente();
   if (imgBase64) salvarImagemPlanej(pl.id, imgBase64);   // foto vai para doc separado
   logger.audit({ module: 'planejamento', action: 'create', message: `Planejamento criado: ${conteudos}`, after: { turmaId, data, prof, conteudos, bimestre, direitos, campos } });
   limparFormPlanejamento();
@@ -5730,7 +6597,7 @@ function salvarPlanejamentoSemanal() {
     const imgDia = window._plsDiasImagens?.[i] || null;
     if (imgDia) imagensParaSalvar.push({ id: novoId, img: imgDia });
     criados.push({
-      id: novoId, turmaId, bimestre, prof, direitos, campos,
+      id: novoId, turmaId, bimestre, prof, profId: resolverProfId(prof), direitos, campos,
       data: dataStr,
       bncc: document.getElementById(`pls-bncc-${i}`)?.value.trim() || '',
       conteudos, desenvolvimento,
@@ -5748,7 +6615,9 @@ function salvarPlanejamentoSemanal() {
   if (!algumDia) { alert('Marque pelo menos um dia com aula e preencha os campos.'); return; }
 
   db.planejamentos.unshift(...criados);
+  criados.forEach(c => _planejPendentes.add(String(c.id)));
   save();
+  avisarSePendente();
   imagensParaSalvar.forEach(x => salvarImagemPlanej(x.id, x.img));   // fotos vão para docs separados
   limparFormSemanal();
   renderPlanejamentos();
@@ -7834,7 +8703,9 @@ function salvarParecer() {
     historico: [{ acao: 'criado', por: currentUser?.nome || 'Professora', em: new Date().toISOString() }],
   };
   db.pareceres.unshift(p);
+  _parecerPendentes.add(String(p.id));   // só sai daqui quando o servidor confirmar
   save();
+  avisarSePendente();
   logger.audit({ module: 'parecer', action: 'create', message: `Parecer criado para ${aluno.nome}`, after: { alunoNome: aluno.nome, turmaId, periodo, tom: selectedTone } });
   renderPareceres();
   document.getElementById('card-resultado').style.display = 'none';
@@ -7996,6 +8867,7 @@ async function subirPlanejamentoArquivo() {
       data,
       bimestre,
       prof,
+      profId: resolverProfId(prof),
       direitos: [],
       campos: [],
       bncc: '',
@@ -8012,7 +8884,9 @@ async function subirPlanejamentoArquivo() {
 
     await salvarPlanejArquivo(pl.id, dataUrl, nome, tipo);   // arquivo em doc separado
     db.planejamentos.unshift(pl);
+    _planejPendentes.add(String(pl.id));
     save();                                                   // usa merge transacional
+    avisarSePendente();
     renderPlanejamentos();
     if (input) input.value = '';
 
@@ -8277,6 +9151,710 @@ function deleteOcorrencia(id) {
   });
 }
 
+// =====================================================================
+// SOLICITAÇÕES DE CÓPIA — contagem real de papel (secretaria + direção)
+// =====================================================================
+// A maior parte do que se imprime na escola vem de material que as professoras
+// baixam de fora e mandam pelo WhatsApp; quem imprime é a secretaria. Como tudo
+// passa por ela, o registro aqui é CONTAGEM REAL — não estimativa do navegador.
+// O que importa é o total: páginas por cópia × quantidade de cópias.
+
+// ── Quem pode solicitar cópias ────────────────────────────────────────────
+// Professoras e pedagoga. A pedagoga também manda material para imprimir, e
+// sem ela na lista esse consumo ficava fora da conta.
+// A pedagoga aparece marcada, para a secretaria não confundir com uma professora
+function copNomeComPapel(u) {
+  if (!u) return '';
+  return u.papel === 'pedagoga' ? u.nome + ' (pedagoga)' : u.nome;
+}
+
+function copSolicitantes() {
+  return db.usuarios.filter(u => u.papel === 'professora' || u.papel === 'pedagoga');
+}
+
+// ── Cotas de cópia (configuradas pela direção) ────────────────────────────
+// padrao: teto mensal em páginas, valendo para todo mundo. 0 = sem limite.
+// porUsuario: teto individual por id de usuário; vazio = usa o padrão.
+// bloquear: true impede o lançamento que ultrapassa; false apenas avisa.
+function cotasCopias() {
+  const c = db.cotasCopias || {};
+  return {
+    padrao:     Math.max(0, Number(c.padrao) || 0),
+    porUsuario: c.porUsuario || {},
+    bloquear:   !!c.bloquear,
+  };
+}
+
+function cotaDoUsuario(profId) {
+  const c   = cotasCopias();
+  const esp = c.porUsuario ? c.porUsuario[profId] : undefined;
+  if (esp === undefined || esp === null || esp === '') return c.padrao;
+  return Math.max(0, Number(esp) || 0);
+}
+
+// Páginas já lançadas para essa pessoa no mês (AAAA-MM)
+function copUsadoNoMes(profId, mes) {
+  if (!profId) return 0;
+  return (db.impressoes || [])
+    .filter(r => r.profId === profId && String(r.data || '').startsWith(mes))
+    .reduce((soma, r) => soma + (Number(r.total) || 0), 0);
+}
+
+function copRotuloMes(mes) {
+  const [a, m] = String(mes || '').split('-');
+  if (!a || !m) return mes || '';
+  return new Date(Number(a), Number(m) - 1, 1)
+    .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+}
+
+// Medidor ao vivo no formulário: mostra o consumo do mês e o efeito do que
+// está sendo digitado agora, antes de registrar.
+function copAtualizarCota() {
+  const box = document.getElementById('cop-cota-meter');
+  if (!box) return;
+  const profId = document.getElementById('cop-prof')?.value || '';
+  if (!profId) { box.style.display = 'none'; box.innerHTML = ''; return; }
+
+  const cota = cotaDoUsuario(profId);
+  if (!cota) { box.style.display = 'none'; box.innerHTML = ''; return; }   // sem limite
+
+  const data  = document.getElementById('cop-data')?.value || new Date().toISOString().slice(0, 10);
+  const mes   = String(data).slice(0, 7);
+  const usado = copUsadoNoMes(profId, mes);
+  const nesta = copCalcularTotal();
+  const depois = usado + nesta;
+  const pct    = Math.min(100, Math.round((depois / cota) * 100));
+  const estoura = depois > cota;
+  const apertado = !estoura && depois >= cota * 0.8;
+
+  const cor   = estoura ? '#dc2626' : (apertado ? '#d97706' : 'var(--green)');
+  const fundo = estoura ? '#fef2f2' : (apertado ? '#fffbeb' : 'var(--green-light)');
+  const borda = estoura ? '#fca5a5' : (apertado ? '#fbbf24' : 'var(--green-mid)');
+  const nome  = db.usuarios.find(u => u.id === profId)?.nome || '';
+
+  let recado;
+  if (estoura) {
+    const excesso = depois - cota;
+    recado = `Este lançamento ultrapassa a cota em <strong>${excesso.toLocaleString('pt-BR')}</strong> página(s).`
+           + (cotasCopias().bloquear ? ' O registro será bloqueado.' : ' Dá para registrar mesmo assim.');
+  } else if (apertado) {
+    recado = `Restam <strong>${(cota - depois).toLocaleString('pt-BR')}</strong> página(s) para ${escapeHtml(nome)} neste mês.`;
+  } else {
+    recado = `Restam ${(cota - depois).toLocaleString('pt-BR')} página(s) neste mês.`;
+  }
+
+  box.style.display = '';
+  box.innerHTML = `<div style="background:${fundo};border:1.5px solid ${borda};border-radius:8px;padding:12px 16px;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:7px;">
+        <span style="font-size:13px;font-weight:600;color:var(--gray-700);">Cota de ${escapeHtml(copRotuloMes(mes))}</span>
+        <span style="font-size:13px;color:var(--gray-600);font-variant-numeric:tabular-nums;">
+          <strong style="color:${cor};font-size:15px;">${depois.toLocaleString('pt-BR')}</strong>
+          de ${cota.toLocaleString('pt-BR')} páginas
+          <span style="color:var(--gray-400);">(já lançadas: ${usado.toLocaleString('pt-BR')})</span>
+        </span>
+      </div>
+      <div style="height:9px;background:rgba(0,0,0,.07);border-radius:5px;overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:${cor};border-radius:5px;"></div>
+      </div>
+      <div style="font-size:12.5px;color:var(--gray-600);margin-top:7px;">${recado}</div>
+    </div>`;
+}
+
+function copMesAtual() {
+  const el = document.getElementById('cop-mes');
+  if (el && el.value) return el.value;
+  return new Date().toISOString().slice(0, 7);   // AAAA-MM
+}
+
+function copCalcularTotal() {
+  const pag = Math.max(1, Number(document.getElementById('cop-paginas')?.value || 1));
+  const cop = Math.max(1, Number(document.getElementById('cop-copias')?.value || 1));
+  const total = pag * cop;
+  const el = document.getElementById('cop-total');
+  if (el) el.textContent = total === 1 ? '1 página' : total.toLocaleString('pt-BR') + ' páginas';
+  return total;
+}
+
+// Wrapper dos oninput do formulário: recalcula o total e o medidor de cota
+function copRecalcular() {
+  copCalcularTotal();
+  copAtualizarCota();
+}
+
+// Ao escolher a professora, já sugere a turma dela — menos um campo a preencher
+function copProfMudou() {
+  const sel = document.getElementById('cop-prof');
+  const selT = document.getElementById('cop-turma');
+  if (!sel || !selT) return;
+  const u = db.usuarios.find(x => x.id === sel.value);
+  if (u) {
+    const ids = getUsrTurmaIds(u);
+    if (ids.length) selT.value = ids[0];
+  }
+  copAtualizarCota();
+}
+
+function popularSelectsCopias() {
+  const profs = copSolicitantes();
+
+  const sel = document.getElementById('cop-prof');
+  if (sel) {
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">— Selecione —</option>'
+      + profs.map(u => `<option value="${u.id}">${escapeHtml(copNomeComPapel(u))}</option>`).join('');
+    if (prev) sel.value = prev;
+  }
+
+  const selT = document.getElementById('cop-turma');
+  if (selT) {
+    const prev = selT.value;
+    selT.innerHTML = '<option value="">— Sem turma —</option>'
+      + db.turmas.map(t => `<option value="${t.id}">${escapeHtml(t.nome)}</option>`).join('');
+    if (prev) selT.value = prev;
+  }
+
+  const selF = document.getElementById('cop-filtro-prof');
+  if (selF) {
+    const prev = selF.value;
+    selF.innerHTML = '<option value="">Todos os solicitantes</option>'
+      + profs.map(u => `<option value="${u.id}">${escapeHtml(copNomeComPapel(u))}</option>`).join('');
+    if (prev) selF.value = prev;
+  }
+
+  const dt = document.getElementById('cop-data');
+  if (dt && !dt.value) dt.value = new Date().toISOString().slice(0, 10);
+  const mes = document.getElementById('cop-mes');
+  if (mes && !mes.value) mes.value = new Date().toISOString().slice(0, 7);
+  copCalcularTotal();
+  copAtualizarCota();
+}
+
+function limparFormCopia() {
+  ['cop-desc'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const pg = document.getElementById('cop-paginas'); if (pg) pg.value = 1;
+  const cp = document.getElementById('cop-copias');  if (cp) cp.value = 1;
+  copCalcularTotal();
+  copAtualizarCota();
+  const st = document.getElementById('cop-status'); if (st) st.textContent = '';
+}
+
+function salvarCopia() {
+  const st = document.getElementById('cop-status');
+  const aviso = (m, c) => { if (st) { st.textContent = m; st.style.color = c || 'var(--gray-600)'; } };
+
+  const profId = document.getElementById('cop-prof')?.value || '';
+  const desc   = document.getElementById('cop-desc')?.value.trim() || '';
+  if (!profId) { aviso('⚠️ Selecione a professora.', '#b45309'); return; }
+  if (!desc)   { aviso('⚠️ Escreva o que foi impresso.', '#b45309'); return; }
+
+  const u = db.usuarios.find(x => x.id === profId);
+  const paginas = Math.max(1, Number(document.getElementById('cop-paginas')?.value || 1));
+  const copias  = Math.max(1, Number(document.getElementById('cop-copias')?.value || 1));
+
+  // ── Cota mensal ────────────────────────────────────────────────────────
+  const dataReg = document.getElementById('cop-data')?.value || new Date().toISOString().slice(0, 10);
+  const cota    = cotaDoUsuario(profId);
+  if (cota) {
+    const usado   = copUsadoNoMes(profId, String(dataReg).slice(0, 7));
+    const depois  = usado + paginas * copias;
+    if (depois > cota) {
+      const excesso = depois - cota;
+      const quem    = u ? u.nome : 'esta pessoa';
+      if (cotasCopias().bloquear) {
+        aviso(`🚫 Cota mensal de ${quem} é ${cota.toLocaleString('pt-BR')} páginas. `
+            + `Já foram ${usado.toLocaleString('pt-BR')} e este lançamento passaria em ${excesso.toLocaleString('pt-BR')}. `
+            + `Fale com a direção para ajustar a cota.`, '#dc2626');
+        showToast('🚫 Lançamento acima da cota — bloqueado.', 7000);
+        copAtualizarCota();
+        return;
+      }
+      showToast(`⚠️ ${quem} passou da cota do mês em ${excesso.toLocaleString('pt-BR')} página(s).`, 7000);
+    }
+  }
+
+  const reg = {
+    id: uid(),
+    profId,
+    prof: u ? u.nome : '',
+    turmaId: document.getElementById('cop-turma')?.value || '',
+    data: dataReg,
+    descricao: desc,
+    paginas,
+    copias,
+    total: paginas * copias,
+    origem: document.getElementById('cop-origem')?.value || 'externa',
+    registradoPor: currentUser?.nome || currentUser?.usuario || '',
+    criadoEm: new Date().toISOString(),
+  };
+
+  db.impressoes.unshift(reg);
+  _impressoesCarregadas = true;
+  save();
+  renderCopias();
+
+  // Mantém solicitante, turma e data para o próximo lançamento; limpa só o resto
+  limparFormCopia();
+  document.getElementById('cop-desc')?.focus();
+
+  if (!avisarSePendente()) showToast(`✅ ${reg.total} página(s) registradas para ${reg.prof}.`);
+  aviso(`✅ Registrado: ${reg.total} página(s). Pode lançar a próxima.`, '#059669');
+}
+
+function deleteCopia(id) {
+  const r = db.impressoes.find(x => String(x.id) === String(id));
+  if (!r) return;
+  showConfirmModal('Excluir este lançamento?', () => {
+    db.impressoes = db.impressoes.filter(x => String(x.id) !== String(id));
+    save(); renderCopias();
+    showToast('🗑️ Lançamento excluído.');
+  });
+}
+
+function exportarCopias() {
+  const mes = copMesAtual();
+  const lista = db.impressoes.filter(r => String(r.data || '').startsWith(mes));
+  if (!lista.length) { showToast('Nenhum lançamento neste mês.'); return; }
+  const porProf = {};
+  lista.forEach(r => {
+    const k = r.prof || '—';
+    porProf[k] = porProf[k] || { total: 0, id: r.profId || '' };
+    porProf[k].total += Number(r.total) || 0;
+  });
+  const totalGeral = lista.reduce((s, r) => s + (Number(r.total) || 0), 0);
+  const linhas = [
+    `RELATÓRIO DE CÓPIAS — ESCOLA PONTE DO SABER`,
+    `Mês de referência: ${mes}`,
+    ``,
+    `TOTAL DO MÊS: ${totalGeral} páginas em ${lista.length} solicitações`,
+    ``,
+    `POR SOLICITANTE`,
+    ...Object.entries(porProf).sort((a, b) => b[1].total - a[1].total).map(([n, p]) => {
+      const cota = p.id ? cotaDoUsuario(p.id) : cotasCopias().padrao;
+      if (!cota) return `${n}: ${p.total} páginas`;
+      const sobra = cota - p.total;
+      return `${n}: ${p.total} de ${cota} páginas`
+           + (sobra < 0 ? ` (ACIMA DA COTA em ${-sobra})` : ` (restam ${sobra})`);
+    }),
+    ``,
+    `DETALHAMENTO`,
+    ...lista.slice().sort((a, b) => String(a.data).localeCompare(String(b.data))).map(r => {
+      const t = db.turmas.find(x => x.id === r.turmaId);
+      const d = r.data ? new Date(r.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+      return `${d} · ${r.prof} · ${t ? t.nome : '—'} · ${r.descricao} · ${r.paginas}p × ${r.copias} = ${r.total}`;
+    }),
+  ];
+  downloadTxt(linhas.join('\n'), `copias_${mes}.txt`);
+  showToast('⬇️ Relatório gerado!');
+}
+
+function renderCopias() {
+  const mes = copMesAtual();
+  const doMes = db.impressoes.filter(r => String(r.data || '').startsWith(mes));
+
+  // ── Consumo por professora ──
+  const cons = document.getElementById('cop-consumo');
+  if (cons) {
+    const porProf = {};
+    doMes.forEach(r => {
+      const k = r.profId || ('nome:' + normalizarNome(r.prof));
+      porProf[k] = porProf[k] || { nome: r.prof || '—', id: r.profId || '', total: 0, itens: 0 };
+      porProf[k].total += Number(r.total) || 0;
+      porProf[k].itens++;
+    });
+    const chaves = Object.keys(porProf).sort((a, b) => porProf[b].total - porProf[a].total);
+    const totalGeral = doMes.reduce((s, r) => s + (Number(r.total) || 0), 0);
+
+    if (!chaves.length) {
+      cons.innerHTML = '<div class="empty"><div class="icon">📊</div><p>Nenhuma cópia registrada neste mês. Lance a primeira acima e o consumo aparece aqui.</p></div>';
+    } else {
+      const maior = porProf[chaves[0]].total || 1;
+      const cotaPadrao = cotasCopias().padrao;
+      cons.innerHTML = `<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--gray-200);">
+          <span style="font-size:30px;font-weight:700;color:var(--green-dark);font-variant-numeric:tabular-nums;">${totalGeral.toLocaleString('pt-BR')}</span>
+          <span style="font-size:13px;color:var(--gray-500);">páginas no mês · ${doMes.length} solicitaç${doMes.length > 1 ? 'ões' : 'ão'}</span>
+        </div>`
+        + chaves.map(k => {
+          const p = porProf[k];
+          // Com cota definida a barra mede o consumo CONTRA a cota; sem cota,
+          // mede contra quem mais consumiu no mês (referência relativa).
+          const cota = p.id ? cotaDoUsuario(p.id) : cotaPadrao;
+          const base = cota || maior;
+          const pct  = Math.min(100, Math.round((p.total / base) * 100));
+          const estoura  = cota && p.total > cota;
+          const apertado = cota && !estoura && p.total >= cota * 0.8;
+          const cor = estoura ? '#dc2626' : (apertado ? '#d97706' : 'var(--green)');
+          const selo = !cota ? ''
+            : estoura
+              ? `<span class="badge" style="background:#fee2e2;color:#b91c1c;">acima da cota · +${(p.total - cota).toLocaleString('pt-BR')}</span>`
+              : `<span style="color:var(--gray-400);">de ${cota.toLocaleString('pt-BR')}</span>`;
+          return `<div style="margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:4px;flex-wrap:wrap;">
+              <span style="font-size:13.5px;font-weight:600;">${escapeHtml(p.nome)}</span>
+              <span style="font-size:13px;color:var(--gray-500);font-variant-numeric:tabular-nums;">
+                <strong style="color:${cor};font-size:15px;">${p.total.toLocaleString('pt-BR')}</strong> ${selo} págs · ${p.itens} pedido(s)</span>
+            </div>
+            <div style="height:9px;background:var(--gray-100);border-radius:5px;overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:${cor};border-radius:5px;"></div>
+            </div>
+          </div>`;
+        }).join('');
+    }
+  }
+
+  // ── Histórico ──
+  const el = document.getElementById('cop-lista');
+  if (!el) return;
+  const filtro = document.getElementById('cop-filtro-prof')?.value || '';
+  let lista = doMes.slice();
+  if (filtro) lista = lista.filter(r => r.profId === filtro);
+  lista.sort((a, b) => String(b.data).localeCompare(String(a.data)) || String(b.criadoEm).localeCompare(String(a.criadoEm)));
+
+  if (!lista.length) {
+    el.innerHTML = '<div class="empty"><div class="icon">📄</div><p>Nenhum lançamento neste mês.</p></div>';
+    return;
+  }
+  const ORIGEM = { externa: 'Material de fora', sistema: 'Banco de atividades', outro: 'Outro' };
+  el.innerHTML = lista.map(r => {
+    const t = db.turmas.find(x => x.id === r.turmaId);
+    const d = r.data ? new Date(r.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+    return `<div class="item-card">
+      <div class="info">
+        <strong>${escapeHtml(r.descricao || '—')}</strong>
+        <span>
+          <span class="badge badge-green">${escapeHtml(r.prof || '—')}</span>
+          ${t ? `<span class="badge badge-gray">${escapeHtml(t.nome)}</span>` : ''}
+          &nbsp;📅 ${d}
+        </span>
+        <span style="font-size:12px;color:var(--gray-500);">
+          ${r.paginas} pág × ${r.copias} cópia(s) = <strong style="color:var(--green-dark);">${r.total} páginas</strong>
+          &nbsp;·&nbsp; ${ORIGEM[r.origem] || r.origem || '—'}
+          ${r.registradoPor ? ' · lançado por ' + escapeHtml(r.registradoPor) : ''}
+        </span>
+      </div>
+      <div class="actions">
+        <button class="btn btn-danger btn-sm" onclick="deleteCopia('${r.id}')" title="Excluir">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// =====================================================================
+// OBSERVAÇÃO EM SALA — acompanhamento das professoras (pedagoga + direção)
+// =====================================================================
+const OBS_CRITERIOS = [
+  { key: 'planejamento', label: 'Planejamento' },
+  { key: 'interacao',    label: 'Interação' },
+  { key: 'organizacao',  label: 'Organização' },
+  { key: 'manejo',       label: 'Manejo da turma' },
+];
+
+// Monta os controles de nota (1 a 5) do formulário
+function renderCriteriosObservacao() {
+  const wrap = document.getElementById('obs-criterios');
+  if (!wrap) return;
+  wrap.innerHTML = OBS_CRITERIOS.map(c => `
+    <div class="form-group full" style="margin-bottom:14px;">
+      <label style="display:flex;align-items:center;justify-content:space-between;">
+        <span>${c.label}</span>
+        <span id="obs-${c.key}-val" style="font-variant-numeric:tabular-nums;color:var(--green-dark);font-weight:600;">4/5</span>
+      </label>
+      <input type="range" min="1" max="5" step="1" value="4" id="obs-${c.key}"
+             oninput="document.getElementById('obs-${c.key}-val').textContent = this.value + '/5'"
+             style="width:100%;accent-color:var(--green);cursor:pointer;">
+    </div>`).join('');
+}
+
+function popularSelectsObservacao() {
+  renderCriteriosObservacao();
+
+  const profs = db.usuarios.filter(u => u.papel === 'professora');
+  const selP = document.getElementById('obs-prof');
+  if (selP) {
+    const prev = selP.value;
+    selP.innerHTML = '<option value="">— Selecione —</option>'
+      + profs.map(u => `<option value="${escapeHtml(u.nome)}">${escapeHtml(u.nome)}</option>`).join('');
+    if (prev) selP.value = prev;
+  }
+
+  const selT = document.getElementById('obs-turma');
+  if (selT) {
+    const prev = selT.value;
+    selT.innerHTML = '<option value="">— Selecione —</option>'
+      + db.turmas.map(t => `<option value="${t.id}">${escapeHtml(t.nome)}</option>`).join('');
+    if (prev) selT.value = prev;
+  }
+
+  const selF = document.getElementById('obs-filtro-prof');
+  if (selF) {
+    const prev = selF.value;
+    selF.innerHTML = '<option value="">Todas as professoras</option>'
+      + profs.map(u => `<option value="${escapeHtml(u.nome)}">${escapeHtml(u.nome)}</option>`).join('');
+    if (prev) selF.value = prev;
+  }
+
+  const dt = document.getElementById('obs-data');
+  if (dt && !dt.value) dt.value = new Date().toISOString().slice(0, 10);
+}
+
+function limparFormObservacao() {
+  ['obs-fortes', 'obs-melhoria', 'obs-proximo'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  const dt = document.getElementById('obs-data');
+  if (dt) dt.value = new Date().toISOString().slice(0, 10);
+  renderCriteriosObservacao();
+  const st = document.getElementById('obs-form-status');
+  if (st) st.textContent = '';
+}
+
+function salvarObservacao() {
+  const st = document.getElementById('obs-form-status');
+  const aviso = (m, c) => { if (st) { st.textContent = m; st.style.color = c || 'var(--gray-600)'; } };
+
+  const prof    = document.getElementById('obs-prof')?.value || '';
+  const turmaId = document.getElementById('obs-turma')?.value || '';
+  const data    = document.getElementById('obs-data')?.value || '';
+  if (!prof)    { aviso('⚠️ Selecione a professora.', '#b45309'); return; }
+  if (!turmaId) { aviso('⚠️ Selecione a turma.', '#b45309'); return; }
+  if (!data)    { aviso('⚠️ Informe a data da observação.', '#b45309'); return; }
+
+  const notas = {};
+  OBS_CRITERIOS.forEach(c => { notas[c.key] = Number(document.getElementById('obs-' + c.key)?.value || 4); });
+  const media = OBS_CRITERIOS.reduce((s, c) => s + notas[c.key], 0) / OBS_CRITERIOS.length;
+
+  const obs = {
+    id: uid(),
+    prof,
+    profId: resolverProfId(prof),
+    turmaId,
+    data,
+    ...notas,
+    media: Math.round(media * 100) / 100,
+    pontosFortes:   document.getElementById('obs-fortes')?.value.trim()   || '',
+    pontosMelhoria: document.getElementById('obs-melhoria')?.value.trim() || '',
+    proximo:        document.getElementById('obs-proximo')?.value || '',
+    criadoEm: new Date().toISOString(),
+    criadoPor: currentUser?.nome || currentUser?.usuario || '',
+  };
+
+  db.observacoes.unshift(obs);
+  _observacoesCarregadas = true;
+  save();
+  renderObservacoes();
+  limparFormObservacao();
+
+  if (!avisarSePendente()) {
+    showToast(`✅ Observação de ${prof} salva — média ${obs.media.toFixed(1)}.`);
+  }
+  aviso(`✅ Salva. Média ${obs.media.toFixed(1)}/5. A devolutiva já está pronta no histórico abaixo.`, '#059669');
+  logger.audit({ module: 'observacao', action: 'create', message: `Observação registrada: ${prof}`, after: { prof, turmaId, media: obs.media } });
+}
+
+function deleteObservacao(id) {
+  const o = db.observacoes.find(x => String(x.id) === String(id));
+  if (!o) return;
+  if (currentUser?.papel !== 'diretor' && currentUser?.papel !== 'pedagoga') {
+    showToast('⚠️ Sem permissão para excluir observações.'); return;
+  }
+  showConfirmModal('Excluir esta observação?<br><small style="color:#888;font-weight:400;">Esta ação não pode ser desfeita.</small>', () => {
+    db.observacoes = db.observacoes.filter(x => String(x.id) !== String(id));
+    save();
+    renderObservacoes();
+    showToast('🗑️ Observação excluída.');
+    logger.audit({ module: 'observacao', action: 'delete', message: `Observação excluída: ${o.prof}`, before: { prof: o.prof, media: o.media } });
+  });
+}
+
+// Gráfico de evolução: linha simples com a média de cada observação, da mais antiga à mais recente
+function sparklineObservacoes(medias) {
+  if (medias.length < 2) return '';
+  const W = 132, H = 34, P = 3;
+  const pts = medias.map((m, i) => {
+    const x = P + (i / (medias.length - 1)) * (W - 2 * P);
+    const y = H - P - ((m - 1) / 4) * (H - 2 * P);   // escala fixa de 1 a 5
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const ultimo = pts[pts.length - 1].split(',');
+  const subiu = medias[medias.length - 1] >= medias[0];
+  const cor = subiu ? 'var(--green)' : '#d97706';
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img"
+      aria-label="Evolução das médias: ${medias.map(m => m.toFixed(1)).join(', ')}">
+      <polyline points="${pts.join(' ')}" fill="none" stroke="${cor}" stroke-width="1.8"
+        stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="${ultimo[0]}" cy="${ultimo[1]}" r="2.8" fill="${cor}"/>
+    </svg>`;
+}
+
+// Texto de devolutiva montado a partir da observação — pronto para copiar/enviar
+function montarDevolutiva(o) {
+  const turma = db.turmas.find(t => t.id === o.turmaId);
+  const dataFmt = o.data ? new Date(o.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+  const linhas = [
+    `DEVOLUTIVA DE OBSERVAÇÃO EM SALA`,
+    `Escola Ponte do Saber`,
+    ``,
+    `Professora: ${o.prof}`,
+    `Turma: ${turma ? turma.nome : '—'}`,
+    `Data da observação: ${dataFmt}`,
+    ``,
+    `AVALIAÇÃO POR CRITÉRIO`,
+    ...OBS_CRITERIOS.map(c => `${c.label}: ${o[c.key]}/5`),
+    `Média geral: ${Number(o.media).toFixed(1)}/5`,
+    ``,
+  ];
+  if (o.pontosFortes)   linhas.push(`PONTOS FORTES`, o.pontosFortes, ``);
+  if (o.pontosMelhoria) linhas.push(`PONTOS DE MELHORIA`, o.pontosMelhoria, ``);
+  if (o.proximo) {
+    linhas.push(`Próximo acompanhamento: ${new Date(o.proximo + 'T12:00:00').toLocaleDateString('pt-BR')}`, ``);
+  }
+  linhas.push(`Observação registrada por ${o.criadoPor || 'equipe pedagógica'}.`);
+  return linhas.join('\n');
+}
+
+function verDevolutiva(id) {
+  const o = db.observacoes.find(x => String(x.id) === String(id));
+  if (!o) return;
+  const texto = montarDevolutiva(o);
+  const corpo = `<div style="white-space:pre-wrap;font-size:14px;line-height:1.65;">${escapeHtml(texto)}</div>`
+    + `<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">`
+    +   `<button onclick="copiarDevolutiva('${o.id}')" style="background:var(--green);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;">📋 Copiar texto</button>`
+    +   `<button onclick="imprimirDevolutiva('${o.id}')" style="background:#fff;color:#555;border:1.5px solid #ddd;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;">🖨️ Imprimir</button>`
+    + `</div>`;
+  abrirModalVisualizar(`📄 Devolutiva — ${o.prof}`, '', '', corpo);
+}
+
+function copiarDevolutiva(id) {
+  const o = db.observacoes.find(x => String(x.id) === String(id));
+  if (!o) return;
+  navigator.clipboard.writeText(montarDevolutiva(o))
+    .then(() => showToast('📋 Devolutiva copiada!'))
+    .catch(() => showToast('⚠️ Não foi possível copiar.'));
+}
+
+function imprimirDevolutiva(id) {
+  const o = db.observacoes.find(x => String(x.id) === String(id));
+  if (!o) return;
+  const logoEl = document.querySelector('header img');
+  const logo = logoEl ? logoEl.src : '';
+  const corpo = escapeHtml(montarDevolutiva(o)).replace(/\n/g, '<br>');
+  const win = window.open('', '_blank', 'width=860,height=700');
+  if (!win) { showToast('⚠️ Permita pop-ups para imprimir.'); return; }
+  win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+    <title>Devolutiva — ${escapeHtml(o.prof)}</title>
+    <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;background:#e9e9e9;padding:28px 16px 60px}
+    .page{background:#fff;max-width:760px;margin:0 auto;padding:48px 60px;box-shadow:0 3px 18px rgba(0,0,0,.15);min-height:960px}
+    .logo{text-align:center;margin-bottom:18px}.logo img{height:70px}
+    .corpo{font-size:13.5px;line-height:1.8;white-space:pre-wrap}
+    .bar{max-width:760px;margin:0 auto 16px;display:flex;gap:10px}
+    button{padding:9px 20px;border-radius:6px;font-size:14px;cursor:pointer;border:none}
+    .p{background:#1D9E75;color:#fff;font-weight:bold}.c{background:#fff;border:1.5px solid #ddd;color:#555}
+    @media print{body{background:#fff;padding:0}.bar{display:none}.page{box-shadow:none;padding:18mm 20mm;min-height:auto}@page{size:A4;margin:12mm}}</style>
+    </head><body>
+    <div class="bar"><button class="p" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button><button class="c" onclick="window.close()">✕ Fechar</button></div>
+    <div class="page">${logo ? `<div class="logo"><img src="${logo}"></div>` : ''}<div class="corpo">${corpo}</div></div>
+    </body></html>`);
+  win.document.close();
+}
+
+function exportarObservacoes() {
+  if (!db.observacoes.length) { showToast('Nenhuma observação registrada.'); return; }
+  const txt = db.observacoes
+    .slice()
+    .sort((a, b) => String(b.data).localeCompare(String(a.data)))
+    .map(o => montarDevolutiva(o))
+    .join('\n\n' + '='.repeat(60) + '\n\n');
+  downloadTxt(txt, `observacoes_sala_${new Date().toISOString().slice(0, 10)}.txt`);
+  showToast('⬇️ Arquivo gerado!');
+}
+
+function renderObservacoes() {
+  // ── Panorama por professora: média, evolução e último acompanhamento ──
+  const pan = document.getElementById('obs-panorama');
+  if (pan) {
+    // Agrupa pelo vínculo com o cadastro; registros antigos caem no nome normalizado
+    const porProf = {};
+    db.observacoes.forEach(o => {
+      const k = chaveProf(o);
+      (porProf[k] = porProf[k] || { nome: nomeProfExibicao(o), itens: [] }).itens.push(o);
+    });
+    const nomes = Object.keys(porProf).sort((a, b) => porProf[a].nome.localeCompare(porProf[b].nome));
+
+    if (!nomes.length) {
+      pan.innerHTML = '<div class="empty"><div class="icon">📈</div><p>Nenhuma observação registrada ainda. Ao salvar a primeira, a média e o gráfico de evolução aparecem aqui.</p></div>';
+    } else {
+      pan.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;">`
+        + nomes.map(nome => {
+          const lista = porProf[nome].itens.slice().sort((a, b) => String(a.data).localeCompare(String(b.data)));
+          const medias = lista.map(o => Number(o.media) || 0);
+          const geral = medias.reduce((s, m) => s + m, 0) / medias.length;
+          const ultima = lista[lista.length - 1];
+          const primeira = medias[0];
+          const delta = medias.length > 1 ? medias[medias.length - 1] - primeira : 0;
+          const setaTxt = medias.length < 2 ? ''
+            : delta > 0.01 ? `<span style="color:var(--green-dark);font-size:12px;">▲ +${delta.toFixed(1)}</span>`
+            : delta < -0.01 ? `<span style="color:#b45309;font-size:12px;">▼ ${delta.toFixed(1)}</span>`
+            : `<span style="color:var(--gray-400);font-size:12px;">= estável</span>`;
+          const proxTxt = ultima.proximo
+            ? `Próximo: ${new Date(ultima.proximo + 'T12:00:00').toLocaleDateString('pt-BR')}`
+            : 'Sem próximo acompanhamento';
+          const cor = geral >= 4 ? 'var(--green-dark)' : geral >= 3 ? '#b45309' : '#b91c1c';
+          return `<div style="border:1px solid var(--gray-200);border-radius:10px;padding:14px;background:#fff;">
+              <div style="font-weight:600;font-size:14px;margin-bottom:8px;">${escapeHtml(porProf[nome].nome)}</div>
+              <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:10px;">
+                <div>
+                  <div style="font-size:26px;font-weight:700;line-height:1;color:${cor};font-variant-numeric:tabular-nums;">${geral.toFixed(1)}<span style="font-size:13px;font-weight:400;color:var(--gray-400);">/5</span></div>
+                  <div style="font-size:12px;color:var(--gray-500);margin-top:3px;">${lista.length} observaç${lista.length > 1 ? 'ões' : 'ão'} ${setaTxt}</div>
+                </div>
+                <div>${sparklineObservacoes(medias)}</div>
+              </div>
+              <div style="font-size:12px;color:var(--gray-500);margin-top:10px;padding-top:8px;border-top:1px solid var(--gray-100);">📅 ${proxTxt}</div>
+            </div>`;
+        }).join('') + `</div>`;
+    }
+  }
+
+  // ── Histórico ──
+  const el = document.getElementById('obs-lista');
+  if (!el) return;
+  const filtro = document.getElementById('obs-filtro-prof')?.value || '';
+  let lista = db.observacoes.slice();
+  if (filtro) lista = lista.filter(o => normalizarNome(o.prof) === normalizarNome(filtro));
+  lista.sort((a, b) => String(b.data).localeCompare(String(a.data)));
+
+  if (!lista.length) {
+    el.innerHTML = `<div class="empty"><div class="icon">🔍</div><p>${filtro ? 'Nenhuma observação para esta professora.' : 'Nenhuma observação registrada.'}</p></div>`;
+    return;
+  }
+
+  const podeExcluir = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
+  el.innerHTML = lista.map(o => {
+    const turma = db.turmas.find(t => t.id === o.turmaId);
+    const dataFmt = o.data ? new Date(o.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+    const media = Number(o.media) || 0;
+    const cor = media >= 4 ? 'badge-green' : media >= 3 ? 'badge-amber' : 'badge-gray';
+    const notas = OBS_CRITERIOS.map(c => `${c.label} ${o[c.key]}/5`).join(' · ');
+    const resumo = o.pontosFortes || o.pontosMelhoria || '';
+    return `<div class="item-card">
+      <div class="info">
+        <strong>${escapeHtml(nomeProfExibicao(o))}</strong>
+        <span>
+          <span class="badge badge-green">${escapeHtml(turma ? turma.nome : '—')}</span>
+          <span class="badge ${cor}">Média ${media.toFixed(1)}/5</span>
+          &nbsp;📅 ${dataFmt}
+        </span>
+        <span style="font-size:12px;color:var(--gray-500);">${notas}</span>
+        ${resumo ? `<div style="margin-top:4px;font-size:13px;color:var(--gray-600);">${escapeHtml(resumo.slice(0, 130))}${resumo.length > 130 ? '…' : ''}</div>` : ''}
+        ${o.proximo ? `<span style="font-size:12px;color:var(--green-dark);">🔁 Próximo acompanhamento: ${new Date(o.proximo + 'T12:00:00').toLocaleDateString('pt-BR')}</span>` : ''}
+      </div>
+      <div class="actions" style="flex-direction:column;gap:5px;">
+        <button class="btn btn-primary btn-sm" onclick="verDevolutiva('${o.id}')" title="Ver devolutiva pronta">📄 Devolutiva</button>
+        <button class="btn btn-secondary btn-sm" onclick="imprimirDevolutiva('${o.id}')" title="Imprimir / Salvar PDF">🖨️</button>
+        ${podeExcluir ? `<button class="btn btn-danger btn-sm" onclick="deleteObservacao('${o.id}')" title="Excluir">🗑️</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
 function renderOcorrencias() {
   const el = document.getElementById('ocorrencias-list');
   if (!el) return;
@@ -8468,8 +10046,7 @@ function imprimirListaComparecimento() {
   const logoSrc = logoEl ? logoEl.src : '';
 
   // Data de entrega do bimestre selecionado (fallback: hoje)
-  const _bimMap = { '1º bimestre': 'b1', '2º bimestre': 'b2', '3º bimestre': 'b3', '4º bimestre': 'b4' };
-  const _bKey   = _bimMap[(bimFiltro || '').toLowerCase()];
+  const _bKey   = chaveEntrega(bimFiltro);
   const _entVal = _bKey && db.entregasPareceres?.[_bKey];
   const dataHoje = _entVal
     ? new Date(_entVal + 'T12:00:00').toLocaleDateString('pt-BR')
@@ -8812,8 +10389,7 @@ async function imprimirParecer(id) {
 
 function montarHtmlParecer(p, __corpo) {
   const turma = db.turmas.find(t => t.id === p.turmaId);
-  const _entregaMap = { '1º bimestre': 'b1', '2º bimestre': 'b2', '3º bimestre': 'b3', '4º bimestre': 'b4' };
-  const _bKey = _entregaMap[(p.periodo || '').toLowerCase()];
+  const _bKey = chaveEntrega(p.periodo);
   const _entregaVal = _bKey && db.entregasPareceres?.[_bKey];
   const dataImpressao = _entregaVal
     ? new Date(_entregaVal + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -11661,8 +13237,7 @@ function sanitizeName(str) {
 
 function buildParecerTxt(p) {
   const turma = db.turmas.find(t => t.id === p.turmaId);
-  const _entregaMap = { '1º bimestre': 'b1', '2º bimestre': 'b2', '3º bimestre': 'b3', '4º bimestre': 'b4' };
-  const _bKey = _entregaMap[(p.periodo || '').toLowerCase()];
+  const _bKey = chaveEntrega(p.periodo);
   const _entregaVal = _bKey && db.entregasPareceres?.[_bKey];
   const dataDoc = _entregaVal
     ? new Date(_entregaVal + 'T12:00:00').toLocaleDateString('pt-BR')
@@ -11738,6 +13313,7 @@ function parsePlanejamentoRecuperado(item) {
     data,
     bimestre,
     prof,
+    profId: resolverProfId(prof),
     direitos,
     campos,
     bncc: sec.bncc || '',
@@ -11791,6 +13367,7 @@ async function recuperarPlanejamentosDrive() {
     delete pl._turmaNome;
     if (existentes.has(chave(pl))) { ignorados++; continue; }
     existentes.add(chave(pl));
+    _planejPendentes.add(String(pl.id));
     db.planejamentos.unshift(pl);
     novos++;
   }
@@ -12754,8 +14331,8 @@ const CAL_TIPOS = {
   colonia:         { label: 'Colônia de Férias',   cor: '#0891b2', prioridade: 3 },
   formacao:        { label: 'Formação',             cor: '#7c3aed', prioridade: 4 },
   vox_dei:         { label: 'Vox Dei',             cor: '#1e3a8a', prioridade: 5 },
-  inicio_bimestre: { label: 'Início de Bimestre',  cor: '#16a34a', prioridade: 6 },
-  fim_bimestre:    { label: 'Fim de Bimestre',     cor: '#991b1b', prioridade: 7 },
+  inicio_bimestre: { label: 'Início de Período',   cor: '#16a34a', prioridade: 6 },
+  fim_bimestre:    { label: 'Fim de Período',      cor: '#991b1b', prioridade: 7 },
   entrega_parecer: { label: 'Entrega de Pareceres',cor: '#d97706', prioridade: 8 },
   reuniao_pais:    { label: 'Reunião de Pais',     cor: '#9333ea', prioridade: 9 },
   comemoracao:     { label: 'Comemoração',         cor: '#0d9488', prioridade: 10 },
@@ -12763,19 +14340,78 @@ const CAL_TIPOS = {
   evento:          { label: 'Evento Escolar',      cor: '#059669', prioridade: 12 },
 };
 
+// Divisao padrao do ano letivo (04/02 a 18/12) para cada regime.
+// Sao apenas sugestoes iniciais — a direcao pode editar em "Configurar periodos".
+const CAL_DIVISAO_PADRAO = {
+  bimestral:  [['02-04','04-17'], ['04-22','07-03'], ['07-07','10-01'], ['10-02','12-18']],
+  trimestral: [['02-04','05-08'], ['05-11','08-28'], ['08-31','12-18']],
+  semestral:  [['02-04','07-03'], ['07-07','12-18']],
+};
+
+// Monta a lista de periodos do calendario seguindo o regime vigente
+function _calPeriodosPadrao(ano) {
+  const a   = String(ano);
+  const reg = regimeAtual();
+  const rot = REGIMES[reg].rotulo;
+  return (CAL_DIVISAO_PADRAO[reg] || CAL_DIVISAO_PADRAO.bimestral).map((par, i) => ({
+    num: i + 1,
+    label: `${i + 1}º ${rot}`,
+    inicio: `${a}-${par[0]}`,
+    fim:    `${a}-${par[1]}`,
+  }));
+}
+
+// Eventos de inicio/fim gerados a partir dos periodos (usado fora do padrao 2026)
+function _calEventosDosPeriodos(periodos) {
+  const evs = [];
+  periodos.forEach((b, i) => {
+    evs.push({ id: 'p' + (i * 2 + 1), tipo: 'inicio_bimestre', descricao: 'Início do ' + b.label, data: b.inicio });
+    evs.push({ id: 'p' + (i * 2 + 2), tipo: 'fim_bimestre',    descricao: 'Fim do '    + b.label, data: b.fim });
+  });
+  return evs;
+}
+
 function _calDefaultData(ano) {
-  const a = String(ano);
+  const periodos = _calPeriodosPadrao(ano);
+  // O calendario 2026 tem feriados e recessos ja conferidos manualmente; so
+  // reaproveitamos a lista completa quando a escola esta em regime bimestral,
+  // que e o regime para o qual aqueles inicios/fins de periodo foram escritos.
+  const eventos = (ano === 2026 && regimeAtual() === 'bimestral')
+    ? _calEventos2026()
+    : (ano === 2026 ? _calEventos2026().filter(e => e.tipo !== 'inicio_bimestre' && e.tipo !== 'fim_bimestre' && e.tipo !== 'entrega_parecer').concat(_calEventosDosPeriodos(periodos))
+                    : _calEventosDosPeriodos(periodos));
   return {
     ano,
-    bimestres: [
-      { num: 1, label: '1º Bimestre', inicio: `${a}-02-04`, fim: `${a}-04-17` },
-      { num: 2, label: '2º Bimestre', inicio: `${a}-04-22`, fim: `${a}-07-03` },
-      { num: 3, label: '3º Bimestre', inicio: `${a}-07-07`, fim: `${a}-10-01` },
-      { num: 4, label: '4º Bimestre', inicio: `${a}-10-02`, fim: `${a}-12-18` },
-    ],
-    eventos: ano === 2026 ? _calEventos2026() : [],
+    bimestres: periodos,
+    eventos,
     _nextId: 100,
   };
+}
+
+// Redivide o calendario existente quando o regime muda, preservando os eventos
+// que nao sao de inicio/fim de periodo.
+function calRedividirPorRegime() {
+  const cal = db.calendarioEscolar;
+  if (!cal) { showToast('❗ Crie o calendário primeiro.'); return; }
+  const r = regimeInfo();
+  showConfirmModal(
+    `Redividir o calendário de ${cal.ano} em <strong>${r.qtd} ${r.plural.toLowerCase()}</strong>?<br>` +
+    `<small style="color:#888;font-weight:400;">Feriados, recessos e demais eventos são mantidos. ` +
+    `Só as datas de início e fim de período são refeitas — e você pode ajustá-las depois.</small>`,
+    () => {
+      const periodos = _calPeriodosPadrao(cal.ano);
+      cal.bimestres = periodos;
+      cal.eventos = (cal.eventos || [])
+        .filter(e => e.tipo !== 'inicio_bimestre' && e.tipo !== 'fim_bimestre')
+        .concat(_calEventosDosPeriodos(periodos));
+      _calendarioEscolarCarregado = true;
+      save();
+      renderCalendario();
+      calAbrirBimestres();
+      showToast(`✅ Calendário redividido em ${r.qtd} ${r.plural.toLowerCase()}.`);
+      logger.audit({ module: 'calendario', action: 'redividir-regime', message: `Calendário ${cal.ano} redividido em ${regimeAtual()}` });
+    }
+  );
 }
 
 function _calEventos2026() {
@@ -13022,11 +14658,11 @@ function renderCalendario() {
       </tr>`;
     }).join('');
     bimDiv.innerHTML = `
-      <div class="card-title" style="margin-bottom:10px;">📊 Resumo dos Bimestres — ${ano}</div>
+      <div class="card-title" style="margin-bottom:10px;">📊 Resumo dos ${regimeInfo().plural} — ${ano}</div>
       <div style="overflow-x:auto;">
         <table class="cal-bim-table">
           <thead>
-            <tr><th>Bimestre</th><th>Início</th><th>Fim</th><th style="text-align:center;">Dias Letivos</th></tr>
+            <tr><th>${rotuloPeriodo()}</th><th>Início</th><th>Fim</th><th style="text-align:center;">Dias Letivos</th></tr>
           </thead>
           <tbody>
             ${rows}
@@ -13190,6 +14826,27 @@ function calAbrirBimestres() {
     `).join('');
   }
 
+  // Se o regime mudou depois que o calendario foi criado, oferece a redivisao
+  const aviso = document.getElementById('cal-bim-aviso-regime');
+  if (aviso) {
+    const r    = regimeInfo();
+    const bate = (db.calendarioEscolar.bimestres || []).length === r.qtd;
+    if (bate) {
+      aviso.style.display = 'none';
+      aviso.innerHTML = '';
+    } else {
+      aviso.style.display = '';
+      aviso.innerHTML = `<div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:12px 14px;">
+          <strong style="color:#92400e;font-size:13px;">⚠️ O ano letivo está configurado como ${escapeHtml(r.rotulo.toLowerCase())}</strong>
+          <div style="font-size:12.5px;color:#78350f;margin:5px 0 10px;">
+            Este calendário ainda tem ${(db.calendarioEscolar.bimestres || []).length} período(s).
+            Redividir cria os ${r.qtd} ${escapeHtml(r.plural.toLowerCase())} com datas sugeridas — feriados e demais eventos são mantidos.
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="calRedividirPorRegime()">🔄 Redividir em ${r.qtd} ${escapeHtml(r.plural.toLowerCase())}</button>
+        </div>`;
+    }
+  }
+
   form.style.display = '';
   form.scrollIntoView({ behavior: 'smooth', block: 'start' });
   document.getElementById('cal-form-evento').style.display = 'none';
@@ -13219,7 +14876,7 @@ function calSalvarBimestres() {
   save();
   calFecharBimestres();
   renderCalendario();
-  showToast('✅ Bimestres salvos!');
+  showToast('✅ ' + regimeInfo().plural + ' salvos!');
 }
 
 function imprimirCalendario() {
@@ -13375,7 +15032,7 @@ function imprimirCalendario() {
   const bimHtml = `
     <div class="bim-section">
       <table class="bim-table">
-        <thead><tr><th>Bimestre</th><th>Início</th><th>Fim</th><th>Dias Letivos</th></tr></thead>
+        <thead><tr><th>${rotuloPeriodo()}</th><th>Início</th><th>Fim</th><th>Dias Letivos</th></tr></thead>
         <tbody>
           ${bimRows}
           <tr class="total-row"><td colspan="3">TOTAL DE DIAS LETIVOS</td><td class="num">${totalLetivos}</td></tr>
