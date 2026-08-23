@@ -3369,7 +3369,7 @@ function _listarPlanejamentos() {
 </div>
 
 <!-- Botão flutuante -->
-<button id="chat-fab" class="chat-fab" onclick="toggleChatPanel()" title="Chat Interno">
+<button id="chat-fab" class="chat-fab" style="display:none;" onclick="toggleChatPanel()" title="Chat Interno">
   💬
   <span id="chat-fab-badge" class="chat-fab-badge" style="display:none;"></span>
 </button>
@@ -4060,7 +4060,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.14.1';
+const APP_VERSION = 'v2.15.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -4797,6 +4797,9 @@ function setupSync() {
         const el = document.getElementById('chat-geral-msgs');
         const naBase = el ? (el.scrollHeight - el.scrollTop <= el.clientHeight + 60) : true;
         renderChatGeral(naBase);
+        // Ja esta na tela do usuario: marcar como visto, senao o balao vermelho
+        // aparecia para uma mensagem que ele acabou de ler.
+        chatMarcarVisto('geral');
       }
     }
   });
@@ -4989,6 +4992,7 @@ function trocarSenha() {
 
 function fazerLogout() {
   logger.audit({ module: 'auth', action: 'logout', message: `Logout: ${currentUser?.nome || 'desconhecido'} (${currentUser?.papel || ''})` });
+  chatEncerrarSessao();     // conversas privadas nao podem sobreviver a troca de usuario
   currentUser = null;
   sessionStorage.removeItem('ps_sess');
   document.getElementById('login-overlay').style.display = 'flex';
@@ -5004,18 +5008,16 @@ function aplicarPapel() {
   if (_dmInboxUnsub) { _dmInboxUnsub(); _dmInboxUnsub = null; }
   _dmInboxUnsub = FSREF('dmInbox_' + currentUser.id).onSnapshot((doc) => {
     if (!doc.metadata.hasPendingWrites) {
-      const data = doc.exists ? (doc.data() || {}) : {};
-      _dmInboxData = data;
-      _dmNaoLidas = Object.entries(data).filter(([convId, ts]) => {
-        if (_chatDMAtivo && _chatDMAtivo.convId === convId) return false;
-        const seen = parseInt(localStorage.getItem('dm_read_' + convId) || '0', 10);
-        return ts > seen;
-      }).length;
+      _dmInboxData = doc.exists ? (doc.data() || {}) : {};
+      _dmRecontarNaoLidas();
       chatAtualizarBadge();
       const panel = document.getElementById('chat-panel');
       if (panel?.classList.contains('open') && _chatSubView === 'dm') renderListaConversas();
     }
   });
+
+  const _fab = document.getElementById('chat-fab');
+  if (_fab) _fab.style.display = '';
 
   // Header
   const av = currentUser.nome.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
@@ -5770,6 +5772,85 @@ function periodosComLegado() {
   (db.pareceres || []).forEach(p => juntar(p.periodo));
   (db.observacoes || []).forEach(o => juntar(o.periodo));
   return lista;
+}
+
+// ── Cotas de cópia: cartão de configuração (aba Configurações, só direção) ──
+function renderCardCotas() {
+  const card = document.getElementById('card-cotas');
+  if (!card) return;
+  if (currentUser?.papel !== 'diretor') { card.style.display = 'none'; return; }
+  card.style.display = '';
+
+  const c = cotasCopias();
+  const pad = document.getElementById('cfg-cota-padrao');
+  if (pad) pad.value = c.padrao || '';
+  const acao = document.getElementById('cfg-cota-acao');
+  if (acao) acao.value = c.bloquear ? 'bloquear' : 'avisar';
+  const st = document.getElementById('cfg-cota-status');
+  if (st) st.textContent = '';
+
+  const lista = document.getElementById('cfg-cota-lista');
+  if (!lista) return;
+  const pessoas = copSolicitantes();
+  if (!pessoas.length) {
+    lista.innerHTML = '<div class="empty"><div class="icon">👥</div><p>Cadastre as professoras primeiro.</p></div>';
+    return;
+  }
+
+  const mes = new Date().toISOString().slice(0, 7);
+  lista.innerHTML = pessoas.map(u => {
+    const usado = copUsadoNoMes(u.id, mes);
+    const esp   = c.porUsuario ? c.porUsuario[u.id] : '';
+    return `<div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--gray-100);flex-wrap:wrap;">
+        <span style="flex:1;min-width:170px;font-size:13.5px;font-weight:500;">
+          ${escapeHtml(copNomeComPapel(u))}
+          <span style="display:block;font-size:12px;color:var(--gray-500);font-weight:400;">
+            ${usado.toLocaleString('pt-BR')} página(s) neste mês
+          </span>
+        </span>
+        <input type="number" min="0" step="10" id="cfg-cota-u-${u.id}"
+               value="${esp === undefined || esp === null ? '' : escapeHtml(String(esp))}"
+               placeholder="padrão"
+               style="width:110px;padding:6px 9px;border:1.5px solid var(--gray-200);border-radius:6px;font-size:13px;" />
+      </div>`;
+  }).join('');
+}
+
+function salvarCotasCopias() {
+  const st = document.getElementById('cfg-cota-status');
+  const aviso = (m, cor) => { if (st) { st.textContent = m; st.style.color = cor || 'var(--gray-600)'; } };
+
+  const padrao = Math.max(0, Number(document.getElementById('cfg-cota-padrao')?.value || 0));
+  const bloquear = document.getElementById('cfg-cota-acao')?.value === 'bloquear';
+
+  const porUsuario = {};
+  copSolicitantes().forEach(u => {
+    const v = document.getElementById('cfg-cota-u-' + u.id)?.value;
+    // String vazia = "usa a padrão"; não guardamos a chave nesse caso
+    if (v !== undefined && String(v).trim() !== '') porUsuario[u.id] = Math.max(0, Number(v) || 0);
+  });
+
+  if (bloquear && !padrao && !Object.keys(porUsuario).length) {
+    aviso('⚠️ Para bloquear é preciso definir ao menos uma cota — hoje ninguém tem limite.', '#b45309');
+    return;
+  }
+
+  db.cotasCopias = { padrao, porUsuario, bloquear };
+  LS.set('ps_cotas_copias', db.cotasCopias);
+  FSREF('config').set({ cotasCopias: db.cotasCopias, apiKey: db.apiKey }, { merge: true })
+    .then(() => aviso('✅ Cotas salvas.', '#059669'))
+    .catch(e => aviso('⚠️ Salvo neste aparelho, mas não enviado ao servidor: ' + e.message, '#b45309'));
+
+  const indiv = Object.keys(porUsuario).length;
+  showToast(padrao || indiv
+    ? `🖨️ Cota salva: ${padrao ? padrao.toLocaleString('pt-BR') + ' páginas/mês padrão' : 'sem padrão'}`
+      + `${indiv ? ' · ' + indiv + ' cota(s) individual(is)' : ''}`
+      + `${bloquear ? ' · bloqueia ao estourar' : ''}`
+    : '🖨️ Cotas removidas — sem limite de cópias.', 6000);
+
+  renderCardCotas();
+  copAtualizarCota();
+  logger.audit({ module: 'config', action: 'cotas-copias', message: 'Cotas de cópia atualizadas', after: db.cotasCopias });
 }
 
 // Prepara o cartao de configuracao do regime (aba Configuracoes, so direcao)
@@ -13587,6 +13668,13 @@ function renderFormacao() {
 // CHAT INTERNO
 // =====================================================================
 
+// O Firestore limita cada documento a 1 MiB. O chat cresce por acumulo, entao
+// sem poda ele um dia estoura e TODAS as mensagens param de ser gravadas — o
+// mesmo modo de falha que ja derrubou os planejamentos. Ao chegar no limite,
+// a gravacao passa de arrayUnion para uma escrita completa ja podada.
+const CHAT_LIMITE_GERAL = 500;
+const CHAT_LIMITE_DM    = 300;
+
 const _CHAT_PAPEL_LABEL = {
   diretor: 'Diretor', pedagoga: 'Pedagoga',
   professora: 'Professora', secretaria: 'Secretaria',
@@ -13594,7 +13682,15 @@ const _CHAT_PAPEL_LABEL = {
 
 function _chatEscape(s) {
   return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-                  .replace(/"/g,'&quot;').replace(/\n/g,'<br>');
+                  .replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/\n/g,'<br>');
+}
+
+// Escapa para uso DENTRO de um atributo: sem virar <br> e com aspas simples
+// tambem neutralizadas.
+function _chatAttr(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 function _chatFmtHora(ts) {
@@ -13622,10 +13718,28 @@ function _chatMsgHtml(msg) {
   </div>`;
 }
 
+// Reconta as conversas nao lidas a partir do inbox. Antes o contador era
+// decrementado "na mao" ao abrir uma conversa, o que dessincronizava do estado
+// real (abrir uma conversa ja lida diminuia o total assim mesmo).
+function _dmRecontarNaoLidas() {
+  _dmNaoLidas = Object.entries(_dmInboxData || {}).filter(([convId, ts]) => {
+    if (_chatDMAtivo && _chatDMAtivo.convId === convId) return false;
+    const seen = parseInt(localStorage.getItem('dm_read_' + convId) || '0', 10);
+    return Number(ts) > seen;
+  }).length;
+  return _dmNaoLidas;
+}
+
 function chatAtualizarBadge() {
   try {
+    if (!currentUser) {
+      const b = document.getElementById('chat-fab-badge');
+      if (b) b.style.display = 'none';
+      document.getElementById('chat-fab')?.classList.remove('has-unread');
+      return;
+    }
     const seenTs   = parseInt(localStorage.getItem('chat_seen_geral') || '0', 10);
-    const geralNL  = db.chatGeral.filter(m => m.criadoEm > seenTs && m.autorId !== currentUser?.id).length;
+    const geralNL  = (db.chatGeral || []).filter(m => m.criadoEm > seenTs && m.autorId !== currentUser?.id).length;
     const total    = geralNL + (_dmNaoLidas || 0);
     const badge    = document.getElementById('chat-fab-badge');
     const fab      = document.getElementById('chat-fab');
@@ -13643,9 +13757,8 @@ function chatMarcarVisto(tipo) {
       localStorage.setItem('chat_seen_geral', Date.now());
       chatAtualizarBadge();
     } else if (tipo === 'dm' && _chatDMAtivo) {
-      const convId = _chatDMAtivo.convId;
-      localStorage.setItem('dm_read_' + convId, Date.now());
-      _dmNaoLidas = Math.max(0, _dmNaoLidas - 1);
+      localStorage.setItem('dm_read_' + _chatDMAtivo.convId, Date.now());
+      _dmRecontarNaoLidas();
       chatAtualizarBadge();
       renderListaConversas();
     }
@@ -13682,7 +13795,6 @@ function renderListaConversas() {
   const meuId = currentUser?.id;
   const listaTotal = db.usuarios || [];
   const outros = listaTotal.filter(u => u.id !== meuId && u.ativo !== false);
-  try { console.log('[DM] renderListaConversas', { total: listaTotal.length, outros: outros.length, meuId }); } catch(_) {}
   if (!outros.length) {
     const info = listaTotal.length === 0
       ? 'Carregando usuários… ⏳'
@@ -13703,32 +13815,73 @@ function renderListaConversas() {
     const inboxTs = _dmInboxData[convId] || 0;
     const seenTs  = parseInt(localStorage.getItem('dm_read_' + convId) || '0', 10);
     const temNaoLida = !isAtivo && inboxTs > seenTs;
+    // O id vai num data-attribute e o clique e tratado por delegacao: interpolar
+    // o nome dentro de onclick="..." quebrava o JS em nomes com apostrofo
+    // (Maria D'Avila) e deixava a conversa impossivel de abrir.
     return `
-    <div class="chat-user-item ${isAtivo ? 'ativo' : ''}" onclick="abrirChatDM('${u.id}','${_chatEscape(u.nome)}','${u.papel || ''}')">
-      <div class="chat-user-avatar">${inicial}</div>
+    <div class="chat-user-item ${isAtivo ? 'ativo' : ''}" data-chat-uid="${_chatAttr(u.id)}">
+      <div class="chat-user-avatar">${_chatEscape(inicial)}</div>
       <div style="flex:1">
         <div class="chat-user-nome">${_chatEscape(u.nome)}</div>
-        <div class="chat-user-papel">${papel}</div>
+        <div class="chat-user-papel">${_chatEscape(papel)}</div>
       </div>
       ${temNaoLida ? '<span class="chat-dm-unread-dot" title="Mensagem não lida"></span>' : ''}
     </div>`;
   }).join('');
+
+  // Delegacao: um unico handler para a lista inteira, refeito a cada render
+  el.onclick = (ev) => {
+    const item = ev.target.closest('[data-chat-uid]');
+    if (!item) return;
+    const u = db.usuarios.find(x => String(x.id) === item.getAttribute('data-chat-uid'));
+    if (u) abrirChatDM(u.id, u.nome, u.papel);
+  };
+}
+
+// Zera todo o estado do chat. Chamado no logout: sem isso, a conversa privada
+// aberta e o listener dela continuavam vivos, e o proximo usuario a entrar no
+// mesmo aparelho abria o painel vendo mensagens que nao eram dele.
+function chatEncerrarSessao() {
+  if (_chatDMUnsub)  { try { _chatDMUnsub(); }  catch(e) {} _chatDMUnsub  = null; }
+  if (_dmInboxUnsub) { try { _dmInboxUnsub(); } catch(e) {} _dmInboxUnsub = null; }
+  _chatDMAtivo = null;
+  _chatDMMsgs  = [];
+  _dmInboxData = {};
+  _dmNaoLidas  = 0;
+  _chatSubView = 'geral';
+  try {
+    fecharChatPanel();
+    ['chat-dm-msgs', 'chat-dm-lista', 'chat-geral-msgs'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '';
+    });
+    const thread = document.getElementById('chat-dm-thread');
+    if (thread) thread.style.display = 'none';
+    const vazia = document.getElementById('chat-dm-vazia');
+    if (vazia) vazia.style.display = '';
+    const fab = document.getElementById('chat-fab');
+    if (fab) fab.style.display = 'none';
+    chatAtualizarBadge();
+  } catch(e) {}
 }
 
 function abrirChatDM(userId, nomeUsuario, papelUsuario) {
+  if (!currentUser || !userId) return;
   if (_chatDMUnsub) { _chatDMUnsub(); _chatDMUnsub = null; }
   _chatDMAtivo = { userId, convId: _chatConvId(currentUser.id, userId), nome: nomeUsuario };
   _chatDMMsgs = [];
 
-  document.getElementById('chat-dm-vazia').style.display = 'none';
+  const vazia = document.getElementById('chat-dm-vazia');
+  if (vazia) vazia.style.display = 'none';
   const thread = document.getElementById('chat-dm-thread');
-  thread.style.display = 'flex';
-  document.getElementById('chat-dm-titulo').textContent = nomeUsuario;
+  if (thread) thread.style.display = 'flex';
+  const tit = document.getElementById('chat-dm-titulo');
+  if (tit) tit.textContent = nomeUsuario || '';
   const av = document.getElementById('chat-dm-avatar');
   if (av) av.textContent = (nomeUsuario || '?')[0].toUpperCase();
 
-  document.getElementById('chat-dm-msgs').innerHTML =
-    '<div class="chat-vazio">Carregando… ⏳</div>';
+  const cx = document.getElementById('chat-dm-msgs');
+  if (cx) cx.innerHTML = '<div class="chat-vazio">Carregando… ⏳</div>';
 
   // Oculta a lista e expande o thread em tela cheia
   document.getElementById('chat-dm-lista')?.closest('.chat-dm-layout')
@@ -13819,10 +13972,16 @@ async function enviarMensagemGeral() {
   renderChatGeral(true);
 
   try {
-    await FSREF('chatGeral').set(
-      { data: firebase.firestore.FieldValue.arrayUnion(msg) },
-      { merge: true }
-    );
+    if (db.chatGeral.length > CHAT_LIMITE_GERAL) {
+      // Poda: mantem as mais recentes e reescreve o documento inteiro
+      db.chatGeral = db.chatGeral.slice(-CHAT_LIMITE_GERAL);
+      await FSREF('chatGeral').set({ data: db.chatGeral });
+    } else {
+      await FSREF('chatGeral').set(
+        { data: firebase.firestore.FieldValue.arrayUnion(msg) },
+        { merge: true }
+      );
+    }
   } catch(e) {
     showToast('❌ Erro ao enviar mensagem.');
     db.chatGeral = db.chatGeral.filter(m => m.id !== msg.id);
@@ -13856,10 +14015,15 @@ async function enviarMensagemDM() {
   const recipientId = _chatDMAtivo.userId;
 
   try {
-    await FSREF('chatDM_' + convId).set(
-      { data: firebase.firestore.FieldValue.arrayUnion(msg) },
-      { merge: true }
-    );
+    if (_chatDMMsgs.length > CHAT_LIMITE_DM) {
+      _chatDMMsgs = _chatDMMsgs.slice(-CHAT_LIMITE_DM);
+      await FSREF('chatDM_' + convId).set({ data: _chatDMMsgs });
+    } else {
+      await FSREF('chatDM_' + convId).set(
+        { data: firebase.firestore.FieldValue.arrayUnion(msg) },
+        { merge: true }
+      );
+    }
     // Notifica o destinatário via inbox
     FSREF('dmInbox_' + recipientId).set(
       { [convId]: Date.now() },
