@@ -1840,6 +1840,42 @@ function _listarPlanejamentos() {
     <div id="cfg-regime-status" style="margin-top:10px;font-size:13px;"></div>
   </div>
 
+  <div class="card" id="card-cotas" style="display:none;">
+    <div class="card-title">🖨️ Cota de cópias</div>
+    <p style="font-size:13px;color:var(--gray-600);margin-bottom:14px;">
+      Define quantas páginas cada pessoa pode mandar imprimir por mês. A secretaria vê o quanto
+      já foi usado na hora de lançar a solicitação, e a barra de consumo passa a medir contra a cota.
+      Deixe <strong>0</strong> para não limitar.
+    </p>
+
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Cota mensal padrão (páginas)</label>
+        <input type="number" id="cfg-cota-padrao" min="0" step="10" placeholder="0 = sem limite" />
+      </div>
+      <div class="form-group">
+        <label>Ao ultrapassar a cota</label>
+        <select id="cfg-cota-acao">
+          <option value="avisar">Avisar, mas deixar registrar</option>
+          <option value="bloquear">Bloquear o lançamento</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div style="font-size:13px;font-weight:600;color:var(--gray-700);margin-bottom:4px;">Cota individual</div>
+    <div style="font-size:12.5px;color:var(--gray-500);margin-bottom:12px;">
+      Em branco, a pessoa usa a cota padrão. Preencha só quem precisa de um teto diferente —
+      e use <strong>0</strong> para deixar alguém sem limite nenhum, mesmo havendo cota padrão.
+    </div>
+    <div id="cfg-cota-lista"></div>
+
+    <div class="btn-row" style="margin-top:14px;">
+      <button class="btn btn-primary" onclick="salvarCotasCopias()">💾 Salvar cotas</button>
+    </div>
+    <div id="cfg-cota-status" style="margin-top:10px;font-size:13px;"></div>
+  </div>
+
   <div class="card" id="card-vinculo-prof" style="display:none;">
     <div class="card-title">🔗 Vincular professoras aos registros</div>
     <p style="font-size:13px;color:var(--gray-600);margin-bottom:14px;">
@@ -3015,13 +3051,13 @@ function _listarPlanejamentos() {
   <div class="card">
     <div class="card-title" style="margin-bottom:4px;">⚡ Lançar solicitação</div>
     <div style="font-size:13px;color:var(--gray-600);margin-bottom:14px;">
-      Registre o que foi pedido pelo WhatsApp assim que imprimir. A professora fica selecionada
+      Registre o que foi pedido pelo WhatsApp assim que imprimir. O solicitante fica selecionado
       para o próximo lançamento — dá para registrar vários seguidos.
     </div>
 
     <div class="form-grid">
       <div class="form-group">
-        <label>Professora *</label>
+        <label>Solicitante *</label>
         <select id="cop-prof" onchange="copProfMudou()"></select>
       </div>
       <div class="form-group">
@@ -3030,7 +3066,7 @@ function _listarPlanejamentos() {
       </div>
       <div class="form-group">
         <label>Data</label>
-        <input type="date" id="cop-data" />
+        <input type="date" id="cop-data" onchange="copAtualizarCota()" />
       </div>
       <div class="form-group full">
         <label>O que foi impresso *</label>
@@ -3039,11 +3075,11 @@ function _listarPlanejamentos() {
       </div>
       <div class="form-group">
         <label>Páginas por cópia *</label>
-        <input type="number" id="cop-paginas" min="1" step="1" value="1" oninput="copCalcularTotal()" />
+        <input type="number" id="cop-paginas" min="1" step="1" value="1" oninput="copRecalcular()" />
       </div>
       <div class="form-group">
         <label>Quantidade de cópias *</label>
-        <input type="number" id="cop-copias" min="1" step="1" value="1" oninput="copCalcularTotal()"
+        <input type="number" id="cop-copias" min="1" step="1" value="1" oninput="copRecalcular()"
                onkeydown="if(event.key==='Enter'){event.preventDefault();salvarCopia();}" />
       </div>
       <div class="form-group">
@@ -3062,6 +3098,8 @@ function _listarPlanejamentos() {
       <span id="cop-total" style="font-size:22px;font-weight:700;color:var(--green-dark);font-variant-numeric:tabular-nums;">1 página</span>
     </div>
 
+    <div id="cop-cota-meter" style="display:none;margin:0 0 14px;"></div>
+
     <div class="btn-row">
       <button class="btn btn-primary" onclick="salvarCopia()">💾 Registrar</button>
       <button class="btn btn-secondary" onclick="limparFormCopia()">🗑️ Limpar</button>
@@ -3072,7 +3110,7 @@ function _listarPlanejamentos() {
   <!-- Consumo do mês -->
   <div class="card">
     <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-      <span>📊 Consumo por professora</span>
+      <span>📊 Consumo por solicitante</span>
       <input type="month" id="cop-mes" onchange="renderCopias()" style="font-size:13px;max-width:180px;">
     </div>
     <div id="cop-consumo"></div>
@@ -3083,7 +3121,7 @@ function _listarPlanejamentos() {
     <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
       <span>🗂️ Lançamentos do mês</span>
       <select id="cop-filtro-prof" onchange="renderCopias()" style="max-width:260px;font-size:13px;">
-        <option value="">Todas as professoras</option>
+        <option value="">Todos os solicitantes</option>
       </select>
     </div>
     <div id="cop-lista" class="item-list"></div>
@@ -4019,7 +4057,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.12.0';
+const APP_VERSION = 'v2.13.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -4248,6 +4286,10 @@ async function loadFromFirestore() {
       if (rCfg.data().regimePeriodos) {
         db.regimePeriodos = rCfg.data().regimePeriodos;
         LS.set('ps_regime_periodos', db.regimePeriodos);
+      }
+      if (rCfg.data().cotasCopias) {
+        db.cotasCopias = rCfg.data().cotasCopias;
+        LS.set('ps_cotas_copias', db.cotasCopias);
       }
       if (rCfg.data().model) localStorage.setItem('ps_gemini_model', rCfg.data().model);
       // Sincroniza URL do Apps Script do Firestore → todos os dispositivos usam a mesma URL
@@ -4782,7 +4824,7 @@ function refreshCurrentView() {
   if (!active) return;
   const id = active.id;
   if (id === 'tab-dashboard')    renderDashboard();
-  if (id === 'tab-config')       { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); }
+  if (id === 'tab-config')       { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); renderCardCotas(); }
   if (id === 'tab-planejamento') { populateSelects(); renderPlanejamentos(); }
   if (id === 'tab-pareceres')    { populateSelects(); renderPareceres(); }
   if (id === 'tab-avaliacoes')   { populateSelects(); renderTabelaAvaliacoes(); }
@@ -4817,6 +4859,7 @@ let db = {
   diasSemAula: [],
   entregasPareceres: { b1: '', b2: '', b3: '', b4: '' },
   regimePeriodos: LS.get('ps_regime_periodos', 'bimestral'),   // bimestral | trimestral | semestral
+  cotasCopias: LS.get('ps_cotas_copias', { padrao: 0, porUsuario: {}, bloquear: false }),
   ocorrencias: [],
   observacoes: [],
   impressoes: [],
@@ -4991,6 +5034,8 @@ function aplicarPapel() {
   if (cardVinc) cardVinc.style.display = isDiretor ? '' : 'none';
   const cardReg = document.getElementById('card-regime');
   if (cardReg) cardReg.style.display = isDiretor ? '' : 'none';
+  const cardCota = document.getElementById('card-cotas');
+  if (cardCota) cardCota.style.display = isDiretor ? '' : 'none';
 
   // ── MATRIZ DE VISIBILIDADE POR PAPEL ─────────────────────────
   // Diretor    : tudo
@@ -5605,7 +5650,7 @@ function showTab(tab) {
   if (tab === 'hora-atividade') { renderHoraAtividade(); }
   if (tab === 'rotina')         { renderRotina(); }
   if (tab === 'atividades')     { renderAtividades(); }
-  if (tab === 'config')         { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); }
+  if (tab === 'config')         { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); renderCardCotas(); }
   if (tab === 'ocorrencias')    { renderOcorrencias(); }
   if (tab === 'observacoes')    { popularSelectsObservacao(); renderObservacoes(); }
   if (tab === 'copias')         { popularSelectsCopias(); renderCopias(); }
@@ -5701,6 +5746,85 @@ function renderCardRegime() {
   const st = document.getElementById('cfg-regime-status');
   if (st) st.textContent = '';
   previewRegime();
+}
+
+// ── Cotas de cópia: cartão de configuração (aba Configurações, só direção) ──
+function renderCardCotas() {
+  const card = document.getElementById('card-cotas');
+  if (!card) return;
+  if (currentUser?.papel !== 'diretor') { card.style.display = 'none'; return; }
+  card.style.display = '';
+
+  const c = cotasCopias();
+  const pad = document.getElementById('cfg-cota-padrao');
+  if (pad) pad.value = c.padrao || '';
+  const acao = document.getElementById('cfg-cota-acao');
+  if (acao) acao.value = c.bloquear ? 'bloquear' : 'avisar';
+  const st = document.getElementById('cfg-cota-status');
+  if (st) st.textContent = '';
+
+  const lista = document.getElementById('cfg-cota-lista');
+  if (!lista) return;
+  const pessoas = copSolicitantes();
+  if (!pessoas.length) {
+    lista.innerHTML = '<div class="empty"><div class="icon">👥</div><p>Cadastre as professoras primeiro.</p></div>';
+    return;
+  }
+
+  const mes = new Date().toISOString().slice(0, 7);
+  lista.innerHTML = pessoas.map(u => {
+    const usado = copUsadoNoMes(u.id, mes);
+    const esp   = c.porUsuario ? c.porUsuario[u.id] : '';
+    return `<div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--gray-100);flex-wrap:wrap;">
+        <span style="flex:1;min-width:170px;font-size:13.5px;font-weight:500;">
+          ${escapeHtml(copNomeComPapel(u))}
+          <span style="display:block;font-size:12px;color:var(--gray-500);font-weight:400;">
+            ${usado.toLocaleString('pt-BR')} página(s) neste mês
+          </span>
+        </span>
+        <input type="number" min="0" step="10" id="cfg-cota-u-${u.id}"
+               value="${esp === undefined || esp === null ? '' : escapeHtml(String(esp))}"
+               placeholder="padrão"
+               style="width:110px;padding:6px 9px;border:1.5px solid var(--gray-200);border-radius:6px;font-size:13px;" />
+      </div>`;
+  }).join('');
+}
+
+function salvarCotasCopias() {
+  const st = document.getElementById('cfg-cota-status');
+  const aviso = (m, cor) => { if (st) { st.textContent = m; st.style.color = cor || 'var(--gray-600)'; } };
+
+  const padrao = Math.max(0, Number(document.getElementById('cfg-cota-padrao')?.value || 0));
+  const bloquear = document.getElementById('cfg-cota-acao')?.value === 'bloquear';
+
+  const porUsuario = {};
+  copSolicitantes().forEach(u => {
+    const v = document.getElementById('cfg-cota-u-' + u.id)?.value;
+    // String vazia = "usa a padrão"; não guardamos a chave nesse caso
+    if (v !== undefined && String(v).trim() !== '') porUsuario[u.id] = Math.max(0, Number(v) || 0);
+  });
+
+  if (bloquear && !padrao && !Object.keys(porUsuario).length) {
+    aviso('⚠️ Para bloquear é preciso definir ao menos uma cota — hoje ninguém tem limite.', '#b45309');
+    return;
+  }
+
+  db.cotasCopias = { padrao, porUsuario, bloquear };
+  LS.set('ps_cotas_copias', db.cotasCopias);
+  FSREF('config').set({ cotasCopias: db.cotasCopias, apiKey: db.apiKey }, { merge: true })
+    .then(() => aviso('✅ Cotas salvas.', '#059669'))
+    .catch(e => aviso('⚠️ Salvo neste aparelho, mas não enviado ao servidor: ' + e.message, '#b45309'));
+
+  const indiv = Object.keys(porUsuario).length;
+  showToast(padrao || indiv
+    ? `🖨️ Cota salva: ${padrao ? padrao.toLocaleString('pt-BR') + ' páginas/mês padrão' : 'sem padrão'}`
+      + `${indiv ? ' · ' + indiv + ' cota(s) individual(is)' : ''}`
+      + `${bloquear ? ' · bloqueia ao estourar' : ''}`
+    : '🖨️ Cotas removidas — sem limite de cópias.', 6000);
+
+  renderCardCotas();
+  copAtualizarCota();
+  logger.audit({ module: 'config', action: 'cotas-copias', message: 'Cotas de cópia atualizadas', after: db.cotasCopias });
 }
 
 // Mostra o que o regime selecionado vai produzir, antes de salvar
@@ -9035,6 +9159,107 @@ function deleteOcorrencia(id) {
 // passa por ela, o registro aqui é CONTAGEM REAL — não estimativa do navegador.
 // O que importa é o total: páginas por cópia × quantidade de cópias.
 
+// ── Quem pode solicitar cópias ────────────────────────────────────────────
+// Professoras e pedagoga. A pedagoga também manda material para imprimir, e
+// sem ela na lista esse consumo ficava fora da conta.
+// A pedagoga aparece marcada, para a secretaria não confundir com uma professora
+function copNomeComPapel(u) {
+  if (!u) return '';
+  return u.papel === 'pedagoga' ? u.nome + ' (pedagoga)' : u.nome;
+}
+
+function copSolicitantes() {
+  return db.usuarios.filter(u => u.papel === 'professora' || u.papel === 'pedagoga');
+}
+
+// ── Cotas de cópia (configuradas pela direção) ────────────────────────────
+// padrao: teto mensal em páginas, valendo para todo mundo. 0 = sem limite.
+// porUsuario: teto individual por id de usuário; vazio = usa o padrão.
+// bloquear: true impede o lançamento que ultrapassa; false apenas avisa.
+function cotasCopias() {
+  const c = db.cotasCopias || {};
+  return {
+    padrao:     Math.max(0, Number(c.padrao) || 0),
+    porUsuario: c.porUsuario || {},
+    bloquear:   !!c.bloquear,
+  };
+}
+
+function cotaDoUsuario(profId) {
+  const c   = cotasCopias();
+  const esp = c.porUsuario ? c.porUsuario[profId] : undefined;
+  if (esp === undefined || esp === null || esp === '') return c.padrao;
+  return Math.max(0, Number(esp) || 0);
+}
+
+// Páginas já lançadas para essa pessoa no mês (AAAA-MM)
+function copUsadoNoMes(profId, mes) {
+  if (!profId) return 0;
+  return (db.impressoes || [])
+    .filter(r => r.profId === profId && String(r.data || '').startsWith(mes))
+    .reduce((soma, r) => soma + (Number(r.total) || 0), 0);
+}
+
+function copRotuloMes(mes) {
+  const [a, m] = String(mes || '').split('-');
+  if (!a || !m) return mes || '';
+  return new Date(Number(a), Number(m) - 1, 1)
+    .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+}
+
+// Medidor ao vivo no formulário: mostra o consumo do mês e o efeito do que
+// está sendo digitado agora, antes de registrar.
+function copAtualizarCota() {
+  const box = document.getElementById('cop-cota-meter');
+  if (!box) return;
+  const profId = document.getElementById('cop-prof')?.value || '';
+  if (!profId) { box.style.display = 'none'; box.innerHTML = ''; return; }
+
+  const cota = cotaDoUsuario(profId);
+  if (!cota) { box.style.display = 'none'; box.innerHTML = ''; return; }   // sem limite
+
+  const data  = document.getElementById('cop-data')?.value || new Date().toISOString().slice(0, 10);
+  const mes   = String(data).slice(0, 7);
+  const usado = copUsadoNoMes(profId, mes);
+  const nesta = copCalcularTotal();
+  const depois = usado + nesta;
+  const pct    = Math.min(100, Math.round((depois / cota) * 100));
+  const estoura = depois > cota;
+  const apertado = !estoura && depois >= cota * 0.8;
+
+  const cor   = estoura ? '#dc2626' : (apertado ? '#d97706' : 'var(--green)');
+  const fundo = estoura ? '#fef2f2' : (apertado ? '#fffbeb' : 'var(--green-light)');
+  const borda = estoura ? '#fca5a5' : (apertado ? '#fbbf24' : 'var(--green-mid)');
+  const nome  = db.usuarios.find(u => u.id === profId)?.nome || '';
+
+  let recado;
+  if (estoura) {
+    const excesso = depois - cota;
+    recado = `Este lançamento ultrapassa a cota em <strong>${excesso.toLocaleString('pt-BR')}</strong> página(s).`
+           + (cotasCopias().bloquear ? ' O registro será bloqueado.' : ' Dá para registrar mesmo assim.');
+  } else if (apertado) {
+    recado = `Restam <strong>${(cota - depois).toLocaleString('pt-BR')}</strong> página(s) para ${escapeHtml(nome)} neste mês.`;
+  } else {
+    recado = `Restam ${(cota - depois).toLocaleString('pt-BR')} página(s) neste mês.`;
+  }
+
+  box.style.display = '';
+  box.innerHTML = `<div style="background:${fundo};border:1.5px solid ${borda};border-radius:8px;padding:12px 16px;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:7px;">
+        <span style="font-size:13px;font-weight:600;color:var(--gray-700);">Cota de ${escapeHtml(copRotuloMes(mes))}</span>
+        <span style="font-size:13px;color:var(--gray-600);font-variant-numeric:tabular-nums;">
+          <strong style="color:${cor};font-size:15px;">${depois.toLocaleString('pt-BR')}</strong>
+          de ${cota.toLocaleString('pt-BR')} páginas
+          <span style="color:var(--gray-400);">(já lançadas: ${usado.toLocaleString('pt-BR')})</span>
+        </span>
+      </div>
+      <div style="height:9px;background:rgba(0,0,0,.07);border-radius:5px;overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:${cor};border-radius:5px;"></div>
+      </div>
+      <div style="font-size:12.5px;color:var(--gray-600);margin-top:7px;">${recado}</div>
+    </div>`;
+}
+
 function copMesAtual() {
   const el = document.getElementById('cop-mes');
   if (el && el.value) return el.value;
@@ -9050,25 +9275,33 @@ function copCalcularTotal() {
   return total;
 }
 
+// Wrapper dos oninput do formulário: recalcula o total e o medidor de cota
+function copRecalcular() {
+  copCalcularTotal();
+  copAtualizarCota();
+}
+
 // Ao escolher a professora, já sugere a turma dela — menos um campo a preencher
 function copProfMudou() {
   const sel = document.getElementById('cop-prof');
   const selT = document.getElementById('cop-turma');
   if (!sel || !selT) return;
   const u = db.usuarios.find(x => x.id === sel.value);
-  if (!u) return;
-  const ids = getUsrTurmaIds(u);
-  if (ids.length) selT.value = ids[0];
+  if (u) {
+    const ids = getUsrTurmaIds(u);
+    if (ids.length) selT.value = ids[0];
+  }
+  copAtualizarCota();
 }
 
 function popularSelectsCopias() {
-  const profs = db.usuarios.filter(u => u.papel === 'professora');
+  const profs = copSolicitantes();
 
   const sel = document.getElementById('cop-prof');
   if (sel) {
     const prev = sel.value;
     sel.innerHTML = '<option value="">— Selecione —</option>'
-      + profs.map(u => `<option value="${u.id}">${escapeHtml(u.nome)}</option>`).join('');
+      + profs.map(u => `<option value="${u.id}">${escapeHtml(copNomeComPapel(u))}</option>`).join('');
     if (prev) sel.value = prev;
   }
 
@@ -9083,8 +9316,8 @@ function popularSelectsCopias() {
   const selF = document.getElementById('cop-filtro-prof');
   if (selF) {
     const prev = selF.value;
-    selF.innerHTML = '<option value="">Todas as professoras</option>'
-      + profs.map(u => `<option value="${u.id}">${escapeHtml(u.nome)}</option>`).join('');
+    selF.innerHTML = '<option value="">Todos os solicitantes</option>'
+      + profs.map(u => `<option value="${u.id}">${escapeHtml(copNomeComPapel(u))}</option>`).join('');
     if (prev) selF.value = prev;
   }
 
@@ -9093,6 +9326,7 @@ function popularSelectsCopias() {
   const mes = document.getElementById('cop-mes');
   if (mes && !mes.value) mes.value = new Date().toISOString().slice(0, 7);
   copCalcularTotal();
+  copAtualizarCota();
 }
 
 function limparFormCopia() {
@@ -9100,6 +9334,7 @@ function limparFormCopia() {
   const pg = document.getElementById('cop-paginas'); if (pg) pg.value = 1;
   const cp = document.getElementById('cop-copias');  if (cp) cp.value = 1;
   copCalcularTotal();
+  copAtualizarCota();
   const st = document.getElementById('cop-status'); if (st) st.textContent = '';
 }
 
@@ -9116,12 +9351,33 @@ function salvarCopia() {
   const paginas = Math.max(1, Number(document.getElementById('cop-paginas')?.value || 1));
   const copias  = Math.max(1, Number(document.getElementById('cop-copias')?.value || 1));
 
+  // ── Cota mensal ────────────────────────────────────────────────────────
+  const dataReg = document.getElementById('cop-data')?.value || new Date().toISOString().slice(0, 10);
+  const cota    = cotaDoUsuario(profId);
+  if (cota) {
+    const usado   = copUsadoNoMes(profId, String(dataReg).slice(0, 7));
+    const depois  = usado + paginas * copias;
+    if (depois > cota) {
+      const excesso = depois - cota;
+      const quem    = u ? u.nome : 'esta pessoa';
+      if (cotasCopias().bloquear) {
+        aviso(`🚫 Cota mensal de ${quem} é ${cota.toLocaleString('pt-BR')} páginas. `
+            + `Já foram ${usado.toLocaleString('pt-BR')} e este lançamento passaria em ${excesso.toLocaleString('pt-BR')}. `
+            + `Fale com a direção para ajustar a cota.`, '#dc2626');
+        showToast('🚫 Lançamento acima da cota — bloqueado.', 7000);
+        copAtualizarCota();
+        return;
+      }
+      showToast(`⚠️ ${quem} passou da cota do mês em ${excesso.toLocaleString('pt-BR')} página(s).`, 7000);
+    }
+  }
+
   const reg = {
     id: uid(),
     profId,
     prof: u ? u.nome : '',
     turmaId: document.getElementById('cop-turma')?.value || '',
-    data: document.getElementById('cop-data')?.value || new Date().toISOString().slice(0, 10),
+    data: dataReg,
     descricao: desc,
     paginas,
     copias,
@@ -9136,7 +9392,7 @@ function salvarCopia() {
   save();
   renderCopias();
 
-  // Mantém professora, turma e data para o próximo lançamento; limpa só o resto
+  // Mantém solicitante, turma e data para o próximo lançamento; limpa só o resto
   limparFormCopia();
   document.getElementById('cop-desc')?.focus();
 
@@ -9159,7 +9415,11 @@ function exportarCopias() {
   const lista = db.impressoes.filter(r => String(r.data || '').startsWith(mes));
   if (!lista.length) { showToast('Nenhum lançamento neste mês.'); return; }
   const porProf = {};
-  lista.forEach(r => { porProf[r.prof || '—'] = (porProf[r.prof || '—'] || 0) + (Number(r.total) || 0); });
+  lista.forEach(r => {
+    const k = r.prof || '—';
+    porProf[k] = porProf[k] || { total: 0, id: r.profId || '' };
+    porProf[k].total += Number(r.total) || 0;
+  });
   const totalGeral = lista.reduce((s, r) => s + (Number(r.total) || 0), 0);
   const linhas = [
     `RELATÓRIO DE CÓPIAS — ESCOLA PONTE DO SABER`,
@@ -9167,8 +9427,14 @@ function exportarCopias() {
     ``,
     `TOTAL DO MÊS: ${totalGeral} páginas em ${lista.length} solicitações`,
     ``,
-    `POR PROFESSORA`,
-    ...Object.entries(porProf).sort((a, b) => b[1] - a[1]).map(([n, t]) => `${n}: ${t} páginas`),
+    `POR SOLICITANTE`,
+    ...Object.entries(porProf).sort((a, b) => b[1].total - a[1].total).map(([n, p]) => {
+      const cota = p.id ? cotaDoUsuario(p.id) : cotasCopias().padrao;
+      if (!cota) return `${n}: ${p.total} páginas`;
+      const sobra = cota - p.total;
+      return `${n}: ${p.total} de ${cota} páginas`
+           + (sobra < 0 ? ` (ACIMA DA COTA em ${-sobra})` : ` (restam ${sobra})`);
+    }),
     ``,
     `DETALHAMENTO`,
     ...lista.slice().sort((a, b) => String(a.data).localeCompare(String(b.data))).map(r => {
@@ -9191,7 +9457,7 @@ function renderCopias() {
     const porProf = {};
     doMes.forEach(r => {
       const k = r.profId || ('nome:' + normalizarNome(r.prof));
-      porProf[k] = porProf[k] || { nome: r.prof || '—', total: 0, itens: 0 };
+      porProf[k] = porProf[k] || { nome: r.prof || '—', id: r.profId || '', total: 0, itens: 0 };
       porProf[k].total += Number(r.total) || 0;
       porProf[k].itens++;
     });
@@ -9202,21 +9468,33 @@ function renderCopias() {
       cons.innerHTML = '<div class="empty"><div class="icon">📊</div><p>Nenhuma cópia registrada neste mês. Lance a primeira acima e o consumo aparece aqui.</p></div>';
     } else {
       const maior = porProf[chaves[0]].total || 1;
+      const cotaPadrao = cotasCopias().padrao;
       cons.innerHTML = `<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--gray-200);">
           <span style="font-size:30px;font-weight:700;color:var(--green-dark);font-variant-numeric:tabular-nums;">${totalGeral.toLocaleString('pt-BR')}</span>
           <span style="font-size:13px;color:var(--gray-500);">páginas no mês · ${doMes.length} solicitaç${doMes.length > 1 ? 'ões' : 'ão'}</span>
         </div>`
         + chaves.map(k => {
           const p = porProf[k];
-          const pct = Math.round((p.total / maior) * 100);
+          // Com cota definida a barra mede o consumo CONTRA a cota; sem cota,
+          // mede contra quem mais consumiu no mês (referência relativa).
+          const cota = p.id ? cotaDoUsuario(p.id) : cotaPadrao;
+          const base = cota || maior;
+          const pct  = Math.min(100, Math.round((p.total / base) * 100));
+          const estoura  = cota && p.total > cota;
+          const apertado = cota && !estoura && p.total >= cota * 0.8;
+          const cor = estoura ? '#dc2626' : (apertado ? '#d97706' : 'var(--green)');
+          const selo = !cota ? ''
+            : estoura
+              ? `<span class="badge" style="background:#fee2e2;color:#b91c1c;">acima da cota · +${(p.total - cota).toLocaleString('pt-BR')}</span>`
+              : `<span style="color:var(--gray-400);">de ${cota.toLocaleString('pt-BR')}</span>`;
           return `<div style="margin-bottom:12px;">
-            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:4px;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:4px;flex-wrap:wrap;">
               <span style="font-size:13.5px;font-weight:600;">${escapeHtml(p.nome)}</span>
               <span style="font-size:13px;color:var(--gray-500);font-variant-numeric:tabular-nums;">
-                <strong style="color:var(--gray-800);font-size:15px;">${p.total.toLocaleString('pt-BR')}</strong> págs · ${p.itens} pedido(s)</span>
+                <strong style="color:${cor};font-size:15px;">${p.total.toLocaleString('pt-BR')}</strong> ${selo} págs · ${p.itens} pedido(s)</span>
             </div>
             <div style="height:9px;background:var(--gray-100);border-radius:5px;overflow:hidden;">
-              <div style="height:100%;width:${pct}%;background:var(--green);border-radius:5px;"></div>
+              <div style="height:100%;width:${pct}%;background:${cor};border-radius:5px;"></div>
             </div>
           </div>`;
         }).join('');
