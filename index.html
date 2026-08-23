@@ -3463,7 +3463,7 @@ function _listarPlanejamentos() {
       </div>
       <div style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap;">
         <button class="btn btn-secondary btn-sm" onclick="calAbrirFormEvento(null)">➕ Novo Evento</button>
-        <button class="btn btn-secondary btn-sm" onclick="calAbrirBimestres()">📊 <span data-rotulo-periodo="plural">Bimestres</span></button>
+        <button class="btn btn-secondary btn-sm" onclick="calAbrirBimestres()">📊 <span data-rotulo-cal="plural">Bimestres</span></button>
         <button class="btn btn-primary btn-sm" onclick="imprimirCalendario()">🖨️ Imprimir</button>
       </div>
     </div>
@@ -3518,12 +3518,12 @@ function _listarPlanejamentos() {
 
   <!-- Form: Configurar Bimestres -->
   <div id="cal-form-bimestres" class="card cal-no-print" style="display:none;margin-bottom:14px;border:2px solid var(--green);">
-    <div class="card-title">📊 Configurar <span data-rotulo-periodo="plural">Bimestres</span></div>
+    <div class="card-title">📊 Configurar <span data-rotulo-cal="plural">Bimestres</span></div>
     <div style="overflow-x:auto;margin-top:10px;">
       <table style="width:100%;border-collapse:collapse;font-size:13px;" id="cal-bim-form-table">
         <thead>
           <tr>
-            <th style="padding:8px;background:var(--green-light);color:var(--green-dark);text-align:left;"><span data-rotulo-periodo="">Bimestre</span></th>
+            <th style="padding:8px;background:var(--green-light);color:var(--green-dark);text-align:left;"><span data-rotulo-cal="">Bimestre</span></th>
             <th style="padding:8px;background:var(--green-light);color:var(--green-dark);">Início</th>
             <th style="padding:8px;background:var(--green-light);color:var(--green-dark);">Fim</th>
           </tr>
@@ -3534,7 +3534,7 @@ function _listarPlanejamentos() {
     <div id="cal-bim-aviso-regime" style="display:none;margin-top:12px;"></div>
     <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap;">
       <button class="btn btn-secondary btn-sm" onclick="calFecharBimestres()">Cancelar</button>
-      <button class="btn btn-primary btn-sm" onclick="calSalvarBimestres()">💾 Salvar <span data-rotulo-periodo="plural">Bimestres</span></button>
+      <button class="btn btn-primary btn-sm" onclick="calSalvarBimestres()">💾 Salvar <span data-rotulo-cal="plural">Bimestres</span></button>
     </div>
   </div>
 
@@ -4060,7 +4060,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.14.0';
+const APP_VERSION = 'v2.14.1';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -14463,6 +14463,20 @@ function calCriarParaAno(ano) {
   showToast(`✅ Calendário ${anual} criado!`);
 }
 
+// Os rotulos da aba Calendario seguem o regime do ANO EXIBIDO, nao o do ano
+// corrente: olhando 2027 num sistema que ainda esta em 2026, a tela precisa
+// dizer "Trimestres", que e o que aquele calendario tem.
+function aplicarRotulosCalendario(ano) {
+  const alvo = Number(ano)
+    || Number(db.calendarioEscolar?.ano)
+    || Number(document.getElementById('cal-ano')?.value)
+    || anoLetivoAtual();
+  const r = regimeInfo(alvo);
+  document.querySelectorAll('[data-rotulo-cal]').forEach(el => {
+    el.textContent = el.getAttribute('data-rotulo-cal') === 'plural' ? r.plural : r.rotulo;
+  });
+}
+
 function _calDatasDoEvento(ev) {
   const datas = [];
   if (ev.data) {
@@ -14584,6 +14598,7 @@ function renderCalendario() {
   const anoEl = document.getElementById('cal-ano');
   if (!anoEl) return;
   const ano = parseInt(anoEl.value) || 2026;
+  aplicarRotulosCalendario(ano);
 
   // Se não há dados, mostra placeholder — NÃO inicializa automaticamente
   const grid = document.getElementById('cal-grid');
@@ -14804,6 +14819,7 @@ function calAbrirBimestres() {
   const form = document.getElementById('cal-form-bimestres');
   if (!form) return;
   if (!db.calendarioEscolar) { showToast('❗ Crie o calendário primeiro.'); return; }
+  aplicarRotulosCalendario(db.calendarioEscolar.ano);
 
   const tbody = document.getElementById('cal-bim-tbody');
   if (tbody) {
@@ -14866,7 +14882,7 @@ function calSalvarBimestres() {
   save();
   calFecharBimestres();
   renderCalendario();
-  showToast('✅ ' + regimeInfo().plural + ' salvos!');
+  showToast('✅ ' + regimeInfo(db.calendarioEscolar.ano).plural + ' salvos!');
 }
 
 function imprimirCalendario() {
