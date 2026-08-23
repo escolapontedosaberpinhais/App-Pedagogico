@@ -13,6 +13,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="PonteSaber">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
+<link rel="shortcut icon" type="image/png" href="/icon-192.png">
 <link rel="apple-touch-icon" href="/icon-192.png">
 <script>
   if ('serviceWorker' in navigator) {
@@ -1518,8 +1521,11 @@
   <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
     <h1>Escola Ponte do Saber</h1>
     <div style="display:flex;align-items:center;gap:8px;">
-      <span id="header-sub" style="font-size:13px;opacity:0.8;">— Gestão Pedagógica</span>
-      <span id="header-version" style="font-size:10px;opacity:0.6;background:rgba(255,255,255,0.15);padding:1px 7px;border-radius:10px;letter-spacing:.3px;"></span>
+      <!-- O subtitulo fica, sem o travessao. A versao saiu de vista porque ja
+           aparece no rodape da barra lateral, ao lado de Sair; o id continua
+           existindo, oculto, porque ha codigo que escreve nele. -->
+      <span id="header-sub" style="font-size:13px;opacity:0.85;">Gestão Pedagógica</span>
+      <span id="header-version" style="display:none;"></span>
       <span id="sync-chip" title="Status de sincronização">
         <span class="sync-icon" id="sync-icon">⟳</span>
         <span class="sync-label" id="sync-label">Salvando…</span>
@@ -4425,7 +4431,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.17.2';
+const APP_VERSION = 'v2.17.4';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
