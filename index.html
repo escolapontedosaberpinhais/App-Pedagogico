@@ -74,6 +74,46 @@
     --shadow-md: 0 12px 40px rgba(20,28,24,.16);
   }
 
+  /* ═══ MODO ESCURO ═════════════════════════════════════════════════════
+     Tres estados, nao dois: a escolha explicita marca data-theme no <html>,
+     e o padrao "seguir o sistema" nao marca nada — ai quem separa claro de
+     escuro e so o prefers-color-scheme. Por isso as duas formas abaixo.
+     Redefinimos apenas os TOKENS; nenhuma regra de componente muda. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="claro"]) {
+      --green: #4FC49B; --green-brand: #4FC49B; --green-dark: #7BD9B7;
+      --green-light: #16332A; --green-mid: #2B5847;
+      --gray-100: #1A211D; --gray-200: #2A332E; --gray-300: #3A453F;
+      --gray-400: #939E98; --gray-500: #A3AEA8; --gray-600: #A3AEA8;
+      --gray-700: #D2DAD6; --gray-800: #E8EEEB;
+      --white: #19201C;
+      --red: #F09090; --red-light: #341A1A; --red-edge: #5A2E2E;
+      --amber: #E0A75E; --amber-light: #312409; --amber-edge: #54401A;
+      --info: #8FB6E8; --info-light: #16243A;
+      --shadow: 0 1px 2px rgba(0,0,0,.5), 0 3px 10px rgba(0,0,0,.35);
+      --shadow-md: 0 12px 40px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="escuro"] {
+    --green: #4FC49B; --green-brand: #4FC49B; --green-dark: #7BD9B7;
+    --green-light: #16332A; --green-mid: #2B5847;
+    --gray-100: #1A211D; --gray-200: #2A332E; --gray-300: #3A453F;
+    --gray-400: #939E98; --gray-500: #A3AEA8; --gray-600: #A3AEA8;
+    --gray-700: #D2DAD6; --gray-800: #E8EEEB;
+    --white: #19201C;
+    --red: #F09090; --red-light: #341A1A; --red-edge: #5A2E2E;
+    --amber: #E0A75E; --amber-light: #312409; --amber-edge: #54401A;
+    --info: #8FB6E8; --info-light: #16243A;
+    --shadow: 0 1px 2px rgba(0,0,0,.5), 0 3px 10px rgba(0,0,0,.35);
+    --shadow-md: 0 12px 40px rgba(0,0,0,.6);
+  }
+
+  /* O fundo da pagina e do <html> tambem, senao sobra uma faixa clara ao
+     rolar alem do conteudo. */
+  :root[data-theme="escuro"] { background: #10150F; color-scheme: dark; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="claro"]) { background: #10150F; color-scheme: dark; } }
+  :root[data-theme="claro"] { color-scheme: light; }
+
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
@@ -426,6 +466,60 @@
   .empty .icon { font-size: 34px; margin-bottom: var(--s2); opacity: .55; }
   .empty p { font-size: 14.5px; color: var(--gray-600); max-width: 44ch; margin: 0 auto; }
   .empty .btn { margin-top: var(--s4); }
+
+  /* ═══ PONTE PARA OS ESTILOS EMBUTIDOS ═════════════════════════════════
+     Os 1.156 estilos escritos direto no HTML nao passam pelos tokens: no
+     escuro eles continuariam pintando fundo branco com texto claro por cima.
+     Enquanto a conversao tela por tela nao acontece, as regras abaixo pegam
+     os valores mais repetidos e os devolvem para o sistema. E remendo, esta
+     dito — mas e um remendo que se apaga sozinho conforme cada tela for
+     convertida, porque a regra so acerta quem ainda tem cor crua. */
+  .tema-escuro [style*="background:#fff"],  .tema-escuro [style*="background: #fff"],
+  .tema-escuro [style*="background:#FFF"],  .tema-escuro [style*="background:white"],
+  .tema-escuro [style*="background:#fafafa"], .tema-escuro [style*="background:#f8fafc"],
+  .tema-escuro [style*="background:#f1f5f9"], .tema-escuro [style*="background:#f9fafb"] {
+    background: var(--white) !important;
+  }
+  .tema-escuro [style*="background:#f0fdf4"], .tema-escuro [style*="background:#d1fae5"],
+  .tema-escuro [style*="background:#dcfce7"], .tema-escuro [style*="background:#ecfdf5"] {
+    background: var(--green-light) !important;
+  }
+  .tema-escuro [style*="background:#fef3c7"], .tema-escuro [style*="background:#fffbeb"],
+  .tema-escuro [style*="background:#fef9e7"] { background: var(--amber-light) !important; }
+  .tema-escuro [style*="background:#fee2e2"], .tema-escuro [style*="background:#fef2f2"],
+  .tema-escuro [style*="background:#fdeaea"] { background: var(--red-light) !important; }
+  .tema-escuro [style*="background:#dbeafe"], .tema-escuro [style*="background:#e0f2fe"],
+  .tema-escuro [style*="background:#eff6ff"] { background: var(--info-light) !important; }
+  .tema-escuro [style*="background:#ede9fe"], .tema-escuro [style*="background:#e0e7ff"] {
+    background: #241C3A !important;
+  }
+
+  /* textos escuros cravados que sumiriam no fundo escuro */
+  .tema-escuro [style*="color:#888"],    .tema-escuro [style*="color: #888"],
+  .tema-escuro [style*="color:#555"],    .tema-escuro [style*="color:#6b7280"],
+  .tema-escuro [style*="color:#9ca3af"], .tema-escuro [style*="color:#374151"],
+  .tema-escuro [style*="color:#1a1a1a"], .tema-escuro [style*="color:#333"],
+  .tema-escuro [style*="color:#4b5563"] { color: var(--gray-600) !important; }
+  .tema-escuro [style*="color:#065f46"], .tema-escuro [style*="color:#059669"],
+  .tema-escuro [style*="color:#15803d"], .tema-escuro [style*="color:#1d9e75"] { color: var(--green) !important; }
+  .tema-escuro [style*="color:#92400e"], .tema-escuro [style*="color:#78350f"],
+  .tema-escuro [style*="color:#b45309"], .tema-escuro [style*="color:#d97706"] { color: var(--amber) !important; }
+  .tema-escuro [style*="color:#991b1b"], .tema-escuro [style*="color:#b91c1c"],
+  .tema-escuro [style*="color:#dc2626"], .tema-escuro [style*="color:#ef4444"] { color: var(--red) !important; }
+  .tema-escuro [style*="color:#1e40af"], .tema-escuro [style*="color:#3730a3"] { color: var(--info) !important; }
+
+  /* bordas cruas */
+  .tema-escuro [style*="border:1px solid #e5e7eb"], .tema-escuro [style*="border:1.5px solid #e5e7eb"],
+  .tema-escuro [style*="1px solid #eee"], .tema-escuro [style*="1px solid #ddd"] {
+    border-color: var(--gray-200) !important;
+  }
+
+  /* a caixa da IA e o cabecalho verde do topo se mantem legiveis */
+  .tema-escuro .ai-box { background: var(--green-light); border-color: var(--green-mid); color: var(--gray-800); }
+  .tema-escuro header { background: #14342A; box-shadow: 0 1px 0 var(--gray-200); }
+  .tema-escuro .login-overlay { background: linear-gradient(145deg, #14342A 0%, #0C231C 100%); }
+  .tema-escuro #loading-screen { background: linear-gradient(145deg, #14342A 0%, #0C231C 100%); }
+  .tema-escuro img[src^="data:image/png"] { filter: none; }
 
   /* ═══ COMPONENTES NOVOS ═══════════════════════════════════════════════ */
 
@@ -1407,6 +1501,7 @@
       <div class="user-av" id="header-av"></div>
       <span id="header-nome"></span>
     </div>
+    <button class="btn-sino" id="btn-tema" onclick="alternarTema()" title="Alternar claro e escuro">🌙</button>
     <button class="btn-sino" id="btn-config-icon" onclick="showTab('config')" title="Configurações" style="display:none;">⚙️</button>
     <button class="btn-sino" id="btn-sino" onclick="togglePainelNotif()" title="Notificações" style="display:none;">
       🔔
@@ -2029,6 +2124,23 @@ function _listarPlanejamentos() {
   </div>
 
   <!-- BACKUP E RESTAURAÇÃO -->
+  <div class="card">
+    <div class="card-title">🌗 Aparência</div>
+    <p style="font-size:13px;color:var(--gray-600);margin-bottom:14px;">
+      Vale só neste aparelho — cada pessoa escolhe o que enxerga melhor.
+    </p>
+    <div class="form-grid">
+      <div class="form-group">
+        <label for="cfg-tema">Tema</label>
+        <select id="cfg-tema" onchange="definirTema(this.value)">
+          <option value="sistema">Seguir o aparelho</option>
+          <option value="claro">Sempre claro</option>
+          <option value="escuro">Sempre escuro</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
   <div class="card" id="card-regime" style="display:none;">
     <div class="card-title">🗓️ Divisão do ano letivo</div>
     <p style="font-size:13px;color:var(--gray-600);margin-bottom:14px;">
@@ -4283,7 +4395,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.16.0';
+const APP_VERSION = 'v2.17.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -4367,6 +4479,57 @@ const LS = {
   get: (k, def = []) => { try { return JSON.parse(localStorage.getItem(k)) ?? def; } catch { return def; } },
   set: (k, v) => localStorage.setItem(k, JSON.stringify(v)),
 };
+
+// ═══ TEMA ══════════════════════════════════════════════════════════════
+// Tres estados: 'sistema' (padrao, segue o aparelho), 'claro' e 'escuro'.
+// A escolha fica so neste aparelho — cada pessoa decide para si, e a
+// secretaria no balcao pode preferir claro enquanto a direcao prefere escuro.
+function temaAtual() {
+  try { return localStorage.getItem('ps_tema') || 'sistema'; } catch(e) { return 'sistema'; }
+}
+
+function aplicarTema(t) {
+  const raiz = document.documentElement;
+  if (t === 'sistema') raiz.removeAttribute('data-theme');
+  else raiz.setAttribute('data-theme', t);
+
+  // .tema-escuro alimenta a ponte dos estilos embutidos, que nao enxergam
+  // media query nem atributo do <html> nos seletores [style*=...]
+  // O !! nao e enfeite: classList.toggle com undefined no segundo argumento
+  // IGNORA o argumento e inverte a classe, entao o tema piscava sozinho onde
+  // matchMedia nao existe.
+  const prefereEscuro = !!(window.matchMedia &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const escuro = t === 'escuro' || (t === 'sistema' && prefereEscuro);
+  document.body?.classList.toggle('tema-escuro', !!escuro);
+
+  const btn = document.getElementById('btn-tema');
+  if (btn) {
+    btn.textContent = escuro ? '☀️' : '🌙';
+    btn.title = escuro ? 'Voltar ao modo claro' : 'Usar o modo escuro';
+  }
+  const sel = document.getElementById('cfg-tema');
+  if (sel) sel.value = t;
+}
+
+function definirTema(t) {
+  try { localStorage.setItem('ps_tema', t); } catch(e) {}
+  aplicarTema(t);
+}
+
+function alternarTema() {
+  const escuroAgora = document.body.classList.contains('tema-escuro');
+  definirTema(escuroAgora ? 'claro' : 'escuro');
+  showToast(escuroAgora ? '☀️ Modo claro' : '🌙 Modo escuro');
+}
+
+// Aplica antes do primeiro render para o app nao piscar branco
+aplicarTema(temaAtual());
+document.addEventListener('DOMContentLoaded', () => aplicarTema(temaAtual()));
+if (window.matchMedia) {
+  window.matchMedia('(prefers-color-scheme: dark)')
+    .addEventListener('change', () => { if (temaAtual() === 'sistema') aplicarTema('sistema'); });
+}
 
 // =====================================================================
 // FIREBASE — BANCO DE DADOS COMPARTILHADO
@@ -5057,7 +5220,7 @@ function refreshCurrentView() {
   if (!active) return;
   const id = active.id;
   if (id === 'tab-dashboard')    renderDashboard();
-  if (id === 'tab-config')       { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); renderCardCotas(); }
+  if (id === 'tab-config')       { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); renderCardCotas(); aplicarTema(temaAtual()); }
   if (id === 'tab-planejamento') { populateSelects(); renderPlanejamentos(); plLigarRascunho(); }
   if (id === 'tab-pareceres')    { populateSelects(); renderPareceres(); }
   if (id === 'tab-avaliacoes')   { populateSelects(); renderTabelaAvaliacoes(); }
@@ -5884,7 +6047,7 @@ function showTab(tab) {
   if (tab === 'hora-atividade') { renderHoraAtividade(); }
   if (tab === 'rotina')         { renderRotina(); }
   if (tab === 'atividades')     { renderAtividades(); }
-  if (tab === 'config')         { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); renderCardCotas(); }
+  if (tab === 'config')         { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); renderCardCotas(); aplicarTema(temaAtual()); }
   if (tab === 'ocorrencias')    { renderOcorrencias(); }
   if (tab === 'observacoes')    { popularSelectsObservacao(); renderObservacoes(); }
   if (tab === 'copias')         { popularSelectsCopias(); renderCopias(); }
