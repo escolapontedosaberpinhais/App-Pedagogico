@@ -921,6 +921,10 @@
     /* as duas navs horizontais somem — a lateral e a unica */
     #nav, #nav-dir { display: none !important; }
 
+    /* Sair e Trocar senha ficam so no rodape da barra lateral: no desktop ela
+       esta sempre visivel, entao repetir os dois no topo era ruido. */
+    header .btn-logout { display: none !important; }
+
     main { max-width: 1180px; padding: var(--s6) var(--s6) 80px; }
   }
 
@@ -1521,7 +1525,7 @@
   <div class="drawer-head">
     <img id="drawer-logo" src="" alt="Logo">
     <div class="drawer-head-info">
-      <strong>Ponte do Saber</strong>
+      <strong id="drawer-user-nome">Ponte do Saber</strong>
       <small id="drawer-user-info">&mdash;</small>
     </div>
   </div>
@@ -4395,7 +4399,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.17.0';
+const APP_VERSION = 'v2.17.1';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -5535,10 +5539,19 @@ function aplicarPapel() {
   if (dProf)   dProf.style.display   = isProfessora ? '' : 'none';
 
   // Populate drawer user info
+  // O nome fica na linha de cima e o papel na de baixo. Quando o nome
+  // cadastrado JA e o proprio cargo — ha usuarios chamados "Diretor(a)" —
+  // repetir os dois produzia "Diretor(a) · Diretor(a)".
+  const papelLabel = { diretor: 'Diretor(a)', pedagoga: 'Pedagoga', professora: 'Professora', secretaria: 'Secretaria' };
+  const _papel = papelLabel[currentUser?.papel] || '';
+  const _nome  = currentUser?.nome || currentUser?.usuario || '';
+  const drawerUserNome = document.getElementById('drawer-user-nome');
   const drawerUserInfo = document.getElementById('drawer-user-info');
+  if (drawerUserNome) drawerUserNome.textContent = _nome || 'Ponte do Saber';
   if (drawerUserInfo) {
-    const papelLabel = { diretor: 'Diretor(a)', pedagoga: 'Pedagoga', professora: 'Professora', secretaria: 'Secretaria' };
-    drawerUserInfo.textContent = (currentUser?.nome || currentUser?.login || '') + ' · ' + (papelLabel[currentUser?.papel] || '');
+    const igual = normalizarNome(_nome) === normalizarNome(_papel);
+    drawerUserInfo.textContent = igual ? '' : _papel;
+    drawerUserInfo.style.display = igual ? 'none' : '';
   }
 
   // Copy logo to drawer
@@ -7399,15 +7412,37 @@ function toggleCheckStyle(cb) {
   cb.closest('.check-item')?.classList.toggle('checked', cb.checked);
 }
 
-// ── Periodo em curso, pelo calendario escolar (cai no 1o quando nao ha) ──
+// ── Periodo em curso ────────────────────────────────────────────────────
+// Antes isto caia no PRIMEIRO periodo sempre que a busca falhava, e a falha
+// era comum: basta o calendario guardado ser de outro ano — o de 2027, por
+// exemplo — para nenhuma faixa conter a data de hoje. O resultado era a tela
+// cobrando pareceres do 1o bimestre em pleno agosto.
+// Agora: usa o calendario so quando ele e DO ANO CORRENTE; sem isso, divide o
+// ano letivo pelo padrao do regime; e devolve '' quando hoje esta fora do ano
+// letivo (ferias), em vez de chutar um periodo.
 function periodoCorrente() {
-  const cal = db.calendarioEscolar;
-  const hoje = new Date().toISOString().slice(0, 10);
-  if (cal && Array.isArray(cal.bimestres)) {
-    const achou = cal.bimestres.find(b => hoje >= b.inicio && hoje <= b.fim);
-    if (achou) return achou.label;
+  const agora = new Date();
+  const ano   = agora.getFullYear();
+  const hoje  = agora.toISOString().slice(0, 10);
+  const cal   = db.calendarioEscolar;
+
+  if (cal && Number(cal.ano) === ano && Array.isArray(cal.bimestres)) {
+    const dentro = cal.bimestres.find(b => hoje >= b.inicio && hoje <= b.fim);
+    if (dentro) return dentro.label;
+    // Entre um periodo e outro (recesso curto): vale o periodo que acabou
+    const antes = cal.bimestres.filter(b => b.fim < hoje).sort((x, y) => y.fim.localeCompare(x.fim))[0];
+    if (antes) return antes.label;
+    return '';   // ainda nao comecou o ano letivo
   }
-  return periodosDoRegime()[0];
+
+  // Sem calendario do ano corrente: divisao padrao do regime
+  const faixas = (CAL_DIVISAO_PADRAO[regimeAtual()] || CAL_DIVISAO_PADRAO.bimestral);
+  const rot = regimeInfo().rotulo;
+  const mmdd = hoje.slice(5);
+  for (let i = faixas.length - 1; i >= 0; i--) {
+    if (mmdd >= faixas[i][0]) return `${i + 1}º ${rot}`;
+  }
+  return '';   // antes do inicio do ano letivo
 }
 
 // ── FAIXA DE ATENCAO ────────────────────────────────────────────────────
@@ -7420,6 +7455,11 @@ function renderFaixaAtencao() {
   const itens = [];
   const hoje = new Date().toISOString().slice(0, 10);
   const per  = periodoCorrente();
+
+  // Fora do ano letivo nao ha o que cobrar. E a faixa cobra apenas o periodo
+  // EM CURSO: periodo encerrado e historico, nao pendencia — ficar alertando
+  // sobre ele para sempre so ensina a ignorar a faixa.
+  if (!per) { el.innerHTML = ''; el.style.display = 'none'; return; }
 
   // 1. Pareceres do periodo em curso contra a data de entrega
   const dataEntrega = db.entregasPareceres?.[chaveEntrega(per)] || '';
