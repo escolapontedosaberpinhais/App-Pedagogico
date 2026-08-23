@@ -516,7 +516,32 @@
 
   /* a caixa da IA e o cabecalho verde do topo se mantem legiveis */
   .tema-escuro .ai-box { background: var(--green-light); border-color: var(--green-mid); color: var(--gray-800); }
-  .tema-escuro header { background: #14342A; box-shadow: 0 1px 0 var(--gray-200); }
+
+  /* O cabecalho pintava com var(--green) de fundo e var(--white) de texto. No
+     escuro os dois trocam de lado: --white vira a superficie escura, entao a
+     letra ficava escura sobre fundo escuro. Aqui as duas cores sao explicitas. */
+  .tema-escuro header {
+    background: #16352B;
+    color: #EAF2EE;
+    border-bottom: 1px solid #24473B;
+    box-shadow: none;
+  }
+  .tema-escuro header h1,
+  .tema-escuro header #header-sub,
+  .tema-escuro header .user-chip,
+  .tema-escuro header .btn-sino,
+  .tema-escuro header .btn-logout,
+  .tema-escuro header .btn-hamburger { color: #EAF2EE; }
+  .tema-escuro header #header-sub { opacity: .92; }
+  .tema-escuro header #header-version {
+    background: rgba(255,255,255,.14); color: #EAF2EE; opacity: 1;
+  }
+  .tema-escuro header .user-chip { background: rgba(255,255,255,.10); }
+  .tema-escuro header .user-av { background: rgba(255,255,255,.20); color: #EAF2EE; }
+  .tema-escuro header .btn-sino:hover,
+  .tema-escuro header .btn-logout:hover,
+  .tema-escuro header .btn-hamburger:hover { background: rgba(255,255,255,.14); }
+  .tema-escuro header .btn-logout { border-color: rgba(255,255,255,.28); }
   .tema-escuro .login-overlay { background: linear-gradient(145deg, #14342A 0%, #0C231C 100%); }
   .tema-escuro #loading-screen { background: linear-gradient(145deg, #14342A 0%, #0C231C 100%); }
   .tema-escuro img[src^="data:image/png"] { filter: none; }
@@ -921,6 +946,10 @@
     /* as duas navs horizontais somem — a lateral e a unica */
     #nav, #nav-dir { display: none !important; }
 
+    /* Sair e Trocar senha ficam so no rodape da barra lateral: no desktop ela
+       esta sempre visivel, entao repetir os dois no topo era ruido. */
+    header .btn-logout { display: none !important; }
+
     main { max-width: 1180px; padding: var(--s6) var(--s6) 80px; }
   }
 
@@ -1261,7 +1290,7 @@
   .chat-view { display: flex; flex-direction: column; }
   .chat-msgs { flex: 1; overflow-y: auto; padding: 16px 14px;
     display: flex; flex-direction: column; gap: 8px;
-    background: var(--gray-50,#f8fafc); min-height: 0; }
+    background: var(--gray-100); min-height: 0; }
   .chat-msg { display: flex; flex-direction: column; max-width: 78%; }
   .chat-msg.minha { align-self: flex-end; align-items: flex-end; }
   .chat-msg.deles { align-self: flex-start; align-items: flex-start; }
@@ -1269,40 +1298,41 @@
   .chat-papel-badge { font-size: 10px; font-weight: 400; color: var(--gray-400); margin-left: 4px; }
   .chat-bubble { padding: 8px 13px; border-radius: 18px; font-size: 14px;
     line-height: 1.5; word-break: break-word; white-space: pre-wrap; }
-  .chat-msg.minha .chat-bubble { background: var(--green); color: #fff;
+  .chat-msg.minha .chat-bubble { background: var(--green); color: var(--white);
     border-bottom-right-radius: 4px; }
-  .chat-msg.deles .chat-bubble { background: #fff; color: var(--gray-800);
+  .chat-msg.deles .chat-bubble { background: var(--white); color: var(--gray-800);
     border: 1px solid var(--gray-200); border-bottom-left-radius: 4px; }
   .chat-hora { font-size: 10px; color: var(--gray-400); margin-top: 2px; }
   .chat-input-row { display: flex; gap: 8px; padding: 10px 12px;
-    background: #fff; border-top: 1px solid var(--gray-200); }
-  .chat-input { flex: 1; padding: 9px 14px; border: 1.5px solid var(--gray-200);
+    background: var(--white); border-top: 1px solid var(--gray-200); }
+  .chat-input { flex: 1; padding: 9px 14px; border: 1px solid var(--gray-300);
+    background: var(--white); color: var(--gray-800);
     border-radius: 22px; font-size: 14px; font-family: inherit;
     resize: none; outline: none; line-height: 1.4; max-height: 120px; overflow-y: auto; }
   .chat-input:focus { border-color: var(--green); }
-  .chat-send-btn { padding: 9px 18px; background: var(--green); color: #fff;
+  .chat-send-btn { padding: 9px 18px; background: var(--green); color: var(--white);
     border: none; border-radius: 22px; cursor: pointer; font-size: 14px;
     font-weight: 700; white-space: nowrap; align-self: flex-end; }
   .chat-send-btn:hover { opacity: .88; }
   .chat-vazio { text-align: center; padding: 48px 20px; color: var(--gray-400); font-size: 14px; }
   .chat-dm-layout { display: flex; flex: 1; min-height: 0; }
   .chat-dm-sidebar { width: 200px; flex-shrink: 0; border-right: 1px solid var(--gray-200);
-    overflow-y: auto; background: #fafafa; }
+    overflow-y: auto; background: var(--gray-100); }
   .chat-user-item { display: flex; align-items: center; gap: 9px; padding: 10px 12px;
     cursor: pointer; border-bottom: 1px solid var(--gray-100); transition: background .12s; }
-  .chat-user-item:hover { background: #f0fdf4; }
-  .chat-user-item.ativo { background: #dcfce7; }
+  .chat-user-item:hover { background: var(--green-light); }
+  .chat-user-item.ativo { background: var(--green-light); box-shadow: inset 3px 0 0 var(--green); }
   .chat-user-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--green);
-    color: #fff; display: flex; align-items: center; justify-content: center;
+    color: var(--white); display: flex; align-items: center; justify-content: center;
     font-size: 15px; font-weight: 800; flex-shrink: 0; }
-  .chat-user-nome { font-size: 13px; font-weight: 600; color: var(--gray-800); line-height: 1.2; }
-  .chat-user-papel { font-size: 11px; color: var(--gray-500); }
+  .chat-user-nome { font-size: 13.5px; font-weight: 600; color: var(--gray-800); line-height: 1.25; }
+  .chat-user-papel { font-size: 11.5px; color: var(--gray-500); }
   .chat-dm-right { flex: 1; display: flex; flex-direction: column; min-height: 0; }
   .chat-dm-header { padding: 11px 16px; border-bottom: 1px solid var(--gray-200);
-    font-size: 14px; font-weight: 700; color: var(--gray-700); background: #fff;
+    font-size: 14px; font-weight: 700; color: var(--gray-800); background: var(--white);
     display: flex; align-items: center; gap: 8px; }
   .chat-dm-vazia { flex: 1; display: flex; align-items: center; justify-content: center;
-    color: var(--gray-400); font-size: 14px; background: var(--gray-50,#f8fafc); }
+    color: var(--gray-400); font-size: 14px; background: var(--gray-100); }
   .chat-badge { display: inline-flex; align-items: center; justify-content: center;
     min-width: 18px; height: 18px; padding: 0 5px; background: #ef4444; color: #fff;
     border-radius: 9px; font-size: 10px; font-weight: 800; margin-left: 5px; }
@@ -1348,14 +1378,14 @@
   .chat-panel {
     position: fixed; top: 0; right: 0; bottom: 0; z-index: 1100;
     width: 380px; max-width: 100vw;
-    background: #fff; box-shadow: -4px 0 24px rgba(0,0,0,.18);
+    background: var(--white); box-shadow: -4px 0 24px rgba(0,0,0,.18);
     display: flex; flex-direction: column;
     transform: translateX(100%); transition: transform .28s cubic-bezier(.4,0,.2,1); }
   .chat-panel.open { transform: translateX(0); }
   .chat-panel-header {
     display: flex; align-items: center; gap: 4px;
     border-bottom: 2px solid var(--gray-200); padding: 0 10px 0 4px;
-    background: #fff; flex-shrink: 0; }
+    background: var(--white); flex-shrink: 0; }
   .chat-panel-tabs { display: flex; flex: 1; }
   .chat-panel-tabs .chat-tab-btn { flex: 1; }
   .chat-panel-close {
@@ -1521,7 +1551,7 @@
   <div class="drawer-head">
     <img id="drawer-logo" src="" alt="Logo">
     <div class="drawer-head-info">
-      <strong>Ponte do Saber</strong>
+      <strong id="drawer-user-nome">Ponte do Saber</strong>
       <small id="drawer-user-info">&mdash;</small>
     </div>
   </div>
@@ -4395,7 +4425,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.17.0';
+const APP_VERSION = 'v2.17.2';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -5535,10 +5565,19 @@ function aplicarPapel() {
   if (dProf)   dProf.style.display   = isProfessora ? '' : 'none';
 
   // Populate drawer user info
+  // O nome fica na linha de cima e o papel na de baixo. Quando o nome
+  // cadastrado JA e o proprio cargo — ha usuarios chamados "Diretor(a)" —
+  // repetir os dois produzia "Diretor(a) · Diretor(a)".
+  const papelLabel = { diretor: 'Diretor(a)', pedagoga: 'Pedagoga', professora: 'Professora', secretaria: 'Secretaria' };
+  const _papel = papelLabel[currentUser?.papel] || '';
+  const _nome  = currentUser?.nome || currentUser?.usuario || '';
+  const drawerUserNome = document.getElementById('drawer-user-nome');
   const drawerUserInfo = document.getElementById('drawer-user-info');
+  if (drawerUserNome) drawerUserNome.textContent = _nome || 'Ponte do Saber';
   if (drawerUserInfo) {
-    const papelLabel = { diretor: 'Diretor(a)', pedagoga: 'Pedagoga', professora: 'Professora', secretaria: 'Secretaria' };
-    drawerUserInfo.textContent = (currentUser?.nome || currentUser?.login || '') + ' · ' + (papelLabel[currentUser?.papel] || '');
+    const igual = normalizarNome(_nome) === normalizarNome(_papel);
+    drawerUserInfo.textContent = igual ? '' : _papel;
+    drawerUserInfo.style.display = igual ? 'none' : '';
   }
 
   // Copy logo to drawer
@@ -7399,15 +7438,37 @@ function toggleCheckStyle(cb) {
   cb.closest('.check-item')?.classList.toggle('checked', cb.checked);
 }
 
-// ── Periodo em curso, pelo calendario escolar (cai no 1o quando nao ha) ──
+// ── Periodo em curso ────────────────────────────────────────────────────
+// Antes isto caia no PRIMEIRO periodo sempre que a busca falhava, e a falha
+// era comum: basta o calendario guardado ser de outro ano — o de 2027, por
+// exemplo — para nenhuma faixa conter a data de hoje. O resultado era a tela
+// cobrando pareceres do 1o bimestre em pleno agosto.
+// Agora: usa o calendario so quando ele e DO ANO CORRENTE; sem isso, divide o
+// ano letivo pelo padrao do regime; e devolve '' quando hoje esta fora do ano
+// letivo (ferias), em vez de chutar um periodo.
 function periodoCorrente() {
-  const cal = db.calendarioEscolar;
-  const hoje = new Date().toISOString().slice(0, 10);
-  if (cal && Array.isArray(cal.bimestres)) {
-    const achou = cal.bimestres.find(b => hoje >= b.inicio && hoje <= b.fim);
-    if (achou) return achou.label;
+  const agora = new Date();
+  const ano   = agora.getFullYear();
+  const hoje  = agora.toISOString().slice(0, 10);
+  const cal   = db.calendarioEscolar;
+
+  if (cal && Number(cal.ano) === ano && Array.isArray(cal.bimestres)) {
+    const dentro = cal.bimestres.find(b => hoje >= b.inicio && hoje <= b.fim);
+    if (dentro) return dentro.label;
+    // Entre um periodo e outro (recesso curto): vale o periodo que acabou
+    const antes = cal.bimestres.filter(b => b.fim < hoje).sort((x, y) => y.fim.localeCompare(x.fim))[0];
+    if (antes) return antes.label;
+    return '';   // ainda nao comecou o ano letivo
   }
-  return periodosDoRegime()[0];
+
+  // Sem calendario do ano corrente: divisao padrao do regime
+  const faixas = (CAL_DIVISAO_PADRAO[regimeAtual()] || CAL_DIVISAO_PADRAO.bimestral);
+  const rot = regimeInfo().rotulo;
+  const mmdd = hoje.slice(5);
+  for (let i = faixas.length - 1; i >= 0; i--) {
+    if (mmdd >= faixas[i][0]) return `${i + 1}º ${rot}`;
+  }
+  return '';   // antes do inicio do ano letivo
 }
 
 // ── FAIXA DE ATENCAO ────────────────────────────────────────────────────
@@ -7420,6 +7481,11 @@ function renderFaixaAtencao() {
   const itens = [];
   const hoje = new Date().toISOString().slice(0, 10);
   const per  = periodoCorrente();
+
+  // Fora do ano letivo nao ha o que cobrar. E a faixa cobra apenas o periodo
+  // EM CURSO: periodo encerrado e historico, nao pendencia — ficar alertando
+  // sobre ele para sempre so ensina a ignorar a faixa.
+  if (!per) { el.innerHTML = ''; el.style.display = 'none'; return; }
 
   // 1. Pareceres do periodo em curso contra a data de entrega
   const dataEntrega = db.entregasPareceres?.[chaveEntrega(per)] || '';
@@ -14266,12 +14332,36 @@ function _chatMsgHtml(msg) {
 // decrementado "na mao" ao abrir uma conversa, o que dessincronizava do estado
 // real (abrir uma conversa ja lida diminuia o total assim mesmo).
 function _dmRecontarNaoLidas() {
+  const meuId = currentUser?.id;
   _dmNaoLidas = Object.entries(_dmInboxData || {}).filter(([convId, ts]) => {
     if (_chatDMAtivo && _chatDMAtivo.convId === convId) return false;
+    if (!Number.isFinite(Number(ts))) return false;
+    // Uma conversa cujo outro participante nao esta mais na lista nunca poderia
+    // ser aberta — e o contador ficaria vermelho para sempre, sem nada que o
+    // usuario pudesse fazer. Entradas orfas nao contam.
+    const partes = String(convId).split('_');
+    const outro = partes.find(x => x && x !== meuId);
+    if (!outro || !(db.usuarios || []).some(u => String(u.id) === outro)) return false;
     const seen = parseInt(localStorage.getItem('dm_read_' + convId) || '0', 10);
     return Number(ts) > seen;
   }).length;
   return _dmNaoLidas;
+}
+
+// Saida de emergencia: zera todas as conversas de uma vez. Sem isso, uma
+// notificacao presa so sairia apagando dados do navegador.
+function dmMarcarTudoLido() {
+  // O inbox guarda o carimbo da ultima mensagem de cada conversa; usamos ele
+  // proprio como piso, para cobrir tambem quem gravou com relogio adiantado.
+  Object.entries(_dmInboxData || {}).forEach(([convId, ts]) => {
+    const alvo = Math.max(Date.now(), (Number(ts) || 0) + 1);
+    try { localStorage.setItem('dm_read_' + convId, alvo); } catch(e) {}
+  });
+  try { localStorage.setItem('chat_seen_geral', _tsVisto(db.chatGeral)); } catch(e) {}
+  _dmRecontarNaoLidas();
+  chatAtualizarBadge();
+  renderListaConversas();
+  showToast('✅ Tudo marcado como lido.');
 }
 
 function chatAtualizarBadge() {
@@ -14295,13 +14385,22 @@ function chatAtualizarBadge() {
   } catch(e) {}
 }
 
+// O carimbo de "li ate aqui" nao pode ser simplesmente agora: se um aparelho
+// com relogio adiantado gravar uma mensagem com data no futuro, ela ficaria
+// eternamente nao lida e o balao vermelho travaria — que foi exatamente o
+// sintoma relatado. Usamos o maior entre agora e a mensagem mais recente.
+function _tsVisto(msgs) {
+  const maior = (msgs || []).reduce((m, x) => Math.max(m, Number(x.criadoEm) || 0), 0);
+  return Math.max(Date.now(), maior + 1);
+}
+
 function chatMarcarVisto(tipo) {
   try {
     if (tipo === 'geral') {
-      localStorage.setItem('chat_seen_geral', Date.now());
+      localStorage.setItem('chat_seen_geral', _tsVisto(db.chatGeral));
       chatAtualizarBadge();
     } else if (tipo === 'dm' && _chatDMAtivo) {
-      localStorage.setItem('dm_read_' + _chatDMAtivo.convId, Date.now());
+      localStorage.setItem('dm_read_' + _chatDMAtivo.convId, _tsVisto(_chatDMMsgs));
       _dmRecontarNaoLidas();
       chatAtualizarBadge();
       renderListaConversas();
@@ -14351,7 +14450,14 @@ function renderListaConversas() {
     </div>`;
     return;
   }
-  el.innerHTML = outros.map(u => {
+  const cabecalho = _dmNaoLidas > 0
+    ? `<button onclick="dmMarcarTudoLido()" style="width:100%;padding:9px 12px;border:none;
+         border-bottom:1px solid var(--gray-200);background:var(--gray-100);color:var(--green);
+         font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;text-align:left;">
+         ✓ Marcar tudo como lido (${_dmNaoLidas})</button>`
+    : '';
+
+  el.innerHTML = cabecalho + outros.map(u => {
     const papel = _CHAT_PAPEL_LABEL[u.papel] || u.papel || '';
     const isAtivo = _chatDMAtivo?.userId === u.id;
     const inicial = (u.nome || '?')[0].toUpperCase();
