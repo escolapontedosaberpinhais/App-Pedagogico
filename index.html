@@ -4057,7 +4057,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.13.0';
+const APP_VERSION = 'v2.13.1';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -5292,7 +5292,8 @@ function aplicarVinculoProf() {
       if (typeof renderObservacoes === 'function') renderObservacoes();
       showToast(`🔗 ${total} registro(s) vinculados!`, 5000);
       logger.audit({ module: 'usuarios', action: 'vincular-prof', message: `${total} registro(s) vinculados ao cadastro de professoras`, meta: { total } });
-    }
+    },
+    { rotulo: 'Vincular', tipo: 'primary', icone: '🔗' }
   );
 }
 
@@ -5705,9 +5706,11 @@ function mostrarPushNotif(titulo, corpo) {
 // Registros antigos guardam o rotulo do regime em que foram criados; por isso
 // as listas sempre incluem tambem os valores ja usados nos dados (legado).
 const REGIMES = {
-  bimestral:  { rotulo: 'Bimestre',  plural: 'Bimestres',  qtd: 4 },
-  trimestral: { rotulo: 'Trimestre', plural: 'Trimestres', qtd: 3 },
-  semestral:  { rotulo: 'Semestre',  plural: 'Semestres',  qtd: 2 },
+  // rotulo/plural nomeiam o PERIODO ("2o Trimestre"); nome descreve o REGIME
+  // ("o ano e trimestral"). Trocar um pelo outro produz "o ano e trimestre".
+  bimestral:  { nome: 'bimestral',  rotulo: 'Bimestre',  plural: 'Bimestres',  qtd: 4 },
+  trimestral: { nome: 'trimestral', rotulo: 'Trimestre', plural: 'Trimestres', qtd: 3 },
+  semestral:  { nome: 'semestral',  rotulo: 'Semestre',  plural: 'Semestres',  qtd: 2 },
 };
 
 function regimeAtual()  { return REGIMES[db.regimePeriodos] ? db.regimePeriodos : 'bimestral'; }
@@ -5881,21 +5884,22 @@ function salvarRegimePeriodos() {
 
   const r = REGIMES[novo];
   showConfirmModal(
-    `Mudar a divisão do ano para <strong>${r.rotulo.toLowerCase()}</strong> (${r.qtd} períodos)?<br>` +
+    `Mudar a divisão do ano para <strong>${r.nome}</strong> (${r.qtd} períodos)?<br>` +
     `<small style="color:#888;font-weight:400;">Nenhum registro existente é apagado ou alterado.</small>`,
     () => {
       db.regimePeriodos = novo;
       LS.set('ps_regime_periodos', novo);
       FSREF('config').set({ regimePeriodos: novo, apiKey: db.apiKey }, { merge: true })
-        .then(() => aviso(`✅ Regime salvo: ${r.rotulo.toLowerCase()} (${r.qtd} períodos).`, '#059669'))
+        .then(() => aviso(`✅ Regime salvo: ${r.nome} (${r.qtd} períodos).`, '#059669'))
         .catch(e => aviso('⚠️ Salvo neste aparelho, mas não enviado ao servidor: ' + e.message, '#b45309'));
       aplicarRegimePeriodos();
       renderEntregasPareceres();
       previewRegime();
       refreshCurrentView();
-      showToast(`🗓️ Ano letivo agora é ${r.rotulo.toLowerCase()} — ${r.qtd} períodos.`, 6000);
+      showToast(`🗓️ Ano letivo agora é ${r.nome} — ${r.qtd} períodos.`, 6000);
       logger.audit({ module: 'config', action: 'regime-periodos', message: `Regime alterado para ${novo}`, after: { regime: novo } });
-    }
+    },
+    { rotulo: 'Mudar regime', tipo: 'primary', icone: '🗓️' }
   );
 }
 
@@ -8511,7 +8515,9 @@ function confirmarRestauracao() {
         logger.error({ module: 'backup', action: 'restore', message: 'Erro ao restaurar backup', error: e });
         showToast('⚠️ Erro ao restaurar: ' + (e.message || e), 5000);
       }
-    }
+    },
+    // Substitui dados em massa: continua em vermelho, mas dizendo o que faz
+    { rotulo: 'Restaurar', tipo: 'danger', icone: '♻️' }
   );
 }
 
@@ -13412,16 +13418,24 @@ function downloadTxt(content, filename) {
 }
 
 // ── Modal de confirmação (substitui window.confirm) ───────────────────
-function showConfirmModal(msg, onConfirm) {
+// opcoes: { rotulo, tipo, icone }. O padrao continua sendo a exclusao, para
+// nao mexer nas dezenas de chamadas que ja existem — mas uma acao que nao apaga
+// nada precisa dizer o que faz, e nao "Excluir" em vermelho.
+function showConfirmModal(msg, onConfirm, opcoes) {
+  const o      = opcoes || {};
+  const rotulo = o.rotulo || 'Excluir';
+  const tipo   = o.tipo   || 'danger';       // danger | primary
+  const icone  = o.icone  || (tipo === 'danger' ? '⚠️' : '❓');
+
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
     <div class="modal-box" style="max-width:340px;text-align:center;">
-      <div style="font-size:32px;margin-bottom:10px;">⚠️</div>
+      <div style="font-size:32px;margin-bottom:10px;">${icone}</div>
       <p style="font-size:15px;font-weight:600;margin-bottom:8px;color:var(--gray-800);">${msg}</p>
       <div style="display:flex;gap:10px;margin-top:20px;justify-content:center;">
         <button id="_conf-cancel" class="btn btn-secondary" style="flex:1;">Cancelar</button>
-        <button id="_conf-ok" class="btn btn-danger" style="flex:1;">Excluir</button>
+        <button id="_conf-ok" class="btn btn-${tipo}" style="flex:1;">${escapeHtml(rotulo)}</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -14410,7 +14424,8 @@ function calRedividirPorRegime() {
       calAbrirBimestres();
       showToast(`✅ Calendário redividido em ${r.qtd} ${r.plural.toLowerCase()}.`);
       logger.audit({ module: 'calendario', action: 'redividir-regime', message: `Calendário ${cal.ano} redividido em ${regimeAtual()}` });
-    }
+    },
+    { rotulo: 'Redividir', tipo: 'primary', icone: '🔄' }
   );
 }
 
@@ -14837,7 +14852,7 @@ function calAbrirBimestres() {
     } else {
       aviso.style.display = '';
       aviso.innerHTML = `<div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:12px 14px;">
-          <strong style="color:#92400e;font-size:13px;">⚠️ O ano letivo está configurado como ${escapeHtml(r.rotulo.toLowerCase())}</strong>
+          <strong style="color:#92400e;font-size:13px;">⚠️ O ano letivo está configurado como ${escapeHtml(r.nome)}</strong>
           <div style="font-size:12.5px;color:#78350f;margin:5px 0 10px;">
             Este calendário ainda tem ${(db.calendarioEscolar.bimestres || []).length} período(s).
             Redividir cria os ${r.qtd} ${escapeHtml(r.plural.toLowerCase())} com datas sugeridas — feriados e demais eventos são mantidos.
