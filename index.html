@@ -1521,11 +1521,10 @@
   <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
     <h1>Escola Ponte do Saber</h1>
     <div style="display:flex;align-items:center;gap:8px;">
-      <!-- O subtitulo e a versao sairam daqui: a versao ja aparece no rodape
-           da barra lateral, ao lado de Sair, e o subtitulo so repetia o que o
-           proprio titulo diz. Os ids continuam existindo, ocultos, porque ha
-           codigo que escreve neles. -->
-      <span id="header-sub" style="display:none;"></span>
+      <!-- O subtitulo fica, sem o travessao. A versao saiu de vista porque ja
+           aparece no rodape da barra lateral, ao lado de Sair; o id continua
+           existindo, oculto, porque ha codigo que escreve nele. -->
+      <span id="header-sub" style="font-size:13px;opacity:0.85;">Gestão Pedagógica</span>
       <span id="header-version" style="display:none;"></span>
       <span id="sync-chip" title="Status de sincronização">
         <span class="sync-icon" id="sync-icon">⟳</span>
@@ -4432,7 +4431,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.17.3';
+const APP_VERSION = 'v2.17.4';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
