@@ -1597,6 +1597,9 @@
     <button class="dnav-btn" id="dnav-observacoes" onclick="drawerNav('observacoes')" style="display:none;">
       <span class="di">&#x1F50D;</span> Observa&ccedil;&atilde;o em sala
     </button>
+    <button class="dnav-btn" id="dnav-orientacoes" onclick="drawerNav('orientacoes')" style="display:none;">
+      <span class="di">&#x1F5E3;</span> Orienta&ccedil;&atilde;o (H.A.)
+    </button>
 
     <!-- ⏰ Docentes -->
     <div class="dnav-group-label">&#x23F0; Docentes</div>
@@ -1649,6 +1652,7 @@
   <button id="nav-ocorrencias" onclick="showTab('ocorrencias')" data-tab="ocorrencias" style="display:none;">📋 Ocorrências</button>
   <button id="nav-formacao" onclick="showTab('formacao')" data-tab="formacao" style="display:none;">🎓 Formação</button>
   <button id="nav-observacoes" onclick="showTab('observacoes')" data-tab="observacoes" style="display:none;">🔍 Observação em sala</button>
+  <button id="nav-orientacoes" onclick="showTab('orientacoes')" data-tab="orientacoes" style="display:none;">🗣️ Orientação (H.A.)</button>
   <button id="nav-calendario" onclick="showTab('calendario')" data-tab="calendario" style="display:none;">📅 Calendário</button>
 </nav>
 
@@ -1685,6 +1689,7 @@
       <button data-tab="correcao" onclick="showTab('correcao');closeNavGrp()">✅ Correção</button>
       <button data-tab="formacao" onclick="showTab('formacao');closeNavGrp()">🎓 Formação</button>
       <button data-tab="observacoes" onclick="showTab('observacoes');closeNavGrp()">🔍 Observação em sala</button>
+      <button data-tab="orientacoes" onclick="showTab('orientacoes');closeNavGrp()">🗣️ Orientação (H.A.)</button>
     </div>
   </div>
   <!-- ⏰ Docentes -->
@@ -3533,7 +3538,11 @@ function _listarPlanejamentos() {
         <input type="date" id="obs-data" />
       </div>
       <div class="form-group">
-        <label>Próximo acompanhamento</label>
+        <label for="obs-horario">Horário da observação</label>
+        <input type="text" id="obs-horario" placeholder="Ex.: 9h10 às 10h" />
+      </div>
+      <div class="form-group">
+        <label for="obs-proximo">Prazo de retorno / próxima observação</label>
         <input type="date" id="obs-proximo" />
       </div>
     </div>
@@ -3546,12 +3555,17 @@ function _listarPlanejamentos() {
 
     <div class="form-grid">
       <div class="form-group full">
-        <label>Pontos fortes</label>
-        <textarea id="obs-fortes" placeholder="Descreva os pontos fortes observados…"></textarea>
+        <label for="obs-fortes">Pontos positivos observados</label>
+        <textarea id="obs-fortes" placeholder="O que funcionou bem nesta aula…"></textarea>
       </div>
       <div class="form-group full">
-        <label>Pontos de melhoria</label>
-        <textarea id="obs-melhoria" placeholder="Descreva os pontos de melhoria…"></textarea>
+        <label for="obs-melhoria">Pontos de atenção / a desenvolver</label>
+        <textarea id="obs-melhoria" placeholder="O que precisa de acompanhamento…"></textarea>
+      </div>
+      <div class="form-group full">
+        <label for="obs-combinados">Combinados e encaminhamentos com a professora</label>
+        <textarea id="obs-combinados" placeholder="O que ficou acordado, com quem e até quando…"></textarea>
+        <span style="font-size:12.5px;color:var(--gray-500);">Isto vira a lista de pendências no painel da professora.</span>
       </div>
     </div>
 
@@ -3568,6 +3582,21 @@ function _listarPlanejamentos() {
     <div id="obs-panorama"></div>
   </div>
 
+  <!-- Plano de ação individual -->
+  <div class="card">
+    <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <span>🎯 Plano de ação</span>
+      <select id="plano-prof" onchange="renderPlanoAcao()" style="max-width:280px;font-size:13px;">
+        <option value="">Selecione a professora</option>
+      </select>
+    </div>
+    <div class="card-sub" style="margin-top:0;">
+      Cruza as observações em sala com as orientações da hora-atividade: onde está mais baixo,
+      o que já foi combinado e o que ainda está em aberto.
+    </div>
+    <div id="plano-conteudo"></div>
+  </div>
+
   <!-- Histórico -->
   <div class="card">
     <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
@@ -3577,6 +3606,83 @@ function _listarPlanejamentos() {
       </select>
     </div>
     <div id="obs-lista" class="item-list"></div>
+  </div>
+
+</div>
+
+<!-- ===================== ORIENTAÇÃO NA HORA-ATIVIDADE ===================== -->
+<div id="tab-orientacoes" class="section">
+
+  <div class="section-header">
+    <h2>🗣️ Orientação na Hora-Atividade</h2>
+    <button class="btn btn-secondary" onclick="exportarOrientacoes()">⬇️ Exportar .txt</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="margin-bottom:4px;">📝 Nova orientação</div>
+    <div class="card-sub">
+      Preencher a cada conversa de orientação realizada na hora-atividade da professora.
+    </div>
+
+    <div class="form-grid">
+      <div class="form-group">
+        <label for="ori-prof">Professora</label>
+        <select id="ori-prof" onchange="oriProfMudou()"></select>
+      </div>
+      <div class="form-group">
+        <label for="ori-turma">Sala / Turma</label>
+        <select id="ori-turma"></select>
+      </div>
+      <div class="form-group">
+        <label for="ori-data">Data</label>
+        <input type="date" id="ori-data" />
+      </div>
+      <div class="form-group">
+        <label for="ori-horario">Horário da H.A.</label>
+        <input type="text" id="ori-horario" placeholder="Ex.: 13h às 14h" />
+      </div>
+      <div class="form-group full">
+        <label for="ori-assunto">Assunto tratado</label>
+        <input type="text" id="ori-assunto" placeholder="Ex.: replanejamento do projeto de identidade" />
+      </div>
+      <div class="form-group full">
+        <label for="ori-orientacoes">Orientações dadas pela coordenação</label>
+        <textarea id="ori-orientacoes" placeholder="O que foi orientado na conversa…"></textarea>
+      </div>
+      <div class="form-group full">
+        <label for="ori-encaminhamentos">Encaminhamentos e prazos</label>
+        <textarea id="ori-encaminhamentos" placeholder="O que a professora vai fazer, até quando…"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="ori-retorno">Retorno na próxima H.A.</label>
+        <input type="date" id="ori-retorno" />
+      </div>
+      <div class="form-group">
+        <label for="ori-origem">Veio de uma observação?</label>
+        <select id="ori-origem">
+          <option value="">Conversa avulsa</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card-pe">
+      <span id="ori-pendente-selo" class="badge badge-plain">Encaminhamento em aberto até o retorno</span>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="limparFormOrientacao()">Limpar</button>
+        <button class="btn btn-primary" onclick="salvarOrientacao()">Salvar orientação</button>
+      </div>
+    </div>
+    <div id="ori-form-status" style="margin-top:10px;font-size:13px;"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <span>🗂️ Orientações registradas</span>
+      <select id="ori-filtro-prof" onchange="renderOrientacoes()" style="max-width:260px;font-size:13px;">
+        <option value="">Todas as professoras</option>
+      </select>
+    </div>
+    <div id="ori-lista" class="item-list"></div>
   </div>
 
 </div>
@@ -4431,7 +4537,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.17.4';
+const APP_VERSION = 'v2.18.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -4620,7 +4726,7 @@ async function migrarImagensPlanej() {
 async function loadFromFirestore() {
   const _t = logger.timer('firestore', 'load-initial');
   try {
-    const [rT, rA, rP, rPar, rAv, rU, rCfg, rNot, rHa, rRot, rAtiv, rDSA, rEP, rOc, rFm, rCal, rChat, rObs, rImp] = await Promise.all([
+    const [rT, rA, rP, rPar, rAv, rU, rCfg, rNot, rHa, rRot, rAtiv, rDSA, rEP, rOc, rFm, rCal, rChat, rOri, rObs, rImp] = await Promise.all([
       FSREF('turmas').get(), FSREF('alunos').get(),
       FSREF('planejamentos').get(), FSREF('pareceres').get(),
       FSREF('avaliacoes').get(), FSREF('usuarios').get(),
@@ -4630,7 +4736,7 @@ async function loadFromFirestore() {
       FSREF('entregasPareceres').get(), FSREF('ocorrencias').get(),
       FSREF('agendaFormacao').get(), FSREF('calendarioEscolar').get(),
       FSREF('observacoes').get(), FSREF('impressoes').get(),
-      FSREF('chatGeral').get(),
+      FSREF('chatGeral').get(), FSREF('orientacoes').get(),
     ]);
     if (rT.exists)   db.turmas        = rT.data().data   ?? [];
     if (rA.exists)   db.alunos        = rA.data().data   ?? [];
@@ -4706,6 +4812,8 @@ async function loadFromFirestore() {
       db.chatGeral = rChat.data().data ?? [];
     }
     _chatGeralCarregado = true;
+    if (rOri.exists) db.orientacoes = rOri.data().data ?? [];
+    _orientacoesCarregadas = true;
     if (rCfg.exists) {
       db.apiKey = rCfg.data().apiKey ?? '';
       if (rCfg.data().regimePeriodos) {
@@ -5044,6 +5152,7 @@ function saveToFirestore() {
   if (_atividadesCarregadas)  batch.set(FSREF('atividades'),  { data: db.atividades });
   if (_ocorrenciasCarregadas)   batch.set(FSREF('ocorrencias'),    { data: db.ocorrencias });
   if (_observacoesCarregadas)   batch.set(FSREF('observacoes'),    { data: db.observacoes });
+  if (_orientacoesCarregadas)   batch.set(FSREF('orientacoes'),    { data: db.orientacoes });
   if (_impressoesCarregadas)    batch.set(FSREF('impressoes'),     { data: db.impressoes });
   if (_agendaFormacaoCarregada) batch.set(FSREF('agendaFormacao'), { data: db.agendaFormacao });
   if (_calendarioEscolarCarregado && db.calendarioEscolar) batch.set(FSREF('calendarioEscolar'), { data: db.calendarioEscolar });
@@ -5194,6 +5303,14 @@ function setupSync() {
       refreshCurrentView();
     }
   });
+  FSREF('orientacoes').onSnapshot((doc) => {
+    if (doc.exists && !doc.metadata.hasPendingWrites) {
+      db.orientacoes = doc.data().data ?? [];
+      _orientacoesCarregadas = true;
+      LS.set('ps_orientacoes', db.orientacoes);
+      refreshCurrentView();
+    }
+  });
   FSREF('agendaFormacao').onSnapshot((doc) => {
     if (doc.exists && !doc.metadata.hasPendingWrites) {
       db.agendaFormacao = doc.data().data ?? [];
@@ -5267,7 +5384,8 @@ function refreshCurrentView() {
   if (id === 'tab-atividades')      { renderAtividades(); }
   if (id === 'tab-auditoria')       { carregarAuditoria(); }
   if (id === 'tab-ocorrencias')     { renderOcorrencias(); }
-  if (id === 'tab-observacoes')     { popularSelectsObservacao(); renderObservacoes(); }
+  if (id === 'tab-observacoes')     { popularSelectsObservacao(); renderObservacoes(); popularSelectPlano(); renderPlanoAcao(); }
+  if (id === 'tab-orientacoes')     { popularSelectsOrientacao(); renderOrientacoes(); }
   if (id === 'tab-copias')          { popularSelectsCopias(); renderCopias(); }
   if (id === 'tab-formacao')        { renderFormacao(); }
   if (id === 'tab-calendario')      { renderCalendario(); }
@@ -5295,6 +5413,7 @@ let db = {
   cotasCopias: LS.get('ps_cotas_copias', { padrao: 0, porUsuario: {}, bloquear: false }),
   ocorrencias: [],
   observacoes: [],
+  orientacoes: [],
   impressoes: [],
   agendaFormacao: [],
   calendarioEscolar: null,
@@ -5307,6 +5426,7 @@ let _rotinasCarregadas            = false;
 let _atividadesCarregadas         = false;
 let _ocorrenciasCarregadas        = false;
 let _observacoesCarregadas        = false;
+let _orientacoesCarregadas        = false;
 let _impressoesCarregadas         = false;
 let _agendaFormacaoCarregada      = false;
 let _calendarioEscolarCarregado   = false;
@@ -5336,6 +5456,7 @@ function save() {
   LS.set('ps_entregas_pareceres', db.entregasPareceres);
   LS.set('ps_ocorrencias', db.ocorrencias);
   LS.set('ps_observacoes', db.observacoes);
+  LS.set('ps_orientacoes', db.orientacoes);
   LS.set('ps_impressoes', db.impressoes);
   LS.set('ps_agenda_formacao', db.agendaFormacao);
   if (db.calendarioEscolar) LS.set('ps_calendario_escolar', db.calendarioEscolar);
@@ -5539,6 +5660,9 @@ function aplicarPapel() {
 
   nav('nav-observacoes',  isGestao);
   nav('dnav-observacoes', isGestao);
+  // Orientacao na hora-atividade: quem preenche e a pedagoga, a direcao acompanha
+  nav('nav-orientacoes',  isGestao);
+  nav('dnav-orientacoes', isGestao);
 
   // Calendário: gestão (diretor + pedagoga)
   nav('nav-calendario',    isGestao);
@@ -6032,6 +6156,7 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 // NAV AGRUPADA (diretoria)
 // =====================================================================
 const _TAB_GRUPOS = {
+  orientacoes: 'pedagogico',
   dashboard: 'inicio',
   cadastro: 'gestao', impressao: 'gestao', copias: 'gestao',
   rotina: 'pedagogico', avaliacoes: 'pedagogico', correcao: 'pedagogico', formacao: 'pedagogico',
@@ -6094,7 +6219,8 @@ function showTab(tab) {
   if (tab === 'atividades')     { renderAtividades(); }
   if (tab === 'config')         { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); renderCardCotas(); aplicarTema(temaAtual()); }
   if (tab === 'ocorrencias')    { renderOcorrencias(); }
-  if (tab === 'observacoes')    { popularSelectsObservacao(); renderObservacoes(); }
+  if (tab === 'observacoes')    { popularSelectsObservacao(); renderObservacoes(); popularSelectPlano(); renderPlanoAcao(); }
+  if (tab === 'orientacoes')    { popularSelectsOrientacao(); renderOrientacoes(); }
   if (tab === 'copias')         { popularSelectsCopias(); renderCopias(); }
   if (tab === 'calendario')     { renderCalendario(); }
 }
@@ -10219,27 +10345,295 @@ function renderCopias() {
 // =====================================================================
 // OBSERVAÇÃO EM SALA — acompanhamento das professoras (pedagoga + direção)
 // =====================================================================
+// Os sete itens da Ficha de Observacao de Sala, na ordem da ficha impressa.
+// Tres chaves vem da versao anterior da tela (planejamento, interacao,
+// organizacao) justamente para que as observacoes ja registradas continuem
+// comparaveis; as outras quatro sao novas.
+// =====================================================================
+// ORIENTAÇÃO NA HORA-ATIVIDADE — Ficha de Registro de Orientação
+// =====================================================================
+// A observação em sala diz o que foi visto; esta ficha registra a conversa
+// que veio depois. Juntas, elas fecham o ciclo: observa, orienta, cobra o
+// retorno. É a segunda metade que faltava para existir plano de ação.
+
+function oriProfMudou() {
+  const sel  = document.getElementById('ori-prof');
+  const selT = document.getElementById('ori-turma');
+  const u = db.usuarios.find(x => x.nome === sel?.value);
+  if (u && selT) {
+    const ids = getUsrTurmaIds(u);
+    if (ids.length) selT.value = ids[0];
+  }
+  popularOrigemOrientacao();
+}
+
+// Lista as observações recentes daquela professora, para amarrar a conversa
+// ao que foi observado em sala.
+function popularOrigemOrientacao() {
+  const sel  = document.getElementById('ori-origem');
+  const prof = document.getElementById('ori-prof')?.value || '';
+  if (!sel) return;
+  const anterior = sel.value;
+  const minhas = (db.observacoes || [])
+    .filter(o => o.prof === prof)
+    .sort((a, b) => String(b.data).localeCompare(String(a.data)))
+    .slice(0, 8);
+  sel.innerHTML = '<option value="">Conversa avulsa</option>'
+    + minhas.map(o => {
+        const d = o.data ? new Date(o.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+        return `<option value="${escapeHtml(String(o.id))}">Observação de ${d} · média ${Number(o.media).toFixed(1)}</option>`;
+      }).join('');
+  if (anterior) sel.value = anterior;
+}
+
+function popularSelectsOrientacao() {
+  const profs = db.usuarios.filter(u => u.papel === 'professora');
+
+  const selP = document.getElementById('ori-prof');
+  if (selP) {
+    const prev = selP.value;
+    selP.innerHTML = '<option value="">— Selecione —</option>'
+      + profs.map(u => `<option value="${escapeHtml(u.nome)}">${escapeHtml(u.nome)}</option>`).join('');
+    if (prev) selP.value = prev;
+  }
+
+  const selT = document.getElementById('ori-turma');
+  if (selT) {
+    const prev = selT.value;
+    selT.innerHTML = '<option value="">— Sem turma —</option>'
+      + db.turmas.map(t => `<option value="${t.id}">${escapeHtml(t.nome)}</option>`).join('');
+    if (prev) selT.value = prev;
+  }
+
+  const selF = document.getElementById('ori-filtro-prof');
+  if (selF) {
+    const prev = selF.value;
+    selF.innerHTML = '<option value="">Todas as professoras</option>'
+      + profs.map(u => `<option value="${escapeHtml(u.nome)}">${escapeHtml(u.nome)}</option>`).join('');
+    if (prev) selF.value = prev;
+  }
+
+  const dt = document.getElementById('ori-data');
+  if (dt && !dt.value) dt.value = new Date().toISOString().slice(0, 10);
+  popularOrigemOrientacao();
+}
+
+function limparFormOrientacao() {
+  ['ori-assunto', 'ori-orientacoes', 'ori-encaminhamentos', 'ori-retorno', 'ori-horario'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  const dt = document.getElementById('ori-data');
+  if (dt) dt.value = new Date().toISOString().slice(0, 10);
+  const st = document.getElementById('ori-form-status');
+  if (st) st.textContent = '';
+}
+
+function salvarOrientacao() {
+  const st = document.getElementById('ori-form-status');
+  const aviso = (m, c) => { if (st) { st.textContent = m; st.style.color = c || 'var(--gray-600)'; } };
+
+  const prof    = document.getElementById('ori-prof')?.value || '';
+  const data    = document.getElementById('ori-data')?.value || '';
+  const assunto = document.getElementById('ori-assunto')?.value.trim() || '';
+  if (!prof)    { aviso('⚠️ Selecione a professora.', '#b45309'); return; }
+  if (!data)    { aviso('⚠️ Informe a data da conversa.', '#b45309'); return; }
+  if (!assunto) { aviso('⚠️ Escreva o assunto tratado.', '#b45309'); return; }
+
+  const reg = {
+    id: uid(),
+    prof,
+    profId: resolverProfId(prof),
+    turmaId:         document.getElementById('ori-turma')?.value || '',
+    data,
+    horario:         document.getElementById('ori-horario')?.value.trim() || '',
+    assunto,
+    orientacoes:     document.getElementById('ori-orientacoes')?.value.trim() || '',
+    encaminhamentos: document.getElementById('ori-encaminhamentos')?.value.trim() || '',
+    retorno:         document.getElementById('ori-retorno')?.value || '',
+    observacaoId:    document.getElementById('ori-origem')?.value || '',
+    concluido: false,
+    criadoEm: new Date().toISOString(),
+    criadoPor: currentUser?.nome || currentUser?.usuario || '',
+  };
+
+  db.orientacoes.unshift(reg);
+  _orientacoesCarregadas = true;
+  save();
+  renderOrientacoes();
+  limparFormOrientacao();
+
+  if (!avisarSePendente()) showToast(`✅ Orientação de ${prof} registrada.`);
+  aviso('✅ Registrada. Ela aparece no painel da professora até o retorno ser marcado.', '#059669');
+  logger.audit({ module: 'orientacao', action: 'create', message: `Orientação registrada: ${prof}`, after: { prof, assunto } });
+}
+
+// Marca o encaminhamento como cumprido — e o tira da lista de pendencias
+function concluirOrientacao(id) {
+  const r = (db.orientacoes || []).find(x => String(x.id) === String(id));
+  if (!r) return;
+  r.concluido = !r.concluido;
+  r.concluidoEm = r.concluido ? new Date().toISOString() : '';
+  save();
+  renderOrientacoes();
+  showToast(r.concluido ? '✅ Encaminhamento concluído.' : '↩️ Reaberto.');
+}
+
+function deleteOrientacao(id) {
+  const r = (db.orientacoes || []).find(x => String(x.id) === String(id));
+  if (!r) return;
+  showConfirmModal('Excluir esta orientação?<br><small style="color:#888;font-weight:400;">Esta ação não pode ser desfeita.</small>', () => {
+    db.orientacoes = db.orientacoes.filter(x => String(x.id) !== String(id));
+    save(); renderOrientacoes();
+    showToast('🗑️ Orientação excluída.');
+  });
+}
+
+function renderOrientacoes() {
+  const el = document.getElementById('ori-lista');
+  if (!el) return;
+  const filtro = document.getElementById('ori-filtro-prof')?.value || '';
+  let lista = (db.orientacoes || []).slice();
+  if (filtro) lista = lista.filter(r => r.prof === filtro);
+  lista.sort((a, b) => String(b.data).localeCompare(String(a.data)));
+
+  if (!lista.length) {
+    el.innerHTML = `<div class="empty"><div class="icon">🗣️</div>
+      <p>Nenhuma orientação registrada${filtro ? ' para esta professora' : ''}.
+      Cada conversa de hora-atividade registrada aqui vira histórico e alimenta o painel da professora.</p></div>`;
+    return;
+  }
+
+  const hoje = new Date().toISOString().slice(0, 10);
+  el.innerHTML = lista.map(r => {
+    const t = db.turmas.find(x => x.id === r.turmaId);
+    const d = r.data ? new Date(r.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+    const atrasado = !r.concluido && r.retorno && r.retorno < hoje;
+    const selo = r.concluido
+      ? '<span class="badge badge-green">Concluído</span>'
+      : atrasado
+        ? `<span class="badge badge-red">Retorno vencido em ${new Date(r.retorno + 'T12:00:00').toLocaleDateString('pt-BR')}</span>`
+        : r.retorno
+          ? `<span class="badge badge-amber">Retorno em ${new Date(r.retorno + 'T12:00:00').toLocaleDateString('pt-BR')}</span>`
+          : '<span class="badge">Sem prazo</span>';
+    return `<div class="item-card">
+      <div class="info">
+        <strong>${escapeHtml(r.assunto || '—')}</strong>
+        <span>${escapeHtml(r.prof)}${t ? ' · ' + escapeHtml(t.nome) : ''} · ${d}${r.horario ? ' · ' + escapeHtml(r.horario) : ''}</span>
+        <div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap;">${selo}</div>
+        ${r.encaminhamentos ? `<div style="font-size:13px;color:var(--gray-600);margin-top:7px;">
+          <strong style="color:var(--gray-700);">Encaminhamento:</strong> ${escapeHtml(r.encaminhamentos)}</div>` : ''}
+      </div>
+      <div class="actions">
+        <button class="btn btn-secondary btn-sm" onclick="verOrientacao('${r.id}')">Ver</button>
+        <button class="btn btn-secondary btn-sm" onclick="concluirOrientacao('${r.id}')">${r.concluido ? 'Reabrir' : 'Concluir'}</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteOrientacao('${r.id}')">Excluir</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function montarFichaOrientacao(r) {
+  const t = db.turmas.find(x => x.id === r.turmaId);
+  const d = r.data ? new Date(r.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+  const linhas = [
+    'FICHA DE REGISTRO DE ORIENTAÇÃO (HORA-ATIVIDADE)',
+    'Escola Ponte do Saber · Rotina da Coordenação Pedagógica',
+    '',
+    `Data: ${d}${r.horario ? '   Horário (H.A.): ' + r.horario : ''}`,
+    `Professora: ${r.prof}`,
+    `Sala / Turma: ${t ? t.nome : '—'}`,
+    '',
+    'ASSUNTO TRATADO',
+    r.assunto || '—',
+    '',
+  ];
+  if (r.orientacoes)     linhas.push('ORIENTAÇÕES DADAS PELA COORDENAÇÃO', r.orientacoes, '');
+  if (r.encaminhamentos) linhas.push('ENCAMINHAMENTOS E PRAZOS', r.encaminhamentos, '');
+  if (r.retorno) linhas.push(`RETORNO NA PRÓXIMA H.A.: ${new Date(r.retorno + 'T12:00:00').toLocaleDateString('pt-BR')}`,
+                             r.concluido ? 'Situação: concluído' : 'Situação: em aberto', '');
+  linhas.push(`Registrado por ${r.criadoPor || 'coordenação pedagógica'}.`);
+  return linhas.join('\n');
+}
+
+function verOrientacao(id) {
+  const r = (db.orientacoes || []).find(x => String(x.id) === String(id));
+  if (!r) return;
+  abrirModalVisualizar('Ficha de orientação — ' + r.prof, montarFichaOrientacao(r));
+}
+
+function exportarOrientacoes() {
+  const lista = (db.orientacoes || []).slice()
+    .sort((a, b) => String(a.data).localeCompare(String(b.data)));
+  if (!lista.length) { showToast('Nenhuma orientação registrada.'); return; }
+  const txt = lista.map(r => montarFichaOrientacao(r)).join('\n' + '='.repeat(60) + '\n\n');
+  downloadTxt(txt, 'orientacoes_hora_atividade.txt');
+  showToast('⬇️ Fichas exportadas!');
+}
+
 const OBS_CRITERIOS = [
-  { key: 'planejamento', label: 'Planejamento' },
-  { key: 'interacao',    label: 'Interação' },
-  { key: 'organizacao',  label: 'Organização' },
-  { key: 'manejo',       label: 'Manejo da turma' },
+  { key: 'organizacao',  label: 'Organização do espaço e materiais',      dica: 'Materiais ao alcance, espaço preparado para a proposta' },
+  { key: 'rotina',       label: 'Rotina e transições entre atividades',   dica: 'Previsibilidade, tempo de espera, passagem entre momentos' },
+  { key: 'adequacao',    label: 'Adequação à faixa etária',               dica: 'A proposta cabe no que a idade dá conta' },
+  { key: 'interacao',    label: 'Interação professora–crianças',          dica: 'Acolhimento, escuta, mediação de conflitos' },
+  { key: 'registro',     label: 'Registro pedagógico',                    dica: 'Diário, portfólio, avaliação em uso' },
+  { key: 'seguranca',    label: 'Segurança e cuidados básicos',           dica: 'Higiene, alimentação, descanso, supervisão' },
+  { key: 'planejamento', label: 'Cumprimento do planejamento previsto',   dica: 'O que estava planejado aconteceu' },
 ];
+
+// Criterio que existia antes e nao entrou na ficha. Continua sendo exibido nos
+// registros antigos que o tem, para o historico nao perder sentido.
+const OBS_CRITERIOS_LEGADO = [{ key: 'manejo', label: 'Manejo da turma' }];
+
+// Criterios de um registro especifico: os da ficha + os antigos que ele traz
+function obsCriteriosDe(o) {
+  return OBS_CRITERIOS.concat(OBS_CRITERIOS_LEGADO.filter(c => o && o[c.key] !== undefined));
+}
+
+const OBS_ESCALA = {
+  1: 'Não observado / crítico',
+  2: 'Precisa de apoio',
+  3: 'Em desenvolvimento',
+  4: 'Adequado',
+  5: 'Referência',
+};
 
 // Monta os controles de nota (1 a 5) do formulário
 function renderCriteriosObservacao() {
   const wrap = document.getElementById('obs-criterios');
   if (!wrap) return;
+  // Botoes de 1 a 5 no lugar do controle deslizante: a pedagoga preenche isso
+  // em pe, no fundo da sala, e o deslizante exige mira. O rotulo da escala
+  // aparece ao lado, para a nota significar a mesma coisa a cada visita.
   wrap.innerHTML = OBS_CRITERIOS.map(c => `
-    <div class="form-group full" style="margin-bottom:14px;">
-      <label style="display:flex;align-items:center;justify-content:space-between;">
-        <span>${c.label}</span>
-        <span id="obs-${c.key}-val" style="font-variant-numeric:tabular-nums;color:var(--green-dark);font-weight:600;">4/5</span>
-      </label>
-      <input type="range" min="1" max="5" step="1" value="4" id="obs-${c.key}"
-             oninput="document.getElementById('obs-${c.key}-val').textContent = this.value + '/5'"
-             style="width:100%;accent-color:var(--green);cursor:pointer;">
-    </div>`).join('');
+    <div style="padding:12px 0;border-bottom:1px solid var(--gray-200);">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;">
+        <div style="min-width:0;">
+          <div style="font-size:14.5px;font-weight:600;color:var(--gray-800);">${c.label}</div>
+          <div style="font-size:12.5px;color:var(--gray-500);margin-top:2px;">${c.dica}</div>
+        </div>
+        <span class="nota" role="group" aria-label="${escapeHtml(c.label)}">
+          ${[1,2,3,4,5].map(n => `<button type="button" data-obs="${c.key}" data-nota="${n}"
+             aria-pressed="${n === 4 ? 'true' : 'false'}" onclick="obsDarNota('${c.key}',${n})">${n}</button>`).join('')}
+        </span>
+      </div>
+      <input type="hidden" id="obs-${c.key}" value="4">
+      <div id="obs-${c.key}-val" style="font-size:12.5px;color:var(--green);font-weight:600;margin-top:6px;">
+        4 · ${OBS_ESCALA[4]}
+      </div>
+    </div>`).join('')
+    + `<div style="font-size:12.5px;color:var(--gray-500);padding-top:12px;">
+         Escala: 1 não observado · 2 precisa de apoio · 3 em desenvolvimento · 4 adequado · 5 referência
+       </div>`;
+}
+
+// Registra a nota de um criterio e atualiza o rotulo da escala
+function obsDarNota(chave, nota) {
+  const campo = document.getElementById('obs-' + chave);
+  if (campo) campo.value = nota;
+  document.querySelectorAll(`[data-obs="${chave}"]`).forEach(b =>
+    b.setAttribute('aria-pressed', Number(b.getAttribute('data-nota')) === nota ? 'true' : 'false'));
+  const rot = document.getElementById('obs-' + chave + '-val');
+  if (rot) rot.textContent = nota + ' · ' + (OBS_ESCALA[nota] || '');
 }
 
 function popularSelectsObservacao() {
@@ -10275,7 +10669,7 @@ function popularSelectsObservacao() {
 }
 
 function limparFormObservacao() {
-  ['obs-fortes', 'obs-melhoria', 'obs-proximo'].forEach(id => {
+  ['obs-fortes', 'obs-melhoria', 'obs-proximo', 'obs-horario', 'obs-combinados'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   const dt = document.getElementById('obs-data');
@@ -10311,6 +10705,8 @@ function salvarObservacao() {
     pontosFortes:   document.getElementById('obs-fortes')?.value.trim()   || '',
     pontosMelhoria: document.getElementById('obs-melhoria')?.value.trim() || '',
     proximo:        document.getElementById('obs-proximo')?.value || '',
+    horario:        document.getElementById('obs-horario')?.value.trim() || '',
+    combinados:     document.getElementById('obs-combinados')?.value.trim() || '',
     criadoEm: new Date().toISOString(),
     criadoPor: currentUser?.nome || currentUser?.usuario || '',
   };
@@ -10344,6 +10740,166 @@ function deleteObservacao(id) {
 }
 
 // Gráfico de evolução: linha simples com a média de cada observação, da mais antiga à mais recente
+// =====================================================================
+// PLANO DE AÇÃO POR PROFESSORA
+// =====================================================================
+// Cruza as duas fichas: a observação diz onde a professora está mais baixa,
+// a orientação diz o que já foi combinado. O que sobra — critério fraco sem
+// encaminhamento — é exatamente o que a coordenação ainda precisa endereçar.
+
+function popularSelectPlano() {
+  const sel = document.getElementById('plano-prof');
+  if (!sel) return;
+  const anterior = sel.value;
+  const nomes = [...new Set([
+    ...(db.observacoes || []).map(o => nomeProfExibicao(o)),
+    ...(db.orientacoes || []).map(r => nomeProfExibicao(r)),
+  ].filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  sel.innerHTML = '<option value="">Selecione a professora</option>'
+    + nomes.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+  if (anterior && nomes.includes(anterior)) sel.value = anterior;
+}
+
+// Barra horizontal simples por critério — média das últimas observações
+function barraCriterio(label, valor) {
+  const pct = Math.max(0, Math.min(100, (valor / 5) * 100));
+  const cor = valor >= 4 ? 'var(--green)' : valor >= 3 ? 'var(--amber)' : 'var(--red)';
+  return `<div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:13.5px;margin-bottom:4px;">
+        <span style="color:var(--gray-800);">${escapeHtml(label)}</span>
+        <strong style="color:${cor};font-variant-numeric:tabular-nums;">${valor.toFixed(1)}<span style="color:var(--gray-400);font-weight:400;">/5</span></strong>
+      </div>
+      <div style="height:8px;background:var(--gray-200);border-radius:4px;overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:${cor};border-radius:4px;"></div>
+      </div>
+    </div>`;
+}
+
+function renderPlanoAcao() {
+  const el = document.getElementById('plano-conteudo');
+  if (!el) return;
+  const prof = document.getElementById('plano-prof')?.value || '';
+  if (!prof) {
+    el.innerHTML = `<div class="empty"><div class="icon">🎯</div>
+      <p>Escolha uma professora para ver onde ela está mais forte, onde precisa de apoio
+      e o que já foi combinado com ela.</p></div>`;
+    return;
+  }
+
+  const obs = (db.observacoes || []).filter(o => nomeProfExibicao(o) === prof)
+    .sort((a, b) => String(a.data).localeCompare(String(b.data)));
+  const ori = (db.orientacoes || []).filter(r => nomeProfExibicao(r) === prof)
+    .sort((a, b) => String(b.data).localeCompare(String(a.data)));
+
+  if (!obs.length && !ori.length) {
+    el.innerHTML = `<div class="empty"><div class="icon">📋</div>
+      <p>Nenhum registro para ${escapeHtml(prof)} ainda.</p></div>`;
+    return;
+  }
+
+  // ── médias por critério, considerando as três observações mais recentes ──
+  const recentes = obs.slice(-3);
+  const medias = [];
+  if (recentes.length) {
+    OBS_CRITERIOS.forEach(c => {
+      const vals = recentes.map(o => Number(o[c.key])).filter(v => !isNaN(v));
+      if (vals.length) medias.push({ ...c, valor: vals.reduce((s, v) => s + v, 0) / vals.length });
+    });
+    medias.sort((a, b) => a.valor - b.valor);   // do mais fraco para o mais forte
+  }
+
+  const hoje = new Date().toISOString().slice(0, 10);
+  const abertos = ori.filter(r => !r.concluido);
+  const vencidos = abertos.filter(r => r.retorno && r.retorno < hoje);
+
+  // Critério fraco (< 3,5) sem nenhuma orientação registrada depois da observação
+  const semEncaminhamento = medias.filter(m => m.valor < 3.5 && !ori.some(r =>
+    (r.assunto + ' ' + r.orientacoes + ' ' + r.encaminhamentos).toLowerCase()
+      .includes(m.label.split(' ')[0].toLowerCase())));
+
+  let html = '';
+
+  if (medias.length) {
+    html += `<div style="margin-bottom:20px;">
+      <div style="font-size:13px;font-weight:600;color:var(--gray-700);margin-bottom:10px;">
+        Média por critério — ${recentes.length} observação(ões) mais recente(s)
+      </div>
+      ${medias.map(m => barraCriterio(m.label, m.valor)).join('')}
+    </div>`;
+  }
+
+  if (semEncaminhamento.length) {
+    html += `<div class="alert alert-warn" style="margin-bottom:16px;">
+      <strong>Sem encaminhamento registrado:</strong>
+      ${semEncaminhamento.map(m => escapeHtml(m.label)).join(', ')}.
+      Estes critérios estão abaixo de 3,5 e ainda não apareceram numa conversa de hora-atividade.
+    </div>`;
+  }
+
+  if (vencidos.length) {
+    html += `<div class="alert alert-err" style="margin-bottom:16px;">
+      <strong>${vencidos.length} encaminhamento(s) com retorno vencido.</strong>
+      O mais antigo é de ${new Date(vencidos[vencidos.length - 1].retorno + 'T12:00:00').toLocaleDateString('pt-BR')}.
+    </div>`;
+  }
+
+  html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">`;
+
+  html += `<div>
+    <div style="font-size:13px;font-weight:600;color:var(--gray-700);margin-bottom:8px;">
+      Combinados em aberto (${abertos.length})
+    </div>`;
+  html += abertos.length
+    ? `<div class="item-list">` + abertos.slice(0, 6).map(r => {
+        const d = r.data ? new Date(r.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+        const venceu = r.retorno && r.retorno < hoje;
+        return `<div class="item-card">
+          <div class="info">
+            <strong>${escapeHtml(r.assunto || '—')}</strong>
+            <span>${d}${r.retorno ? ' · retorno ' + new Date(r.retorno + 'T12:00:00').toLocaleDateString('pt-BR') : ''}</span>
+            ${venceu ? '<div style="margin-top:6px;"><span class="badge badge-red">Vencido</span></div>' : ''}
+          </div>
+          <div class="actions">
+            <button class="btn btn-secondary btn-sm" onclick="concluirOrientacao('${r.id}');renderPlanoAcao();">Concluir</button>
+          </div>
+        </div>`;
+      }).join('') + `</div>`
+    : `<div style="font-size:13.5px;color:var(--gray-600);">Nada em aberto.</div>`;
+  html += `</div>`;
+
+  html += `<div>
+    <div style="font-size:13px;font-weight:600;color:var(--gray-700);margin-bottom:8px;">
+      Últimas orientações
+    </div>`;
+  html += ori.length
+    ? `<div class="item-list">` + ori.slice(0, 4).map(r => {
+        const d = r.data ? new Date(r.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+        return `<div class="item-card">
+          <div class="info">
+            <strong>${escapeHtml(r.assunto || '—')}</strong>
+            <span>${d} · ${r.concluido ? 'concluído' : 'em aberto'}</span>
+          </div>
+          <div class="actions">
+            <button class="btn btn-secondary btn-sm" onclick="verOrientacao('${r.id}')">Ver</button>
+          </div>
+        </div>`;
+      }).join('') + `</div>`
+    : `<div style="font-size:13.5px;color:var(--gray-600);">Nenhuma conversa de hora-atividade registrada.</div>`;
+  html += `</div></div>`;
+
+  if (medias.length) {
+    const forte = medias[medias.length - 1], fraco = medias[0];
+    html += `<div class="alert alert-info" style="margin-top:16px;">
+      <strong>Leitura rápida:</strong> ${escapeHtml(prof.split(' ')[0])} está mais firme em
+      <strong>${escapeHtml(forte.label.toLowerCase())}</strong> (${forte.valor.toFixed(1)}) e
+      precisa de mais apoio em <strong>${escapeHtml(fraco.label.toLowerCase())}</strong> (${fraco.valor.toFixed(1)}).
+      ${obs.length > 1 ? `Foram ${obs.length} observações registradas.` : 'Vale uma segunda observação para confirmar a leitura.'}
+    </div>`;
+  }
+
+  el.innerHTML = html;
+}
+
 function sparklineObservacoes(medias) {
   if (medias.length < 2) return '';
   const W = 132, H = 34, P = 3;
@@ -10373,15 +10929,16 @@ function montarDevolutiva(o) {
     ``,
     `Professora: ${o.prof}`,
     `Turma: ${turma ? turma.nome : '—'}`,
-    `Data da observação: ${dataFmt}`,
+    `Data da observação: ${dataFmt}${o.horario ? ' · ' + o.horario : ''}`,
     ``,
     `AVALIAÇÃO POR CRITÉRIO`,
-    ...OBS_CRITERIOS.map(c => `${c.label}: ${o[c.key]}/5`),
+    ...obsCriteriosDe(o).map(c => `${c.label}: ${o[c.key]}/5 — ${OBS_ESCALA[o[c.key]] || ''}`),
     `Média geral: ${Number(o.media).toFixed(1)}/5`,
     ``,
   ];
-  if (o.pontosFortes)   linhas.push(`PONTOS FORTES`, o.pontosFortes, ``);
-  if (o.pontosMelhoria) linhas.push(`PONTOS DE MELHORIA`, o.pontosMelhoria, ``);
+  if (o.pontosFortes)   linhas.push(`PONTOS POSITIVOS OBSERVADOS`, o.pontosFortes, ``);
+  if (o.pontosMelhoria) linhas.push(`PONTOS DE ATENÇÃO / A DESENVOLVER`, o.pontosMelhoria, ``);
+  if (o.combinados)     linhas.push(`COMBINADOS E ENCAMINHAMENTOS`, o.combinados, ``);
   if (o.proximo) {
     linhas.push(`Próximo acompanhamento: ${new Date(o.proximo + 'T12:00:00').toLocaleDateString('pt-BR')}`, ``);
   }
@@ -10510,7 +11067,7 @@ function renderObservacoes() {
     const dataFmt = o.data ? new Date(o.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
     const media = Number(o.media) || 0;
     const cor = media >= 4 ? 'badge-green' : media >= 3 ? 'badge-amber' : 'badge-gray';
-    const notas = OBS_CRITERIOS.map(c => `${c.label} ${o[c.key]}/5`).join(' · ');
+    const notas = obsCriteriosDe(o).map(c => `${c.label} ${o[c.key]}/5`).join(' · ');
     const resumo = o.pontosFortes || o.pontosMelhoria || '';
     return `<div class="item-card">
       <div class="info">
