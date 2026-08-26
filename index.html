@@ -598,6 +598,10 @@
   }
   .nota button:hover { border-color: var(--green); color: var(--green); }
   .nota button[aria-pressed="true"] { background: var(--green); border-color: var(--green); color: #fff; }
+  /* "—" e ausencia de nota, nao uma nota baixa: cinza, nunca verde */
+  .nota .nota-na { color: var(--gray-400); font-weight: 700; }
+  .nota .nota-na:hover { border-color: var(--gray-400); color: var(--gray-700); }
+  .nota .nota-na[aria-pressed="true"] { background: var(--gray-200); border-color: var(--gray-400); color: var(--gray-700); }
 
   /* ── RODAPE DE CARD ── estado do salvamento junto da acao */
   .card-pe {
@@ -2373,11 +2377,20 @@ function _listarPlanejamentos() {
         </div>
         <div class="form-group">
           <label>Período</label>
-          <select id="turma-periodo">
+          <select id="turma-periodo" onchange="turmaPeriodoMudou()">
             <option value="manhã">Manhã</option>
             <option value="tarde">Tarde</option>
             <option value="integral">Integral</option>
+            <option value="contraturno">Contraturno</option>
           </select>
+        </div>
+        <div class="form-group full" id="turma-unifica-wrap" style="display:none;">
+          <label>Turmas que o contraturno reúne</label>
+          <div id="turma-unifica" class="check-group"></div>
+          <span style="font-size:12.5px;color:var(--gray-500);">
+            No contraturno as faixas ficam juntas numa turma só. Marque quais ela reúne —
+            é isso que faz a contagem de crianças bater.
+          </span>
         </div>
       </div>
       <div class="btn-row">
@@ -3518,6 +3531,7 @@ function _listarPlanejamentos() {
 
   <!-- Formulário de registro -->
   <div class="card">
+    <div id="obs-modo-edicao" style="display:none;margin-bottom:14px;"></div>
     <div class="card-title" style="margin-bottom:4px;">📝 Nova observação</div>
     <div style="font-size:13px;color:var(--gray-600);margin-bottom:16px;">
       Registro rápido para acompanhamento da professora. Ao salvar, o sistema calcula a média,
@@ -3570,8 +3584,8 @@ function _listarPlanejamentos() {
     </div>
 
     <div class="btn-row">
-      <button class="btn btn-primary" onclick="salvarObservacao()">💾 Salvar observação</button>
-      <button class="btn btn-secondary" onclick="limparFormObservacao()">🗑️ Limpar</button>
+      <button class="btn btn-primary" id="obs-btn-salvar" onclick="salvarObservacao()">Salvar observação</button>
+      <button class="btn btn-secondary" onclick="limparFormObservacao()">Limpar</button>
     </div>
     <div id="obs-form-status" style="margin-top:10px;font-size:13px;"></div>
   </div>
@@ -4537,7 +4551,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.18.0';
+const APP_VERSION = 'v2.19.1';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -6795,6 +6809,43 @@ window.addEventListener('DOMContentLoaded', async () => {
 // =====================================================================
 // TURMAS
 // =====================================================================
+// O contraturno da escola nao e um periodo de uma turma existente: e uma turma
+// propria, que na pratica reune Infantil III, IV e V numa sala so. Guardar
+// quais faixas ela reune e o que permite contar as criancas certas sem
+// duplicar matricula — cada crianca continua pertencendo a sua turma de origem.
+function turmaPeriodoMudou() {
+  const per  = document.getElementById('turma-periodo')?.value;
+  const wrap = document.getElementById('turma-unifica-wrap');
+  if (!wrap) return;
+  const mostrar = per === 'contraturno';
+  wrap.style.display = mostrar ? '' : 'none';
+  if (mostrar) renderTurmasUnifica();
+}
+
+function renderTurmasUnifica(marcadas) {
+  const el = document.getElementById('turma-unifica');
+  if (!el) return;
+  const sel = new Set((marcadas || []).map(String));
+  const candidatas = db.turmas.filter(t => String(t.periodo || '').toLowerCase() !== 'contraturno');
+  el.innerHTML = candidatas.length
+    ? candidatas.map(t => `<label style="display:inline-flex;align-items:center;gap:6px;margin:0 14px 8px 0;font-weight:500;">
+          <input type="checkbox" value="${t.id}" ${sel.has(String(t.id)) ? 'checked' : ''}> ${escapeHtml(t.nome)}
+        </label>`).join('')
+    : '<span style="font-size:13px;color:var(--gray-500);">Cadastre as turmas regulares primeiro.</span>';
+}
+
+function turmasUnificadasSelecionadas() {
+  return [...document.querySelectorAll('#turma-unifica input:checked')].map(i => i.value);
+}
+
+// Quantas criancas a turma atende: as proprias mais as das turmas que reune
+function contarAlunosTurma(t) {
+  const proprios = db.alunos.filter(a => a.turmaId === t.id).length;
+  if (!Array.isArray(t.unifica) || !t.unifica.length) return proprios;
+  const ids = new Set(t.unifica.map(String));
+  return proprios + db.alunos.filter(a => ids.has(String(a.turmaId))).length;
+}
+
 function addTurma() {
   const nome = document.getElementById('turma-nome').value.trim();
   const prof = document.getElementById('turma-prof').value.trim();
@@ -6802,11 +6853,13 @@ function addTurma() {
   if (!nome) { showToast('⚠️ Informe o nome da turma.'); return; }
   if (currentUser?.papel !== 'diretor' && currentUser?.papel !== 'pedagoga') { showToast('⚠️ Sem permissão.'); return; }
   const novaTurma = { id: uid(), nome, prof, periodo };
+  if (periodo === 'contraturno') novaTurma.unifica = turmasUnificadasSelecionadas();
   db.turmas.push(novaTurma);
   save();
   logger.audit({ module: 'turma', action: 'create', message: `Turma criada: ${nome}`, after: { nome, prof, periodo } });
   document.getElementById('turma-nome').value = '';
   document.getElementById('turma-prof').value = '';
+  turmaPeriodoMudou();
   renderTurmas();
   populateSelects();
 }
@@ -6875,6 +6928,22 @@ function chaveEntrega(rotulo) {
   return m ? 'b' + m[1] : '';
 }
 
+// Periodo da turma como selo. O contraturno ganha cor propria porque e o
+// que a direcao precisa distinguir de relance: e a turma que existe no turno
+// oposto ao da matricula principal.
+const TURMA_PERIODOS = {
+  'manhã':       { rotulo: 'Manhã',       classe: 'badge-green' },
+  'tarde':       { rotulo: 'Tarde',       classe: 'badge-amber' },
+  'integral':    { rotulo: 'Integral',    classe: 'badge-info'  },
+  'contraturno': { rotulo: 'Contraturno', classe: 'badge-info'  },
+};
+
+function seloPeriodoTurma(periodo) {
+  const p = TURMA_PERIODOS[String(periodo || '').toLowerCase()];
+  if (!p) return periodo ? `<span class="badge">${escapeHtml(periodo)}</span>` : '';
+  return `<span class="badge ${p.classe}">${p.rotulo}</span>`;
+}
+
 function renderTurmas() {
   const el = document.getElementById('turmas-list');
   if (!el) return;
@@ -6894,7 +6963,7 @@ function renderTurmas() {
   }
   const turmasOrdenadas = [...db.turmas].sort((a, b) => ordemTurma(a.nome) - ordemTurma(b.nome));
   el.innerHTML = turmasOrdenadas.map(t => {
-    const count = db.alunos.filter(a => a.turmaId === t.id).length;
+    const count = contarAlunosTurma(t);
     const canEdit = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
     const delBtn = canEdit
       ? `<button class="btn btn-danger btn-sm" onclick="deleteTurma('${t.id}')" title="Excluir turma">🗑️</button>`
@@ -6902,7 +6971,12 @@ function renderTurmas() {
     return `<div class="item-card">
       <div class="info">
         <strong>${t.nome}</strong>
-        <span>👩‍🏫 ${t.prof || '—'} &nbsp;|&nbsp; 🕐 ${t.periodo} &nbsp;|&nbsp; 👦 ${count} aluno(s)</span>
+        <span>👩‍🏫 ${t.prof || '—'} &nbsp;|&nbsp; 👦 ${count} aluno(s)</span>
+        <div style="margin-top:7px;">${seloPeriodoTurma(t.periodo)}${
+          Array.isArray(t.unifica) && t.unifica.length
+            ? `<span style="font-size:12.5px;color:var(--gray-600);margin-left:8px;">reúne ${
+                t.unifica.map(id => db.turmas.find(x => x.id === id)?.nome).filter(Boolean).map(escapeHtml).join(', ')
+              }</span>` : ''}</div>
       </div>
       <div class="actions">${delBtn}</div>
     </div>`;
@@ -10589,13 +10663,34 @@ function obsCriteriosDe(o) {
   return OBS_CRITERIOS.concat(OBS_CRITERIOS_LEGADO.filter(c => o && o[c.key] !== undefined));
 }
 
+// "Nao avaliado" NAO e nota: e a ausencia dela. Antes o 1 juntava duas coisas
+// muito diferentes — "vi e estava critico" e "nao deu para ver" — e a segunda
+// puxava a media da professora para baixo por algo que ela nem fez errado.
+// Agora fica fora da conta: a media so considera o que foi de fato observado.
+const OBS_NA = '';   // valor gravado quando o item nao foi avaliado
+
 const OBS_ESCALA = {
-  1: 'Não observado / crítico',
+  1: 'Insuficiente',
   2: 'Precisa de apoio',
   3: 'Em desenvolvimento',
   4: 'Adequado',
   5: 'Referência',
 };
+
+// Nota de um criterio, ou null quando nao foi avaliado.
+// Cuidado necessario: Number('') e 0, nao NaN — sem esta funcao um item em
+// branco entraria na media valendo zero.
+function obsNota(o, chave) {
+  const v = o ? o[chave] : undefined;
+  if (v === undefined || v === null || v === '' ) return null;
+  const n = Number(v);
+  return isNaN(n) || n < 1 || n > 5 ? null : n;
+}
+
+// Quantos itens daquele registro foram realmente avaliados
+function obsAvaliados(o) {
+  return obsCriteriosDe(o).filter(c => obsNota(o, c.key) !== null).length;
+}
 
 // Monta os controles de nota (1 a 5) do formulário
 function renderCriteriosObservacao() {
@@ -10612,28 +10707,67 @@ function renderCriteriosObservacao() {
           <div style="font-size:12.5px;color:var(--gray-500);margin-top:2px;">${c.dica}</div>
         </div>
         <span class="nota" role="group" aria-label="${escapeHtml(c.label)}">
+          <button type="button" class="nota-na" data-obs="${c.key}" data-nota=""
+            aria-pressed="true" title="Não observado ou não se aplica"
+            onclick="obsDarNota('${c.key}','')">—</button>
           ${[1,2,3,4,5].map(n => `<button type="button" data-obs="${c.key}" data-nota="${n}"
-             aria-pressed="${n === 4 ? 'true' : 'false'}" onclick="obsDarNota('${c.key}',${n})">${n}</button>`).join('')}
+             aria-pressed="false" onclick="obsDarNota('${c.key}',${n})">${n}</button>`).join('')}
         </span>
       </div>
-      <input type="hidden" id="obs-${c.key}" value="4">
-      <div id="obs-${c.key}-val" style="font-size:12.5px;color:var(--green);font-weight:600;margin-top:6px;">
-        4 · ${OBS_ESCALA[4]}
+      <input type="hidden" id="obs-${c.key}" value="">
+      <div id="obs-${c.key}-val" style="font-size:12.5px;color:var(--gray-500);font-weight:600;margin-top:6px;">
+        Não observado — fica fora da média
       </div>
     </div>`).join('')
-    + `<div style="font-size:12.5px;color:var(--gray-500);padding-top:12px;">
-         Escala: 1 não observado · 2 precisa de apoio · 3 em desenvolvimento · 4 adequado · 5 referência
-       </div>`;
+    + `<div style="font-size:12.5px;color:var(--gray-500);padding-top:12px;line-height:1.6;">
+         <strong style="color:var(--gray-700);">—</strong> não observado ou não se aplica · fica fora da média<br>
+         <strong style="color:var(--gray-700);">1</strong> insuficiente ·
+         <strong style="color:var(--gray-700);">2</strong> precisa de apoio ·
+         <strong style="color:var(--gray-700);">3</strong> em desenvolvimento ·
+         <strong style="color:var(--gray-700);">4</strong> adequado ·
+         <strong style="color:var(--gray-700);">5</strong> referência
+       </div>
+       <div id="obs-contagem" style="font-size:13px;color:var(--gray-600);margin-top:10px;"></div>`;
+  atualizarContagemObs();
 }
 
-// Registra a nota de um criterio e atualiza o rotulo da escala
+// Registra a nota de um criterio. Nota '' significa nao avaliado.
 function obsDarNota(chave, nota) {
   const campo = document.getElementById('obs-' + chave);
-  if (campo) campo.value = nota;
+  if (campo) campo.value = nota === '' ? '' : String(nota);
   document.querySelectorAll(`[data-obs="${chave}"]`).forEach(b =>
-    b.setAttribute('aria-pressed', Number(b.getAttribute('data-nota')) === nota ? 'true' : 'false'));
+    b.setAttribute('aria-pressed', b.getAttribute('data-nota') === String(nota) ? 'true' : 'false'));
   const rot = document.getElementById('obs-' + chave + '-val');
-  if (rot) rot.textContent = nota + ' · ' + (OBS_ESCALA[nota] || '');
+  if (rot) {
+    if (nota === '') {
+      rot.textContent = 'Não observado — fica fora da média';
+      rot.style.color = 'var(--gray-500)';
+    } else {
+      rot.textContent = nota + ' · ' + (OBS_ESCALA[nota] || '');
+      rot.style.color = Number(nota) >= 4 ? 'var(--green)' : Number(nota) >= 3 ? 'var(--amber)' : 'var(--red)';
+    }
+  }
+  atualizarContagemObs();
+}
+
+// Mostra quantos itens ja foram avaliados e como a media esta ficando
+function atualizarContagemObs() {
+  const el = document.getElementById('obs-contagem');
+  if (!el) return;
+  const notas = OBS_CRITERIOS
+    .map(c => document.getElementById('obs-' + c.key)?.value)
+    .filter(v => v !== '' && v !== undefined && v !== null)
+    .map(Number);
+  if (!notas.length) {
+    el.innerHTML = '<span class="badge badge-amber">Nenhum item avaliado ainda</span>';
+    return;
+  }
+  const media = notas.reduce((s, n) => s + n, 0) / notas.length;
+  el.innerHTML = `<span class="badge badge-green">${notas.length} de ${OBS_CRITERIOS.length} itens avaliados</span>`
+    + `<span style="margin-left:10px;">Média parcial <strong>${media.toFixed(1)}/5</strong>`
+    + (notas.length < OBS_CRITERIOS.length
+        ? ` — os ${OBS_CRITERIOS.length - notas.length} não observados não entram na conta.`
+        : '') + '</span>';
 }
 
 function popularSelectsObservacao() {
@@ -10669,6 +10803,8 @@ function popularSelectsObservacao() {
 }
 
 function limparFormObservacao() {
+  // Nao mexe em _obsEditando aqui: salvarObservacao chama esta funcao depois
+  // de gravar, e quem cancela a correcao e cancelarEdicaoObservacao().
   ['obs-fortes', 'obs-melhoria', 'obs-proximo', 'obs-horario', 'obs-combinados'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
@@ -10690,9 +10826,23 @@ function salvarObservacao() {
   if (!turmaId) { aviso('⚠️ Selecione a turma.', '#b45309'); return; }
   if (!data)    { aviso('⚠️ Informe a data da observação.', '#b45309'); return; }
 
+  // Guarda apenas o que foi avaliado. Item nao observado fica como string
+  // vazia e nao entra na media — nao se penaliza a professora por algo que a
+  // pedagoga nao viu, ou que nao se aplicava aquela aula.
   const notas = {};
-  OBS_CRITERIOS.forEach(c => { notas[c.key] = Number(document.getElementById('obs-' + c.key)?.value || 4); });
-  const media = OBS_CRITERIOS.reduce((s, c) => s + notas[c.key], 0) / OBS_CRITERIOS.length;
+  const avaliadas = [];
+  OBS_CRITERIOS.forEach(c => {
+    const v = document.getElementById('obs-' + c.key)?.value;
+    if (v === '' || v === undefined || v === null) { notas[c.key] = OBS_NA; return; }
+    const n = Number(v);
+    notas[c.key] = n;
+    avaliadas.push(n);
+  });
+  if (!avaliadas.length) {
+    aviso('⚠️ Avalie ao menos um item — os demais podem ficar como não observados.', '#b45309');
+    return;
+  }
+  const media = avaliadas.reduce((s, n) => s + n, 0) / avaliadas.length;
 
   const obs = {
     id: uid(),
@@ -10702,6 +10852,8 @@ function salvarObservacao() {
     data,
     ...notas,
     media: Math.round(media * 100) / 100,
+    avaliados: avaliadas.length,
+    totalCriterios: OBS_CRITERIOS.length,
     pontosFortes:   document.getElementById('obs-fortes')?.value.trim()   || '',
     pontosMelhoria: document.getElementById('obs-melhoria')?.value.trim() || '',
     proximo:        document.getElementById('obs-proximo')?.value || '',
@@ -10711,17 +10863,95 @@ function salvarObservacao() {
     criadoPor: currentUser?.nome || currentUser?.usuario || '',
   };
 
-  db.observacoes.unshift(obs);
+  // Em correção, o registro é substituído no lugar: preserva id, quem criou e
+  // quando, e guarda o rastro de quem corrigiu.
+  if (_obsEditando) {
+    const i = db.observacoes.findIndex(x => String(x.id) === _obsEditando);
+    if (i >= 0) {
+      const antigo = db.observacoes[i];
+      obs.id        = antigo.id;
+      obs.criadoEm  = antigo.criadoEm;
+      obs.criadoPor = antigo.criadoPor;
+      obs.editadoEm  = new Date().toISOString();
+      obs.editadoPor = currentUser?.nome || currentUser?.usuario || '';
+      db.observacoes[i] = obs;
+      logger.audit({ module: 'observacao', action: 'update', message: `Observação corrigida: ${prof}`,
+                     before: { media: antigo.media }, after: { media: obs.media } });
+    } else {
+      db.observacoes.unshift(obs);
+    }
+    _obsEditando = null;
+    obsModoEdicao(false);
+  } else {
+    db.observacoes.unshift(obs);
+  }
   _observacoesCarregadas = true;
   save();
   renderObservacoes();
   limparFormObservacao();
 
+  const detalhe = obs.avaliados < OBS_CRITERIOS.length
+    ? ` sobre ${obs.avaliados} de ${OBS_CRITERIOS.length} itens`
+    : '';
   if (!avisarSePendente()) {
-    showToast(`✅ Observação de ${prof} salva — média ${obs.media.toFixed(1)}.`);
+    showToast(`✅ Observação de ${prof} salva — média ${obs.media.toFixed(1)}${detalhe}.`);
   }
-  aviso(`✅ Salva. Média ${obs.media.toFixed(1)}/5. A devolutiva já está pronta no histórico abaixo.`, '#059669');
+  aviso(`✅ Salva. Média ${obs.media.toFixed(1)}/5${detalhe}. A devolutiva já está pronta no histórico abaixo.`, '#059669');
   logger.audit({ module: 'observacao', action: 'create', message: `Observação registrada: ${prof}`, after: { prof, turmaId, media: obs.media } });
+}
+
+// ── EDITAR UMA OBSERVACAO JA REGISTRADA ────────────────────────────────
+// Nota lancada errado acontece: a pedagoga preenche em pe, no fundo da sala.
+// Sem poder corrigir, a saida era excluir e refazer — o que perde a data de
+// registro e quem registrou. Aqui o formulario volta preenchido e o registro
+// e substituido no lugar, guardando o rastro da correcao.
+let _obsEditando = null;
+
+function editarObservacao(id) {
+  const o = (db.observacoes || []).find(x => String(x.id) === String(id));
+  if (!o) return;
+  _obsEditando = String(id);
+
+  const set = (campo, valor) => { const el = document.getElementById(campo); if (el) el.value = valor || ''; };
+  set('obs-prof', o.prof);
+  set('obs-turma', o.turmaId);
+  set('obs-data', o.data);
+  set('obs-horario', o.horario);
+  set('obs-fortes', o.pontosFortes);
+  set('obs-melhoria', o.pontosMelhoria);
+  set('obs-combinados', o.combinados);
+  set('obs-proximo', o.proximo);
+
+  renderCriteriosObservacao();
+  OBS_CRITERIOS.forEach(c => {
+    const n = obsNota(o, c.key);
+    obsDarNota(c.key, n === null ? '' : n);
+  });
+
+  obsModoEdicao(true, o);
+  document.getElementById('obs-prof')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function obsModoEdicao(ligado, o) {
+  const cab = document.getElementById('obs-modo-edicao');
+  const btn = document.getElementById('obs-btn-salvar');
+  if (btn) btn.textContent = ligado ? 'Salvar correção' : 'Salvar observação';
+  if (!cab) return;
+  if (!ligado) { cab.style.display = 'none'; cab.innerHTML = ''; return; }
+  const d = o.data ? new Date(o.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+  cab.style.display = '';
+  cab.innerHTML = `<div class="alert alert-warn" style="margin-bottom:0;">
+      <strong>Corrigindo a observação de ${escapeHtml(o.prof)} — ${d}.</strong>
+      O registro será substituído, mantendo a data em que foi criado.
+      <button class="btn btn-ghost btn-sm" style="margin-left:8px;" onclick="cancelarEdicaoObservacao()">Cancelar correção</button>
+    </div>`;
+}
+
+function cancelarEdicaoObservacao() {
+  _obsEditando = null;
+  limparFormObservacao();
+  obsModoEdicao(false);
+  showToast('Correção cancelada.');
 }
 
 function deleteObservacao(id) {
@@ -10802,7 +11032,7 @@ function renderPlanoAcao() {
   const medias = [];
   if (recentes.length) {
     OBS_CRITERIOS.forEach(c => {
-      const vals = recentes.map(o => Number(o[c.key])).filter(v => !isNaN(v));
+      const vals = recentes.map(o => obsNota(o, c.key)).filter(v => v !== null);
       if (vals.length) medias.push({ ...c, valor: vals.reduce((s, v) => s + v, 0) / vals.length });
     });
     medias.sort((a, b) => a.valor - b.valor);   // do mais fraco para o mais forte
@@ -10932,8 +11162,15 @@ function montarDevolutiva(o) {
     `Data da observação: ${dataFmt}${o.horario ? ' · ' + o.horario : ''}`,
     ``,
     `AVALIAÇÃO POR CRITÉRIO`,
-    ...obsCriteriosDe(o).map(c => `${c.label}: ${o[c.key]}/5 — ${OBS_ESCALA[o[c.key]] || ''}`),
-    `Média geral: ${Number(o.media).toFixed(1)}/5`,
+    ...obsCriteriosDe(o).map(c => {
+      const n = obsNota(o, c.key);
+      return n === null
+        ? `${c.label}: não observado / não se aplica`
+        : `${c.label}: ${n}/5 — ${OBS_ESCALA[n] || ''}`;
+    }),
+    `Média geral: ${Number(o.media).toFixed(1)}/5` +
+      (o.avaliados && o.totalCriterios && o.avaliados < o.totalCriterios
+        ? `  (sobre ${o.avaliados} de ${o.totalCriterios} itens observados)` : ''),
     ``,
   ];
   if (o.pontosFortes)   linhas.push(`PONTOS POSITIVOS OBSERVADOS`, o.pontosFortes, ``);
@@ -10943,6 +11180,9 @@ function montarDevolutiva(o) {
     linhas.push(`Próximo acompanhamento: ${new Date(o.proximo + 'T12:00:00').toLocaleDateString('pt-BR')}`, ``);
   }
   linhas.push(`Observação registrada por ${o.criadoPor || 'equipe pedagógica'}.`);
+  if (o.editadoEm) {
+    linhas.push(`Corrigida em ${new Date(o.editadoEm).toLocaleDateString('pt-BR')} por ${o.editadoPor || 'equipe pedagógica'}.`);
+  }
   return linhas.join('\n');
 }
 
@@ -11067,7 +11307,9 @@ function renderObservacoes() {
     const dataFmt = o.data ? new Date(o.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
     const media = Number(o.media) || 0;
     const cor = media >= 4 ? 'badge-green' : media >= 3 ? 'badge-amber' : 'badge-gray';
-    const notas = obsCriteriosDe(o).map(c => `${c.label} ${o[c.key]}/5`).join(' · ');
+    const notas = obsCriteriosDe(o)
+      .map(c => { const n = obsNota(o, c.key); return n === null ? null : `${c.label} ${n}/5`; })
+      .filter(Boolean).join(' · ');
     const resumo = o.pontosFortes || o.pontosMelhoria || '';
     return `<div class="item-card">
       <div class="info">
@@ -11083,6 +11325,7 @@ function renderObservacoes() {
       </div>
       <div class="actions" style="flex-direction:column;gap:5px;">
         <button class="btn btn-primary btn-sm" onclick="verDevolutiva('${o.id}')" title="Ver devolutiva pronta">📄 Devolutiva</button>
+        <button class="btn btn-secondary btn-sm" onclick="editarObservacao('${o.id}')" title="Corrigir esta observação">✏️ Editar</button>
         <button class="btn btn-secondary btn-sm" onclick="imprimirDevolutiva('${o.id}')" title="Imprimir / Salvar PDF">🖨️</button>
         ${podeExcluir ? `<button class="btn btn-danger btn-sm" onclick="deleteObservacao('${o.id}')" title="Excluir">🗑️</button>` : ''}
       </div>
