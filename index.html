@@ -598,6 +598,10 @@
   }
   .nota button:hover { border-color: var(--green); color: var(--green); }
   .nota button[aria-pressed="true"] { background: var(--green); border-color: var(--green); color: #fff; }
+  /* "—" e ausencia de nota, nao uma nota baixa: cinza, nunca verde */
+  .nota .nota-na { color: var(--gray-400); font-weight: 700; }
+  .nota .nota-na:hover { border-color: var(--gray-400); color: var(--gray-700); }
+  .nota .nota-na[aria-pressed="true"] { background: var(--gray-200); border-color: var(--gray-400); color: var(--gray-700); }
 
   /* ── RODAPE DE CARD ── estado do salvamento junto da acao */
   .card-pe {
@@ -2377,6 +2381,7 @@ function _listarPlanejamentos() {
             <option value="manhã">Manhã</option>
             <option value="tarde">Tarde</option>
             <option value="integral">Integral</option>
+            <option value="contraturno">Contraturno</option>
           </select>
         </div>
       </div>
@@ -4537,7 +4542,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.18.0';
+const APP_VERSION = 'v2.19.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -6875,6 +6880,22 @@ function chaveEntrega(rotulo) {
   return m ? 'b' + m[1] : '';
 }
 
+// Periodo da turma como selo. O contraturno ganha cor propria porque e o
+// que a direcao precisa distinguir de relance: e a turma que existe no turno
+// oposto ao da matricula principal.
+const TURMA_PERIODOS = {
+  'manhã':       { rotulo: 'Manhã',       classe: 'badge-green' },
+  'tarde':       { rotulo: 'Tarde',       classe: 'badge-amber' },
+  'integral':    { rotulo: 'Integral',    classe: 'badge-info'  },
+  'contraturno': { rotulo: 'Contraturno', classe: 'badge-info'  },
+};
+
+function seloPeriodoTurma(periodo) {
+  const p = TURMA_PERIODOS[String(periodo || '').toLowerCase()];
+  if (!p) return periodo ? `<span class="badge">${escapeHtml(periodo)}</span>` : '';
+  return `<span class="badge ${p.classe}">${p.rotulo}</span>`;
+}
+
 function renderTurmas() {
   const el = document.getElementById('turmas-list');
   if (!el) return;
@@ -6902,7 +6923,8 @@ function renderTurmas() {
     return `<div class="item-card">
       <div class="info">
         <strong>${t.nome}</strong>
-        <span>👩‍🏫 ${t.prof || '—'} &nbsp;|&nbsp; 🕐 ${t.periodo} &nbsp;|&nbsp; 👦 ${count} aluno(s)</span>
+        <span>👩‍🏫 ${t.prof || '—'} &nbsp;|&nbsp; 👦 ${count} aluno(s)</span>
+        <div style="margin-top:7px;">${seloPeriodoTurma(t.periodo)}</div>
       </div>
       <div class="actions">${delBtn}</div>
     </div>`;
@@ -10589,13 +10611,34 @@ function obsCriteriosDe(o) {
   return OBS_CRITERIOS.concat(OBS_CRITERIOS_LEGADO.filter(c => o && o[c.key] !== undefined));
 }
 
+// "Nao avaliado" NAO e nota: e a ausencia dela. Antes o 1 juntava duas coisas
+// muito diferentes — "vi e estava critico" e "nao deu para ver" — e a segunda
+// puxava a media da professora para baixo por algo que ela nem fez errado.
+// Agora fica fora da conta: a media so considera o que foi de fato observado.
+const OBS_NA = '';   // valor gravado quando o item nao foi avaliado
+
 const OBS_ESCALA = {
-  1: 'Não observado / crítico',
+  1: 'Insuficiente',
   2: 'Precisa de apoio',
   3: 'Em desenvolvimento',
   4: 'Adequado',
   5: 'Referência',
 };
+
+// Nota de um criterio, ou null quando nao foi avaliado.
+// Cuidado necessario: Number('') e 0, nao NaN — sem esta funcao um item em
+// branco entraria na media valendo zero.
+function obsNota(o, chave) {
+  const v = o ? o[chave] : undefined;
+  if (v === undefined || v === null || v === '' ) return null;
+  const n = Number(v);
+  return isNaN(n) || n < 1 || n > 5 ? null : n;
+}
+
+// Quantos itens daquele registro foram realmente avaliados
+function obsAvaliados(o) {
+  return obsCriteriosDe(o).filter(c => obsNota(o, c.key) !== null).length;
+}
 
 // Monta os controles de nota (1 a 5) do formulário
 function renderCriteriosObservacao() {
@@ -10612,28 +10655,67 @@ function renderCriteriosObservacao() {
           <div style="font-size:12.5px;color:var(--gray-500);margin-top:2px;">${c.dica}</div>
         </div>
         <span class="nota" role="group" aria-label="${escapeHtml(c.label)}">
+          <button type="button" class="nota-na" data-obs="${c.key}" data-nota=""
+            aria-pressed="true" title="Não observado ou não se aplica"
+            onclick="obsDarNota('${c.key}','')">—</button>
           ${[1,2,3,4,5].map(n => `<button type="button" data-obs="${c.key}" data-nota="${n}"
-             aria-pressed="${n === 4 ? 'true' : 'false'}" onclick="obsDarNota('${c.key}',${n})">${n}</button>`).join('')}
+             aria-pressed="false" onclick="obsDarNota('${c.key}',${n})">${n}</button>`).join('')}
         </span>
       </div>
-      <input type="hidden" id="obs-${c.key}" value="4">
-      <div id="obs-${c.key}-val" style="font-size:12.5px;color:var(--green);font-weight:600;margin-top:6px;">
-        4 · ${OBS_ESCALA[4]}
+      <input type="hidden" id="obs-${c.key}" value="">
+      <div id="obs-${c.key}-val" style="font-size:12.5px;color:var(--gray-500);font-weight:600;margin-top:6px;">
+        Não observado — fica fora da média
       </div>
     </div>`).join('')
-    + `<div style="font-size:12.5px;color:var(--gray-500);padding-top:12px;">
-         Escala: 1 não observado · 2 precisa de apoio · 3 em desenvolvimento · 4 adequado · 5 referência
-       </div>`;
+    + `<div style="font-size:12.5px;color:var(--gray-500);padding-top:12px;line-height:1.6;">
+         <strong style="color:var(--gray-700);">—</strong> não observado ou não se aplica · fica fora da média<br>
+         <strong style="color:var(--gray-700);">1</strong> insuficiente ·
+         <strong style="color:var(--gray-700);">2</strong> precisa de apoio ·
+         <strong style="color:var(--gray-700);">3</strong> em desenvolvimento ·
+         <strong style="color:var(--gray-700);">4</strong> adequado ·
+         <strong style="color:var(--gray-700);">5</strong> referência
+       </div>
+       <div id="obs-contagem" style="font-size:13px;color:var(--gray-600);margin-top:10px;"></div>`;
+  atualizarContagemObs();
 }
 
-// Registra a nota de um criterio e atualiza o rotulo da escala
+// Registra a nota de um criterio. Nota '' significa nao avaliado.
 function obsDarNota(chave, nota) {
   const campo = document.getElementById('obs-' + chave);
-  if (campo) campo.value = nota;
+  if (campo) campo.value = nota === '' ? '' : String(nota);
   document.querySelectorAll(`[data-obs="${chave}"]`).forEach(b =>
-    b.setAttribute('aria-pressed', Number(b.getAttribute('data-nota')) === nota ? 'true' : 'false'));
+    b.setAttribute('aria-pressed', b.getAttribute('data-nota') === String(nota) ? 'true' : 'false'));
   const rot = document.getElementById('obs-' + chave + '-val');
-  if (rot) rot.textContent = nota + ' · ' + (OBS_ESCALA[nota] || '');
+  if (rot) {
+    if (nota === '') {
+      rot.textContent = 'Não observado — fica fora da média';
+      rot.style.color = 'var(--gray-500)';
+    } else {
+      rot.textContent = nota + ' · ' + (OBS_ESCALA[nota] || '');
+      rot.style.color = Number(nota) >= 4 ? 'var(--green)' : Number(nota) >= 3 ? 'var(--amber)' : 'var(--red)';
+    }
+  }
+  atualizarContagemObs();
+}
+
+// Mostra quantos itens ja foram avaliados e como a media esta ficando
+function atualizarContagemObs() {
+  const el = document.getElementById('obs-contagem');
+  if (!el) return;
+  const notas = OBS_CRITERIOS
+    .map(c => document.getElementById('obs-' + c.key)?.value)
+    .filter(v => v !== '' && v !== undefined && v !== null)
+    .map(Number);
+  if (!notas.length) {
+    el.innerHTML = '<span class="badge badge-amber">Nenhum item avaliado ainda</span>';
+    return;
+  }
+  const media = notas.reduce((s, n) => s + n, 0) / notas.length;
+  el.innerHTML = `<span class="badge badge-green">${notas.length} de ${OBS_CRITERIOS.length} itens avaliados</span>`
+    + `<span style="margin-left:10px;">Média parcial <strong>${media.toFixed(1)}/5</strong>`
+    + (notas.length < OBS_CRITERIOS.length
+        ? ` — os ${OBS_CRITERIOS.length - notas.length} não observados não entram na conta.`
+        : '') + '</span>';
 }
 
 function popularSelectsObservacao() {
@@ -10690,9 +10772,23 @@ function salvarObservacao() {
   if (!turmaId) { aviso('⚠️ Selecione a turma.', '#b45309'); return; }
   if (!data)    { aviso('⚠️ Informe a data da observação.', '#b45309'); return; }
 
+  // Guarda apenas o que foi avaliado. Item nao observado fica como string
+  // vazia e nao entra na media — nao se penaliza a professora por algo que a
+  // pedagoga nao viu, ou que nao se aplicava aquela aula.
   const notas = {};
-  OBS_CRITERIOS.forEach(c => { notas[c.key] = Number(document.getElementById('obs-' + c.key)?.value || 4); });
-  const media = OBS_CRITERIOS.reduce((s, c) => s + notas[c.key], 0) / OBS_CRITERIOS.length;
+  const avaliadas = [];
+  OBS_CRITERIOS.forEach(c => {
+    const v = document.getElementById('obs-' + c.key)?.value;
+    if (v === '' || v === undefined || v === null) { notas[c.key] = OBS_NA; return; }
+    const n = Number(v);
+    notas[c.key] = n;
+    avaliadas.push(n);
+  });
+  if (!avaliadas.length) {
+    aviso('⚠️ Avalie ao menos um item — os demais podem ficar como não observados.', '#b45309');
+    return;
+  }
+  const media = avaliadas.reduce((s, n) => s + n, 0) / avaliadas.length;
 
   const obs = {
     id: uid(),
@@ -10702,6 +10798,8 @@ function salvarObservacao() {
     data,
     ...notas,
     media: Math.round(media * 100) / 100,
+    avaliados: avaliadas.length,
+    totalCriterios: OBS_CRITERIOS.length,
     pontosFortes:   document.getElementById('obs-fortes')?.value.trim()   || '',
     pontosMelhoria: document.getElementById('obs-melhoria')?.value.trim() || '',
     proximo:        document.getElementById('obs-proximo')?.value || '',
@@ -10717,10 +10815,13 @@ function salvarObservacao() {
   renderObservacoes();
   limparFormObservacao();
 
+  const detalhe = obs.avaliados < OBS_CRITERIOS.length
+    ? ` sobre ${obs.avaliados} de ${OBS_CRITERIOS.length} itens`
+    : '';
   if (!avisarSePendente()) {
-    showToast(`✅ Observação de ${prof} salva — média ${obs.media.toFixed(1)}.`);
+    showToast(`✅ Observação de ${prof} salva — média ${obs.media.toFixed(1)}${detalhe}.`);
   }
-  aviso(`✅ Salva. Média ${obs.media.toFixed(1)}/5. A devolutiva já está pronta no histórico abaixo.`, '#059669');
+  aviso(`✅ Salva. Média ${obs.media.toFixed(1)}/5${detalhe}. A devolutiva já está pronta no histórico abaixo.`, '#059669');
   logger.audit({ module: 'observacao', action: 'create', message: `Observação registrada: ${prof}`, after: { prof, turmaId, media: obs.media } });
 }
 
@@ -10802,7 +10903,7 @@ function renderPlanoAcao() {
   const medias = [];
   if (recentes.length) {
     OBS_CRITERIOS.forEach(c => {
-      const vals = recentes.map(o => Number(o[c.key])).filter(v => !isNaN(v));
+      const vals = recentes.map(o => obsNota(o, c.key)).filter(v => v !== null);
       if (vals.length) medias.push({ ...c, valor: vals.reduce((s, v) => s + v, 0) / vals.length });
     });
     medias.sort((a, b) => a.valor - b.valor);   // do mais fraco para o mais forte
@@ -10932,8 +11033,15 @@ function montarDevolutiva(o) {
     `Data da observação: ${dataFmt}${o.horario ? ' · ' + o.horario : ''}`,
     ``,
     `AVALIAÇÃO POR CRITÉRIO`,
-    ...obsCriteriosDe(o).map(c => `${c.label}: ${o[c.key]}/5 — ${OBS_ESCALA[o[c.key]] || ''}`),
-    `Média geral: ${Number(o.media).toFixed(1)}/5`,
+    ...obsCriteriosDe(o).map(c => {
+      const n = obsNota(o, c.key);
+      return n === null
+        ? `${c.label}: não observado / não se aplica`
+        : `${c.label}: ${n}/5 — ${OBS_ESCALA[n] || ''}`;
+    }),
+    `Média geral: ${Number(o.media).toFixed(1)}/5` +
+      (o.avaliados && o.totalCriterios && o.avaliados < o.totalCriterios
+        ? `  (sobre ${o.avaliados} de ${o.totalCriterios} itens observados)` : ''),
     ``,
   ];
   if (o.pontosFortes)   linhas.push(`PONTOS POSITIVOS OBSERVADOS`, o.pontosFortes, ``);
@@ -11067,7 +11175,9 @@ function renderObservacoes() {
     const dataFmt = o.data ? new Date(o.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
     const media = Number(o.media) || 0;
     const cor = media >= 4 ? 'badge-green' : media >= 3 ? 'badge-amber' : 'badge-gray';
-    const notas = obsCriteriosDe(o).map(c => `${c.label} ${o[c.key]}/5`).join(' · ');
+    const notas = obsCriteriosDe(o)
+      .map(c => { const n = obsNota(o, c.key); return n === null ? null : `${c.label} ${n}/5`; })
+      .filter(Boolean).join(' · ');
     const resumo = o.pontosFortes || o.pontosMelhoria || '';
     return `<div class="item-card">
       <div class="info">
