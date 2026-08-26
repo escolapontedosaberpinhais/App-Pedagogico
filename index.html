@@ -2377,12 +2377,20 @@ function _listarPlanejamentos() {
         </div>
         <div class="form-group">
           <label>Período</label>
-          <select id="turma-periodo">
+          <select id="turma-periodo" onchange="turmaPeriodoMudou()">
             <option value="manhã">Manhã</option>
             <option value="tarde">Tarde</option>
             <option value="integral">Integral</option>
             <option value="contraturno">Contraturno</option>
           </select>
+        </div>
+        <div class="form-group full" id="turma-unifica-wrap" style="display:none;">
+          <label>Turmas que o contraturno reúne</label>
+          <div id="turma-unifica" class="check-group"></div>
+          <span style="font-size:12.5px;color:var(--gray-500);">
+            No contraturno as faixas ficam juntas numa turma só. Marque quais ela reúne —
+            é isso que faz a contagem de crianças bater.
+          </span>
         </div>
       </div>
       <div class="btn-row">
@@ -3523,6 +3531,7 @@ function _listarPlanejamentos() {
 
   <!-- Formulário de registro -->
   <div class="card">
+    <div id="obs-modo-edicao" style="display:none;margin-bottom:14px;"></div>
     <div class="card-title" style="margin-bottom:4px;">📝 Nova observação</div>
     <div style="font-size:13px;color:var(--gray-600);margin-bottom:16px;">
       Registro rápido para acompanhamento da professora. Ao salvar, o sistema calcula a média,
@@ -3575,8 +3584,8 @@ function _listarPlanejamentos() {
     </div>
 
     <div class="btn-row">
-      <button class="btn btn-primary" onclick="salvarObservacao()">💾 Salvar observação</button>
-      <button class="btn btn-secondary" onclick="limparFormObservacao()">🗑️ Limpar</button>
+      <button class="btn btn-primary" id="obs-btn-salvar" onclick="salvarObservacao()">Salvar observação</button>
+      <button class="btn btn-secondary" onclick="limparFormObservacao()">Limpar</button>
     </div>
     <div id="obs-form-status" style="margin-top:10px;font-size:13px;"></div>
   </div>
@@ -4542,7 +4551,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.19.0';
+const APP_VERSION = 'v2.19.1';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -6800,6 +6809,43 @@ window.addEventListener('DOMContentLoaded', async () => {
 // =====================================================================
 // TURMAS
 // =====================================================================
+// O contraturno da escola nao e um periodo de uma turma existente: e uma turma
+// propria, que na pratica reune Infantil III, IV e V numa sala so. Guardar
+// quais faixas ela reune e o que permite contar as criancas certas sem
+// duplicar matricula — cada crianca continua pertencendo a sua turma de origem.
+function turmaPeriodoMudou() {
+  const per  = document.getElementById('turma-periodo')?.value;
+  const wrap = document.getElementById('turma-unifica-wrap');
+  if (!wrap) return;
+  const mostrar = per === 'contraturno';
+  wrap.style.display = mostrar ? '' : 'none';
+  if (mostrar) renderTurmasUnifica();
+}
+
+function renderTurmasUnifica(marcadas) {
+  const el = document.getElementById('turma-unifica');
+  if (!el) return;
+  const sel = new Set((marcadas || []).map(String));
+  const candidatas = db.turmas.filter(t => String(t.periodo || '').toLowerCase() !== 'contraturno');
+  el.innerHTML = candidatas.length
+    ? candidatas.map(t => `<label style="display:inline-flex;align-items:center;gap:6px;margin:0 14px 8px 0;font-weight:500;">
+          <input type="checkbox" value="${t.id}" ${sel.has(String(t.id)) ? 'checked' : ''}> ${escapeHtml(t.nome)}
+        </label>`).join('')
+    : '<span style="font-size:13px;color:var(--gray-500);">Cadastre as turmas regulares primeiro.</span>';
+}
+
+function turmasUnificadasSelecionadas() {
+  return [...document.querySelectorAll('#turma-unifica input:checked')].map(i => i.value);
+}
+
+// Quantas criancas a turma atende: as proprias mais as das turmas que reune
+function contarAlunosTurma(t) {
+  const proprios = db.alunos.filter(a => a.turmaId === t.id).length;
+  if (!Array.isArray(t.unifica) || !t.unifica.length) return proprios;
+  const ids = new Set(t.unifica.map(String));
+  return proprios + db.alunos.filter(a => ids.has(String(a.turmaId))).length;
+}
+
 function addTurma() {
   const nome = document.getElementById('turma-nome').value.trim();
   const prof = document.getElementById('turma-prof').value.trim();
@@ -6807,11 +6853,13 @@ function addTurma() {
   if (!nome) { showToast('⚠️ Informe o nome da turma.'); return; }
   if (currentUser?.papel !== 'diretor' && currentUser?.papel !== 'pedagoga') { showToast('⚠️ Sem permissão.'); return; }
   const novaTurma = { id: uid(), nome, prof, periodo };
+  if (periodo === 'contraturno') novaTurma.unifica = turmasUnificadasSelecionadas();
   db.turmas.push(novaTurma);
   save();
   logger.audit({ module: 'turma', action: 'create', message: `Turma criada: ${nome}`, after: { nome, prof, periodo } });
   document.getElementById('turma-nome').value = '';
   document.getElementById('turma-prof').value = '';
+  turmaPeriodoMudou();
   renderTurmas();
   populateSelects();
 }
@@ -6915,7 +6963,7 @@ function renderTurmas() {
   }
   const turmasOrdenadas = [...db.turmas].sort((a, b) => ordemTurma(a.nome) - ordemTurma(b.nome));
   el.innerHTML = turmasOrdenadas.map(t => {
-    const count = db.alunos.filter(a => a.turmaId === t.id).length;
+    const count = contarAlunosTurma(t);
     const canEdit = currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
     const delBtn = canEdit
       ? `<button class="btn btn-danger btn-sm" onclick="deleteTurma('${t.id}')" title="Excluir turma">🗑️</button>`
@@ -6924,7 +6972,11 @@ function renderTurmas() {
       <div class="info">
         <strong>${t.nome}</strong>
         <span>👩‍🏫 ${t.prof || '—'} &nbsp;|&nbsp; 👦 ${count} aluno(s)</span>
-        <div style="margin-top:7px;">${seloPeriodoTurma(t.periodo)}</div>
+        <div style="margin-top:7px;">${seloPeriodoTurma(t.periodo)}${
+          Array.isArray(t.unifica) && t.unifica.length
+            ? `<span style="font-size:12.5px;color:var(--gray-600);margin-left:8px;">reúne ${
+                t.unifica.map(id => db.turmas.find(x => x.id === id)?.nome).filter(Boolean).map(escapeHtml).join(', ')
+              }</span>` : ''}</div>
       </div>
       <div class="actions">${delBtn}</div>
     </div>`;
@@ -10751,6 +10803,8 @@ function popularSelectsObservacao() {
 }
 
 function limparFormObservacao() {
+  // Nao mexe em _obsEditando aqui: salvarObservacao chama esta funcao depois
+  // de gravar, e quem cancela a correcao e cancelarEdicaoObservacao().
   ['obs-fortes', 'obs-melhoria', 'obs-proximo', 'obs-horario', 'obs-combinados'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
@@ -10809,7 +10863,28 @@ function salvarObservacao() {
     criadoPor: currentUser?.nome || currentUser?.usuario || '',
   };
 
-  db.observacoes.unshift(obs);
+  // Em correção, o registro é substituído no lugar: preserva id, quem criou e
+  // quando, e guarda o rastro de quem corrigiu.
+  if (_obsEditando) {
+    const i = db.observacoes.findIndex(x => String(x.id) === _obsEditando);
+    if (i >= 0) {
+      const antigo = db.observacoes[i];
+      obs.id        = antigo.id;
+      obs.criadoEm  = antigo.criadoEm;
+      obs.criadoPor = antigo.criadoPor;
+      obs.editadoEm  = new Date().toISOString();
+      obs.editadoPor = currentUser?.nome || currentUser?.usuario || '';
+      db.observacoes[i] = obs;
+      logger.audit({ module: 'observacao', action: 'update', message: `Observação corrigida: ${prof}`,
+                     before: { media: antigo.media }, after: { media: obs.media } });
+    } else {
+      db.observacoes.unshift(obs);
+    }
+    _obsEditando = null;
+    obsModoEdicao(false);
+  } else {
+    db.observacoes.unshift(obs);
+  }
   _observacoesCarregadas = true;
   save();
   renderObservacoes();
@@ -10823,6 +10898,60 @@ function salvarObservacao() {
   }
   aviso(`✅ Salva. Média ${obs.media.toFixed(1)}/5${detalhe}. A devolutiva já está pronta no histórico abaixo.`, '#059669');
   logger.audit({ module: 'observacao', action: 'create', message: `Observação registrada: ${prof}`, after: { prof, turmaId, media: obs.media } });
+}
+
+// ── EDITAR UMA OBSERVACAO JA REGISTRADA ────────────────────────────────
+// Nota lancada errado acontece: a pedagoga preenche em pe, no fundo da sala.
+// Sem poder corrigir, a saida era excluir e refazer — o que perde a data de
+// registro e quem registrou. Aqui o formulario volta preenchido e o registro
+// e substituido no lugar, guardando o rastro da correcao.
+let _obsEditando = null;
+
+function editarObservacao(id) {
+  const o = (db.observacoes || []).find(x => String(x.id) === String(id));
+  if (!o) return;
+  _obsEditando = String(id);
+
+  const set = (campo, valor) => { const el = document.getElementById(campo); if (el) el.value = valor || ''; };
+  set('obs-prof', o.prof);
+  set('obs-turma', o.turmaId);
+  set('obs-data', o.data);
+  set('obs-horario', o.horario);
+  set('obs-fortes', o.pontosFortes);
+  set('obs-melhoria', o.pontosMelhoria);
+  set('obs-combinados', o.combinados);
+  set('obs-proximo', o.proximo);
+
+  renderCriteriosObservacao();
+  OBS_CRITERIOS.forEach(c => {
+    const n = obsNota(o, c.key);
+    obsDarNota(c.key, n === null ? '' : n);
+  });
+
+  obsModoEdicao(true, o);
+  document.getElementById('obs-prof')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function obsModoEdicao(ligado, o) {
+  const cab = document.getElementById('obs-modo-edicao');
+  const btn = document.getElementById('obs-btn-salvar');
+  if (btn) btn.textContent = ligado ? 'Salvar correção' : 'Salvar observação';
+  if (!cab) return;
+  if (!ligado) { cab.style.display = 'none'; cab.innerHTML = ''; return; }
+  const d = o.data ? new Date(o.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+  cab.style.display = '';
+  cab.innerHTML = `<div class="alert alert-warn" style="margin-bottom:0;">
+      <strong>Corrigindo a observação de ${escapeHtml(o.prof)} — ${d}.</strong>
+      O registro será substituído, mantendo a data em que foi criado.
+      <button class="btn btn-ghost btn-sm" style="margin-left:8px;" onclick="cancelarEdicaoObservacao()">Cancelar correção</button>
+    </div>`;
+}
+
+function cancelarEdicaoObservacao() {
+  _obsEditando = null;
+  limparFormObservacao();
+  obsModoEdicao(false);
+  showToast('Correção cancelada.');
 }
 
 function deleteObservacao(id) {
@@ -11051,6 +11180,9 @@ function montarDevolutiva(o) {
     linhas.push(`Próximo acompanhamento: ${new Date(o.proximo + 'T12:00:00').toLocaleDateString('pt-BR')}`, ``);
   }
   linhas.push(`Observação registrada por ${o.criadoPor || 'equipe pedagógica'}.`);
+  if (o.editadoEm) {
+    linhas.push(`Corrigida em ${new Date(o.editadoEm).toLocaleDateString('pt-BR')} por ${o.editadoPor || 'equipe pedagógica'}.`);
+  }
   return linhas.join('\n');
 }
 
@@ -11193,6 +11325,7 @@ function renderObservacoes() {
       </div>
       <div class="actions" style="flex-direction:column;gap:5px;">
         <button class="btn btn-primary btn-sm" onclick="verDevolutiva('${o.id}')" title="Ver devolutiva pronta">📄 Devolutiva</button>
+        <button class="btn btn-secondary btn-sm" onclick="editarObservacao('${o.id}')" title="Corrigir esta observação">✏️ Editar</button>
         <button class="btn btn-secondary btn-sm" onclick="imprimirDevolutiva('${o.id}')" title="Imprimir / Salvar PDF">🖨️</button>
         ${podeExcluir ? `<button class="btn btn-danger btn-sm" onclick="deleteObservacao('${o.id}')" title="Excluir">🗑️</button>` : ''}
       </div>
