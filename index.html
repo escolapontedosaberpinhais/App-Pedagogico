@@ -1951,6 +1951,19 @@
     }
 
     var folder = getFolder(data.path);
+    var emails = data.shareWith || [];
+
+    // Backup: arquivo bruto, sem virar documento formatado
+    if (data.raw) {
+      var alvo = folder.getFilesByName(data.filename);
+      var arq;
+      if (alvo.hasNext()) { arq = alvo.next(); arq.setContent(data.content); }
+      else { arq = folder.createFile(data.filename, data.content, 'text/plain'); }
+      compartilhar(arq, emails);
+      return ContentService.createTextOutput(JSON.stringify({ok:true, url: arq.getUrl()}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
     var filename = data.filename.replace(/\.txt$/i, '');
     var lines = data.content.split('\n');
 
@@ -1962,10 +1975,10 @@
     } else {
       doc = DocumentApp.create(filename);
       var f = DriveApp.getFileById(doc.getId());
-      f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.EDIT);
       folder.addFile(f);
       DriveApp.getRootFolder().removeFile(f);
     }
+    compartilhar(DriveApp.getFileById(doc.getId()), emails);
 
     var body = doc.getBody();
     body.setMarginTop(50);
@@ -2001,6 +2014,19 @@
   } catch(err) {
     return ContentService.createTextOutput(JSON.stringify({ok:false,error:err.toString()}))
       .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// A pedagoga e a direcao precisam COMENTAR no documento, nao so abrir. O script
+// antigo ignorava a lista de e-mails que o sistema ja enviava e deixava tudo em
+// "qualquer pessoa com o link pode EDITAR" — acesso amplo demais para parecer de
+// crianca. Agora: quem e da escola entra como editor pelo e-mail, e o link
+// generico cai para comentarista, para ninguem ficar de fora nem editar as
+// escondidas.
+function compartilhar(arquivo, emails) {
+  try { arquivo.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.COMMENT); } catch(e) {}
+  for (var i = 0; i < (emails || []).length; i++) {
+    try { arquivo.addEditor(emails[i]); } catch(e) {}
   }
 }
 
@@ -2107,6 +2133,46 @@ function _listarPlanejamentos() {
       <button class="btn btn-secondary" onclick="recuperarPlanejamentosDrive()">🔄 Recuperar planejamentos</button>
       <div id="recuperar-plan-status" style="margin-top:10px;font-size:13px;"></div>
     </div>
+  </div>
+
+  <!-- DOCUMENTOS FALTANTES NO DRIVE -->
+  <div class="card" id="card-docs-faltantes" style="display:none;">
+    <div class="card-title">📄 Documentos que faltam no Drive</div>
+    <p style="font-size:13px;color:var(--gray-600);margin-bottom:12px;">
+      Planejamentos e pareceres salvos antes da correção nasceram sem documento no Google Drive —
+      a pedagoga não tem o que abrir nem onde comentar. Este botão cria os que faltam,
+      já compartilhados com a professora da turma, a pedagoga e a direção.
+      O que já tem documento não é refeito.
+    </p>
+    <div id="docs-faltantes-resumo" style="font-size:13.5px;color:var(--gray-800);margin-bottom:14px;"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="gerarDocsFaltantes()">📄 Gerar documentos que faltam</button>
+      <button class="btn btn-secondary" onclick="renderCardDocsFaltantes()">🔄 Recontar</button>
+    </div>
+    <div id="docs-faltantes-status" style="margin-top:10px;font-size:13px;"></div>
+  </div>
+
+  <!-- BACKUP NO DRIVE -->
+  <div class="card" id="card-backup-drive" style="display:none;">
+    <div class="card-title">💾 Backup no Google Drive</div>
+    <p style="font-size:13px;color:var(--gray-600);margin-bottom:12px;">
+      Fichas de observação, registros de orientação, ocorrências, rotinas, atividades e hora-atividade
+      salvos em pastas separadas no Drive, em texto que qualquer pessoa lê — mais um arquivo
+      <code>.json</code> com todos os dados, caso um dia seja preciso restaurar.
+      Senhas nunca saem do sistema.
+    </p>
+    <div class="alert alert-info" style="margin-bottom:14px;font-size:13px;">
+      📁 <code>Escola Ponte do Saber / Backup / {Tipo} / {Tipo} - AAAA-MM-DD</code>
+    </div>
+    <div id="backup-resumo" style="font-size:13.5px;color:var(--gray-800);margin-bottom:14px;"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="backupParaDrive(false)">💾 Fazer backup agora</button>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:13px;color:var(--gray-600);cursor:pointer;">
+      <input type="checkbox" id="backup-automatico" onchange="alternarBackupAutomatico(this.checked)" style="width:auto;" />
+      Fazer um backup por dia automaticamente, quando a direção ou a pedagoga abrir o sistema
+    </label>
+    <div id="backup-status" style="margin-top:10px;font-size:13px;"></div>
   </div>
 
   <!-- FINANCEDESK -->
@@ -4551,7 +4617,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.20.0';
+const APP_VERSION = 'v2.21.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -4841,6 +4907,10 @@ async function loadFromFirestore() {
       if (rCfg.data().cotasCopias) {
         db.cotasCopias = rCfg.data().cotasCopias;
         LS.set('ps_cotas_copias', db.cotasCopias);
+      }
+      if (rCfg.data().cfgBackup) {
+        db.cfgBackup = rCfg.data().cfgBackup;
+        LS.set('ps_cfg_backup', db.cfgBackup);
       }
       if (rCfg.data().model) localStorage.setItem('ps_gemini_model', rCfg.data().model);
       // Sincroniza URL do Apps Script do Firestore → todos os dispositivos usam a mesma URL
@@ -5387,7 +5457,7 @@ function refreshCurrentView() {
   if (!active) return;
   const id = active.id;
   if (id === 'tab-dashboard')    renderDashboard();
-  if (id === 'tab-config')       { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); renderCardCotas(); aplicarTema(temaAtual()); }
+  if (id === 'tab-config')       { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); renderCardCotas(); renderCardDocsFaltantes(); renderCardBackup(); aplicarTema(temaAtual()); }
   if (id === 'tab-planejamento') { populateSelects(); renderPlanejamentos(); plLigarRascunho(); }
   if (id === 'tab-pareceres')    { populateSelects(); renderPareceres(); }
   if (id === 'tab-avaliacoes')   { populateSelects(); renderTabelaAvaliacoes(); }
@@ -5425,6 +5495,7 @@ let db = {
   regimePeriodos: LS.get('ps_regime_periodos', 'bimestral'),   // legado: regime antes do controle por ano
   regimesPorAno:  LS.get('ps_regimes_por_ano', {}),            // { 2026: 'bimestral', 2027: 'trimestral' }
   cotasCopias: LS.get('ps_cotas_copias', { padrao: 0, porUsuario: {}, bloquear: false }),
+  cfgBackup:   LS.get('ps_cfg_backup', { automatico: true, ultimo: '' }),
   ocorrencias: [],
   observacoes: [],
   orientacoes: [],
@@ -5766,6 +5837,7 @@ function aplicarPapel() {
   renderHoraAtividade();
   renderOcorrencias();
   setTimeout(autoSyncFinanceDesk, 3000);
+  agendarBackupAutomatico();
 }
 
 // turmas visíveis para o usuário atual
@@ -6231,7 +6303,7 @@ function showTab(tab) {
   if (tab === 'hora-atividade') { renderHoraAtividade(); }
   if (tab === 'rotina')         { renderRotina(); }
   if (tab === 'atividades')     { renderAtividades(); }
-  if (tab === 'config')         { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); renderCardCotas(); aplicarTema(temaAtual()); }
+  if (tab === 'config')         { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); renderCardCotas(); renderCardDocsFaltantes(); renderCardBackup(); aplicarTema(temaAtual()); }
   if (tab === 'ocorrencias')    { renderOcorrencias(); }
   if (tab === 'observacoes')    { popularSelectsObservacao(); renderObservacoes(); popularSelectPlano(); renderPlanoAcao(); }
   if (tab === 'orientacoes')    { popularSelectsOrientacao(); renderOrientacoes(); }
@@ -7168,7 +7240,7 @@ function salvarPlanejamento() {
     const dataFmt = data ? data.replace(/-/g, '') : 'sem-data';
     const filename = sanitizeName(`${conteudos} - ${dataFmt}`) + '.txt';
     uploadToDrive(filename, buildPlanejamentoTxt(pl),
-      [],
+      emailsDaTurma(turmaId, pl.profEmail),
       'Escola Ponte do Saber', turmaNome, bimestre, 'Planejamentos')
       .then(url => {
         if (url) {
@@ -9657,7 +9729,7 @@ function salvarParecer() {
     const turma = db.turmas.find(t => t.id === turmaId);
     const turmaNome = sanitizeName(turma ? turma.nome : 'Turma');
     const filename = sanitizeName(`${aluno.nome} - ${periodo}`) + '.txt';
-    const emailsCriacao = [...new Set([...getEmailsParaTurma(turmaId), p.profEmail || ''].filter(Boolean))];
+    const emailsCriacao = emailsDaTurma(turmaId, p.profEmail);
     uploadToDrive(filename, buildParecerTxt(p),
       emailsCriacao,
       'Escola Ponte do Saber', turmaNome, periodo, 'Pareceres')
@@ -9894,7 +9966,8 @@ async function enviarSemanaDrive(semanaId) {
   showToast('📤 Enviando a semana ao Drive…');
   try {
     const url = await uploadToDrive(filename, buildSemanaTxt(dias),
-      [], 'Escola Ponte do Saber', turmaNome, p0.bimestre || '', 'Planejamentos');
+      emailsDaTurma(p0.turmaId, p0.profEmail),
+      'Escola Ponte do Saber', turmaNome, p0.bimestre || '', 'Planejamentos');
     if (url) {
       // O mesmo link vale para os cinco dias: o documento e da semana
       dias.forEach(d => {
@@ -9952,7 +10025,8 @@ async function reenviarPlanejamentoDrive(id) {
     const dataFmt = p.data ? p.data.replace(/-/g, '') : 'sem-data';
     const filename = sanitizeName(`${rotulo} - ${dataFmt}`) + '.txt';
     const url = await uploadToDrive(filename, buildPlanejamentoTxt(p),
-      [], 'Escola Ponte do Saber', turmaNome, p.bimestre || '', 'Planejamentos');
+      emailsDaTurma(p.turmaId, p.profEmail),
+      'Escola Ponte do Saber', turmaNome, p.bimestre || '', 'Planejamentos');
     if (url) {
       const atual = db.planejamentos.find(x => x.id === id);
       if (atual) atual.docUrl = url; else p.docUrl = url;
@@ -9979,7 +10053,7 @@ async function reenviarParecerDrive(id) {
     const turmaRef = db.turmas.find(t => t.id === p.turmaId);
     const turmaNome = sanitizeName(turmaRef ? turmaRef.nome : 'Turma');
     const filename = sanitizeName(`${p.alunoNome} - ${p.periodo}`) + '.txt';
-    const emailsReenvio = [...new Set([...getEmailsParaTurma(p.turmaId), p.profEmail || ''].filter(Boolean))];
+    const emailsReenvio = emailsDaTurma(p.turmaId, p.profEmail);
     const url = await uploadToDrive(filename, buildParecerTxt(p),
       emailsReenvio,
       'Escola Ponte do Saber', turmaNome, p.periodo, 'Pareceres');
@@ -14790,14 +14864,38 @@ function getEmailsParaTurma(turmaId) {
   return [...new Set(emails)];
 }
 
+// Quem precisa abrir o documento: a professora da turma, a pedagoga e a direcao.
+// O planejamento nascia com a lista vazia enquanto o parecer ja mandava os
+// e-mails — dai a pedagoga esbarrar em "voce precisa de acesso" so no
+// planejamento. Um helper so, para os dois caminhos nao divergirem de novo.
+function emailsDaTurma(turmaId, ...extras) {
+  return [...new Set([...getEmailsParaTurma(turmaId), ...extras].filter(Boolean))];
+}
+
 async function uploadToDrive(filename, content, shareWith, ...folderPath) {
-  if (!appsScriptUrl) throw new Error('Apps Script não configurado.');
-  const body = JSON.stringify({
+  return _enviarAoDrive({
     path: folderPath.map(sanitizeName),
     filename: sanitizeName(filename),
     content,
     shareWith: Array.isArray(shareWith) ? shareWith : [],
   });
+}
+
+// Backup: grava o arquivo como texto puro, sem converter em documento formatado.
+// Um .json que virou Google Doc deixa de ser restaurável.
+async function uploadRawToDrive(filename, content, shareWith, ...folderPath) {
+  return _enviarAoDrive({
+    raw: true,
+    path: folderPath.map(sanitizeName),
+    filename: sanitizeName(filename),
+    content,
+    shareWith: Array.isArray(shareWith) ? shareWith : [],
+  });
+}
+
+async function _enviarAoDrive(payload) {
+  if (!appsScriptUrl) throw new Error('Apps Script não configurado.');
+  const body = JSON.stringify(payload);
   try {
     // redirect:'follow' + verificação de URL detecta redirecionamento para auth do Google
     const res = await fetch(appsScriptUrl, { method: 'POST', body, redirect: 'follow' });
@@ -14823,6 +14921,372 @@ async function uploadToDrive(filename, content, shareWith, ...folderPath) {
     } catch(e2) {}
     return null;
   }
+}
+
+// =====================================================================
+// DOCUMENTOS FALTANTES E BACKUP NO DRIVE
+// =====================================================================
+// Ate a v2.20.0 o planejamento semanal nunca subia ao Drive, e o diario subia
+// sem compartilhar com ninguem. Resultado: existe um acervo de planejamentos e
+// pareceres antigos sem documento — a pedagoga nao tem o que corrigir. Estas
+// funcoes fecham essa lacuna sem exigir que alguem abra item por item.
+
+function _gestaoPodeDrive() {
+  return currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga';
+}
+
+// Agrupa o que falta: a semana conta como UM documento, nao cinco.
+function docsFaltantes() {
+  const semanas = new Map();
+  const diarios = [];
+  db.planejamentos.forEach(p => {
+    if (p.docUrl) return;
+    if (p.semanaId) {
+      if (!semanas.has(p.semanaId)) semanas.set(p.semanaId, []);
+      semanas.get(p.semanaId).push(p);
+    } else {
+      diarios.push(p);
+    }
+  });
+  // Uma semana em que ao menos um dia ja tem link nao precisa ser refeita
+  for (const [id] of semanas) {
+    if (db.planejamentos.some(p => String(p.semanaId) === String(id) && p.docUrl)) semanas.delete(id);
+  }
+  return {
+    semanas: [...semanas.keys()],
+    diarios,
+    pareceres: db.pareceres.filter(p => !p.docUrl),
+    get total() { return this.semanas.length + this.diarios.length + this.pareceres.length; },
+  };
+}
+
+let _gerandoDocs = false;
+
+async function gerarDocsFaltantes() {
+  if (!_gestaoPodeDrive()) { showToast('⚠️ Só a direção e a pedagoga podem gerar os documentos.'); return; }
+  if (!appsScriptUrl) { showToast('⚠️ Conecte o Google Drive primeiro (Passo 2 acima).'); return; }
+  if (_gerandoDocs) { showToast('⏳ Já estou gerando — aguarde.'); return; }
+
+  const faltam = docsFaltantes();
+  if (!faltam.total) { showToast('✅ Nenhum documento faltando.'); return; }
+
+  showConfirmModal(
+    `Gerar ${faltam.total} documento(s) no Google Drive?<br>
+     <small style="color:var(--gray-600);font-weight:400;">
+       ${faltam.semanas.length} semana(s), ${faltam.diarios.length} planejamento(s) diário(s) e ${faltam.pareceres.length} parecer(es).
+       Cada um vira um documento compartilhado com a professora da turma, a pedagoga e a direção.
+       Pode levar alguns minutos.
+     </small>`,
+    () => _executarGeracaoDocs(faltam)
+  );
+}
+
+async function _executarGeracaoDocs(faltam) {
+  _gerandoDocs = true;
+  const status = document.getElementById('docs-faltantes-status');
+  const passo = (feito, total, oque) => {
+    if (status) status.innerHTML = `<span style="color:var(--info);">⏳ ${feito}/${total} — ${escapeHtml(oque)}</span>`;
+  };
+  const total = faltam.total;
+  let feito = 0, ok = 0, falhou = 0;
+
+  const marcar = (sucesso) => { feito++; sucesso ? ok++ : falhou++; };
+
+  try {
+    for (const semanaId of faltam.semanas) {
+      const dias = db.planejamentos.filter(p => String(p.semanaId) === String(semanaId))
+        .sort((a, b) => String(a.data).localeCompare(String(b.data)));
+      if (!dias.length) { marcar(false); continue; }
+      passo(feito + 1, total, 'semana de ' + (dias[0].prof || '—'));
+      const p0 = dias[0];
+      const turmaNome = sanitizeName(db.turmas.find(t => t.id === p0.turmaId)?.nome || 'Turma');
+      const ini = p0.data ? p0.data.replace(/-/g, '') : 'sem-data';
+      const fim = dias[dias.length - 1].data ? dias[dias.length - 1].data.replace(/-/g, '') : '';
+      const url = await uploadToDrive(
+        sanitizeName(`Semana ${ini}-${fim} - ${turmaNome}`) + '.txt',
+        buildSemanaTxt(dias), emailsDaTurma(p0.turmaId, p0.profEmail),
+        'Escola Ponte do Saber', turmaNome, p0.bimestre || '', 'Planejamentos');
+      if (url) dias.forEach(d => { const a = db.planejamentos.find(x => x.id === d.id); if (a) a.docUrl = url; });
+      marcar(!!url);
+    }
+
+    for (const p of faltam.diarios) {
+      const rotulo = p.conteudos || p.tema || 'planejamento';
+      passo(feito + 1, total, rotulo);
+      const turmaNome = sanitizeName(db.turmas.find(t => t.id === p.turmaId)?.nome || 'Turma');
+      const url = await uploadToDrive(
+        sanitizeName(`${rotulo} - ${p.data ? p.data.replace(/-/g, '') : 'sem-data'}`) + '.txt',
+        buildPlanejamentoTxt(p), emailsDaTurma(p.turmaId, p.profEmail),
+        'Escola Ponte do Saber', turmaNome, p.bimestre || '', 'Planejamentos');
+      if (url) { const a = db.planejamentos.find(x => x.id === p.id); if (a) a.docUrl = url; }
+      marcar(!!url);
+    }
+
+    for (const p of faltam.pareceres) {
+      passo(feito + 1, total, p.alunoNome || 'parecer');
+      const turmaNome = sanitizeName(db.turmas.find(t => t.id === p.turmaId)?.nome || 'Turma');
+      const url = await uploadToDrive(
+        sanitizeName(`${p.alunoNome} - ${p.periodo}`) + '.txt',
+        buildParecerTxt(p), emailsDaTurma(p.turmaId, p.profEmail),
+        'Escola Ponte do Saber', turmaNome, p.periodo, 'Pareceres');
+      if (url) { const a = db.pareceres.find(x => x.id === p.id); if (a) a.docUrl = url; }
+      marcar(!!url);
+    }
+
+    save();
+    renderPlanejamentos();
+    renderPareceres();
+    renderCorrecoes();
+    logger.audit({ module: 'drive', action: 'gerar-faltantes', message: `${ok} documento(s) gerado(s), ${falhou} falha(s)` });
+    if (status) {
+      status.innerHTML = falhou
+        ? `<span style="color:var(--amber);">⚠️ ${ok} gerado(s), ${falhou} falharam. Verifique o Apps Script e rode de novo — o que já subiu não repete.</span>`
+        : `<span style="color:var(--green);">✅ ${ok} documento(s) gerado(s) e compartilhados.</span>`;
+    }
+    showToast(falhou ? `⚠️ ${ok} gerado(s), ${falhou} falharam.` : `✅ ${ok} documento(s) no Drive!`);
+  } catch (e) {
+    if (status) status.innerHTML = `<span style="color:var(--red);">⚠️ ${escapeHtml(e.message)}</span>`;
+    showToast('⚠️ Erro ao gerar: ' + e.message);
+  } finally {
+    _gerandoDocs = false;
+    renderCardDocsFaltantes();
+  }
+}
+
+function renderCardDocsFaltantes() {
+  const card = document.getElementById('card-docs-faltantes');
+  if (!card) return;
+  if (!_gestaoPodeDrive()) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  const resumo = document.getElementById('docs-faltantes-resumo');
+  if (!resumo) return;
+  const f = docsFaltantes();
+  if (!appsScriptUrl) {
+    resumo.innerHTML = '<span style="color:var(--amber);">⚠️ Conecte o Google Drive acima para poder gerar os documentos.</span>';
+    return;
+  }
+  resumo.innerHTML = f.total === 0
+    ? '<span style="color:var(--green);">✅ Todo planejamento e todo parecer já têm documento no Drive.</span>'
+    : `<strong>${f.total}</strong> sem documento no Drive:
+       ${f.semanas.length} semana(s), ${f.diarios.length} planejamento(s) diário(s) e ${f.pareceres.length} parecer(es).`;
+}
+
+// ── BACKUP ────────────────────────────────────────────────────────────
+// "Se o sistema parar, teremos tudo salvo no Drive." Por isso cada tipo vira
+// um texto legivel por gente — nao adianta um JSON que so o sistema entende —
+// e, ao lado, um JSON completo para reimportar se um dia for preciso.
+
+function _bkTurma(id) { return db.turmas.find(t => t.id === id)?.nome || '—'; }
+function _bkData(v) {
+  if (!v) return '—';
+  const d = String(v).length === 10 ? new Date(v + 'T12:00:00') : new Date(v);
+  return isNaN(d) ? String(v) : d.toLocaleDateString('pt-BR');
+}
+function _bkCabecalho(titulo, n) {
+  return [titulo, 'Escola Ponte do Saber',
+          `Gerado em ${new Date().toLocaleString('pt-BR')} · ${n} registro(s)`,
+          '', '='.repeat(60), ''];
+}
+function _bkCampo(rot, val) { return val ? [`${rot}: ${val}`] : []; }
+
+function bkObservacoes() {
+  const L = _bkCabecalho('FICHAS DE OBSERVAÇÃO DE SALA', db.observacoes.length);
+  db.observacoes.forEach(o => {
+    L.push(`${_bkData(o.data)} — ${o.prof || '—'} · ${_bkTurma(o.turmaId)}`, '');
+    L.push(..._bkCampo('Horário', o.horario));
+    L.push(`Média: ${o.media ?? '—'}/5 (${o.avaliados ?? '—'} de ${o.totalCriterios ?? OBS_CRITERIOS.length} critérios avaliados)`);
+    OBS_CRITERIOS.forEach(c => {
+      const n = obsNota(o, c.key);
+      L.push(`  · ${c.label}: ${n === null ? 'não observado' : n + ' — ' + OBS_ESCALA[n]}`);
+    });
+    L.push(..._bkCampo('Pontos fortes', o.pontosFortes));
+    L.push(..._bkCampo('Pontos a melhorar', o.pontosMelhoria));
+    L.push(..._bkCampo('Combinados', o.combinados));
+    L.push(..._bkCampo('Próximo passo', o.proximo));
+    L.push(`Registrado por ${o.criadoPor || '—'} em ${_bkData(o.criadoEm)}`, '', '-'.repeat(60), '');
+  });
+  return L.join('\n');
+}
+
+function bkOrientacoes() {
+  const L = _bkCabecalho('REGISTROS DE ORIENTAÇÃO (HORA-ATIVIDADE)', db.orientacoes.length);
+  db.orientacoes.forEach(o => {
+    L.push(`${_bkData(o.data)} — ${o.prof || '—'} · ${_bkTurma(o.turmaId)}`, '');
+    L.push(..._bkCampo('Horário', o.horario));
+    L.push(..._bkCampo('Assunto', o.assunto));
+    L.push(..._bkCampo('Orientações', o.orientacoes));
+    L.push(..._bkCampo('Encaminhamentos', o.encaminhamentos));
+    L.push(..._bkCampo('Retorno previsto', o.retorno ? _bkData(o.retorno) : ''));
+    L.push(`Situação: ${o.concluido ? 'concluído' : 'em andamento'}`);
+    L.push(`Registrado por ${o.criadoPor || '—'} em ${_bkData(o.criadoEm)}`, '', '-'.repeat(60), '');
+  });
+  return L.join('\n');
+}
+
+function bkOcorrencias() {
+  const L = _bkCabecalho('OCORRÊNCIAS', db.ocorrencias.length);
+  db.ocorrencias.forEach(o => {
+    L.push(`${_bkData(o.dataHora)} — ${o.envolvidoNome || o.alunoNome || '—'} (${o.envolvidoTipo || 'aluno'}) · ${_bkTurma(o.turmaId)}`, '');
+    L.push(..._bkCampo('Tipo', o.tipo));
+    L.push(..._bkCampo('Descrição', o.descricao));
+    L.push(`Registrado por ${o.registradoPor || '—'} em ${_bkData(o.registradoEm)}`, '', '-'.repeat(60), '');
+  });
+  return L.join('\n');
+}
+
+function bkRotinas() {
+  const L = _bkCabecalho('ROTINAS DAS TURMAS', db.rotinas.length);
+  db.rotinas.forEach(r => {
+    L.push(`${_bkTurma(r.turmaId)} — rotina ${r.tipo || 'diaria'}${r.ano ? ' · ' + r.ano : ''}`, '');
+    (r.itens || []).forEach(i => L.push(`  ${i.inicio || '—'} às ${i.fim || '—'}  ${i.titulo || i.atividade || i.descricao || '—'}`));
+    L.push(`Atualizado por ${r.atualizadoPor || '—'} em ${_bkData(r.atualizadoEm)}`, '', '-'.repeat(60), '');
+  });
+  return L.join('\n');
+}
+
+function bkAtividades() {
+  const L = _bkCabecalho('BANCO DE ATIVIDADES', db.atividades.length);
+  db.atividades.forEach(a => {
+    L.push(a.titulo || '—', '');
+    L.push(..._bkCampo('Faixas etárias', (a.faixas || []).join(', ')));
+    L.push(..._bkCampo('Campos de experiência', (a.campos || a.direitos || []).join(', ')));
+    L.push(..._bkCampo('Objetivo', a.objetivo));
+    L.push(..._bkCampo('Materiais', a.materiais));
+    L.push(..._bkCampo('Desenvolvimento', a.desenvolvimento || a.passos));
+    L.push('', '-'.repeat(60), '');
+  });
+  return L.join('\n');
+}
+
+function bkHoraAtividade() {
+  const L = _bkCabecalho('HORA-ATIVIDADE', db.horaAtividade.length);
+  const DIAS = { seg: 'Segunda', ter: 'Terça', qua: 'Quarta', qui: 'Quinta', sex: 'Sexta' };
+  db.horaAtividade.forEach(h => {
+    L.push(h.professoraNome || '—', '');
+    L.push(..._bkCampo('Carga horária semanal', h.cargaHorariaSemanal));
+    L.push(..._bkCampo('Meta semanal', h.metaSemanal));
+    Object.entries(h.distribuicao || {}).forEach(([d, v]) =>
+      L.push(`  ${DIAS[d] || d}: ${v.saida} às ${v.retorno}`));
+    L.push('', '-'.repeat(60), '');
+  });
+  return L.join('\n');
+}
+
+const BACKUP_TIPOS = [
+  { pasta: 'Fichas de Observacao',      rotulo: 'Fichas de observação',      chave: 'observacoes',   build: bkObservacoes },
+  { pasta: 'Registros de Orientacao',   rotulo: 'Registros de orientação',   chave: 'orientacoes',   build: bkOrientacoes },
+  { pasta: 'Ocorrencias',               rotulo: 'Ocorrências',               chave: 'ocorrencias',   build: bkOcorrencias },
+  { pasta: 'Rotinas',                   rotulo: 'Rotinas',                   chave: 'rotinas',       build: bkRotinas },
+  { pasta: 'Atividades',                rotulo: 'Atividades',                chave: 'atividades',    build: bkAtividades },
+  { pasta: 'Hora-Atividade',            rotulo: 'Hora-atividade',            chave: 'horaAtividade', build: bkHoraAtividade },
+];
+
+// Senha nunca sai do sistema, nem em backup.
+function dadosParaBackup() {
+  return {
+    geradoEm: new Date().toISOString(),
+    versao: APP_VERSION,
+    turmas: db.turmas, alunos: db.alunos,
+    planejamentos: db.planejamentos, pareceres: db.pareceres,
+    observacoes: db.observacoes, orientacoes: db.orientacoes,
+    ocorrencias: db.ocorrencias, rotinas: db.rotinas,
+    atividades: db.atividades, horaAtividade: db.horaAtividade,
+    avaliacoes: db.avaliacoes, diasSemAula: db.diasSemAula,
+    agendaFormacao: db.agendaFormacao, calendarioEscolar: db.calendarioEscolar,
+    entregasPareceres: db.entregasPareceres, impressoes: db.impressoes,
+    regimesPorAno: db.regimesPorAno, cotasCopias: db.cotasCopias,
+    usuarios: db.usuarios.map(u => ({ id: u.id, nome: u.nome, usuario: u.usuario, email: u.email, papel: u.papel, turmaIds: u.turmaIds })),
+  };
+}
+
+let _backupEmCurso = false;
+
+async function backupParaDrive(silencioso) {
+  if (!appsScriptUrl) {
+    if (!silencioso) showToast('⚠️ Conecte o Google Drive primeiro (Passo 2 acima).');
+    return;
+  }
+  if (_backupEmCurso) { if (!silencioso) showToast('⏳ Backup já em andamento.'); return; }
+  _backupEmCurso = true;
+
+  const hoje = new Date().toISOString().slice(0, 10);
+  const emails = db.usuarios.filter(u => u.email && (u.papel === 'diretor' || u.papel === 'pedagoga')).map(u => u.email);
+  const status = document.getElementById('backup-status');
+  const dizer = (html) => { if (status && !silencioso) status.innerHTML = html; };
+
+  let ok = 0, falhou = 0;
+  try {
+    for (const t of BACKUP_TIPOS) {
+      const n = (db[t.chave] || []).length;
+      dizer(`<span style="color:var(--info);">⏳ ${escapeHtml(t.rotulo)} (${n})…</span>`);
+      if (!n) continue;
+      const url = await uploadRawToDrive(`${t.pasta} - ${hoje}.txt`, t.build(), emails,
+        'Escola Ponte do Saber', 'Backup', t.pasta);
+      url ? ok++ : falhou++;
+    }
+
+    dizer('<span style="color:var(--info);">⏳ Dados completos…</span>');
+    const urlJson = await uploadRawToDrive(`dados-completos - ${hoje}.json`,
+      JSON.stringify(dadosParaBackup(), null, 2), emails,
+      'Escola Ponte do Saber', 'Backup', 'Dados completos');
+    urlJson ? ok++ : falhou++;
+
+    db.cfgBackup = Object.assign({}, db.cfgBackup, { ultimo: new Date().toISOString(), ultimoOk: ok, ultimoFalhou: falhou });
+    LS.set('ps_cfg_backup', db.cfgBackup);
+    FSREF('config').set({ cfgBackup: db.cfgBackup }, { merge: true })
+      .catch(e => logger.warn({ module: 'backup', action: 'gravar-config', message: 'Não gravou a data do backup', error: e }));
+    logger.audit({ module: 'backup', action: 'drive', message: `Backup: ${ok} arquivo(s), ${falhou} falha(s)` });
+
+    dizer(falhou
+      ? `<span style="color:var(--amber);">⚠️ ${ok} arquivo(s) salvos, ${falhou} falharam.</span>`
+      : `<span style="color:var(--green);">✅ ${ok} arquivo(s) salvos no Drive.</span>`);
+    if (!silencioso) showToast(falhou ? `⚠️ Backup parcial: ${falhou} falha(s).` : `✅ Backup no Drive concluído (${ok} arquivos).`);
+  } catch (e) {
+    dizer(`<span style="color:var(--red);">⚠️ ${escapeHtml(e.message)}</span>`);
+    if (!silencioso) showToast('⚠️ Erro no backup: ' + e.message);
+  } finally {
+    _backupEmCurso = false;
+    renderCardBackup();
+  }
+}
+
+// Um backup por dia, disparado quando a gestao abre o sistema. Roda calado:
+// quem esqueceu de clicar no botao e justamente quem mais precisa do backup.
+function agendarBackupAutomatico() {
+  if (!appsScriptUrl || !_gestaoPodeDrive()) return;
+  if (db.cfgBackup?.automatico === false) return;
+  const ultimo = db.cfgBackup?.ultimo;
+  if (ultimo && String(ultimo).slice(0, 10) === new Date().toISOString().slice(0, 10)) return;
+  setTimeout(() => backupParaDrive(true), 20000);
+}
+
+function alternarBackupAutomatico(ligado) {
+  db.cfgBackup = Object.assign({}, db.cfgBackup, { automatico: !!ligado });
+  LS.set('ps_cfg_backup', db.cfgBackup);
+  FSREF('config').set({ cfgBackup: db.cfgBackup }, { merge: true })
+    .catch(e => logger.warn({ module: 'backup', action: 'gravar-config', message: 'Não gravou a preferência de backup', error: e }));
+  showToast(ligado ? '✅ Backup diário automático ligado.' : 'Backup automático desligado.');
+}
+
+function renderCardBackup() {
+  const card = document.getElementById('card-backup-drive');
+  if (!card) return;
+  if (!_gestaoPodeDrive()) { card.style.display = 'none'; return; }
+  card.style.display = '';
+
+  const chk = document.getElementById('backup-automatico');
+  if (chk) chk.checked = db.cfgBackup?.automatico !== false;
+
+  const resumo = document.getElementById('backup-resumo');
+  if (!resumo) return;
+  const linhas = BACKUP_TIPOS
+    .map(t => `${escapeHtml(t.rotulo)}: <strong>${(db[t.chave] || []).length}</strong>`)
+    .join(' · ');
+  const ultimo = db.cfgBackup?.ultimo
+    ? `Último backup: ${new Date(db.cfgBackup.ultimo).toLocaleString('pt-BR')}`
+    : 'Nenhum backup feito ainda.';
+  resumo.innerHTML = `<div style="margin-bottom:6px;">${linhas}</div>
+    <div style="color:var(--gray-600);">${escapeHtml(ultimo)}</div>`;
 }
 
 let _authAlertPendente = false;
