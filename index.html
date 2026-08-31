@@ -4551,7 +4551,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.19.1';
+const APP_VERSION = 'v2.20.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -7395,6 +7395,12 @@ function salvarPlanejamentoSemanal() {
   renderPlanejamentos();
   showToast(`✅ Semana salva! ${criados.length} dia${criados.length > 1 ? 's' : ''} de planejamento.`);
 
+  // Paridade com o planejamento diario, que sempre subiu ao Drive. Sem isto a
+  // semana nascia sem documento e a coordenacao nao tinha onde comentar.
+  if (appsScriptUrl && criados.length) {
+    enviarSemanaDrive(criados[0].semanaId).catch(() => {});
+  }
+
   // Notificação para a pedagoga
   const turmaNome = db.turmas.find(t => t.id === turmaId)?.nome || 'Turma';
   criarNotificacao('📋 Planejamento semanal para corrigir',
@@ -8406,6 +8412,11 @@ function renderDashboardProfessora() {
           <strong style="font-size:13px;">${item._nome}</strong>
           <span style="font-size:12px;color:#6b7280;"> · ${turma?.nome || '—'}</span><br>
           <span style="font-size:12px;color:#92400e;">↩️ Devolvido ${nVezes > 1 ? nVezes + 'ª vez' : ''} em ${dt}</span>
+          ${item.comentarioCorrecao ? `<div style="margin-top:7px;padding:9px 11px;background:var(--amber-light);
+              border-left:3px solid var(--amber);border-radius:6px;font-size:12.5px;color:var(--gray-800);white-space:pre-wrap;">
+              <strong style="color:var(--amber);">O que ajustar:</strong> ${escapeHtml(item.comentarioCorrecao)}
+              ${item.comentarioPor ? `<div style="font-size:11.5px;color:var(--gray-600);margin-top:4px;">— ${escapeHtml(item.comentarioPor)}</div>` : ''}
+            </div>` : ''}
         </div>
         <button class="btn btn-success btn-sm" onclick="profEnviarCorrecao('${item._tipo === 'Parecer' ? 'par' : 'pl'}','${item.id}')">📤 Enviei</button>
       </div>`;
@@ -8561,12 +8572,28 @@ function devolverParaCorrecao(tipo, id) {
     ? db.planejamentos.filter(p => p.semanaId === item.semanaId)
     : [item];
 
+  showPromptModal(
+    'Devolver para correção',
+    'O que precisa ser ajustado?',
+    'Ex.: a atividade de quarta está longa demais para a faixa etária; sugiro dividir em dois momentos.',
+    (comentario) => aplicarDevolucao(tipo, alvos, comentario),
+    { obrigatorio: true, rotuloOk: 'Devolver',
+      sub: alvos.length > 1
+        ? `Os ${alvos.length} dias da semana voltam para a professora com o seu comentário.`
+        : 'A professora recebe este comentário junto com a devolução.',
+      msgVazio: 'Escreva o que precisa mudar — devolver sem dizer o quê faz a professora adivinhar.' }
+  );
+}
+
+function aplicarDevolucao(tipo, alvos, comentario) {
   alvos.forEach(p => {
     p.revisao = 'devolvido';
     p.corrigido = false;
     p.prontoImpressao = false;
     p.devolvidoEm = new Date().toISOString();
-    pushHistorico(p, 'devolvido');
+    p.comentarioCorrecao = comentario;
+    p.comentarioPor = currentUser?.nome || currentUser?.usuario || '';
+    pushHistorico(p, 'devolvido', comentario);
   });
 
   save();
@@ -8822,6 +8849,7 @@ function renderPlanejamentos() {
       : revisado ? `<span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:11px;">🔄 Aguardando aprovação</span>`
       : aprovado ? `<span class="badge" style="background:#d1fae5;color:#065f46;font-size:11px;">✅ Aprovado</span>` : '';
     const borda = devolvido ? 'border:2px solid #f59e0b;background:#fffbeb;' : 'border:1.5px solid var(--green-mid);';
+    const diasComDocSem = dias.filter(p => p.docUrl);
 
     const diasHtml = dias.map(p => {
       const dtDia = new Date(p.data + 'T12:00:00');
@@ -8847,8 +8875,15 @@ function renderPlanejamentos() {
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;margin-bottom:10px;">
           ${diasHtml}
         </div>
+        ${devolvido && p0.comentarioCorrecao ? `<div style="margin-bottom:10px;padding:10px 12px;background:var(--amber-light);
+            border-left:3px solid var(--amber);border-radius:6px;font-size:13px;color:var(--gray-800);white-space:pre-wrap;">
+            <strong style="color:var(--amber);">O que ajustar:</strong> ${escapeHtml(p0.comentarioCorrecao)}
+            ${p0.comentarioPor ? `<div style="font-size:12px;color:var(--gray-600);margin-top:4px;">— ${escapeHtml(p0.comentarioPor)}</div>` : ''}
+          </div>` : ''}
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
           <button class="btn btn-secondary btn-sm" onclick="verSemanal('${semanaId}')">👁️ Ver</button>
+          ${diasComDocSem.length ? `<button class="btn btn-secondary btn-sm" onclick="window.open('${diasComDocSem[0].docUrl}','_blank')" title="Abrir no Google Docs para comentar">📄 Docs</button>`
+            : (appsScriptUrl ? `<button class="btn btn-secondary btn-sm" onclick="enviarSemanaDrive('${semanaId}')" title="Criar o documento no Google Drive">📤 Drive</button>` : '')}
           <button class="btn btn-secondary btn-sm" onclick="imprimirPlanejamentoSemanal('${semanaId}')">🖨️ Imprimir semana</button>
           ${isProf && devolvido ? `<button class="btn btn-success btn-sm" onclick="profEnviarCorrecaoSemanal('${semanaId}')">📤 Enviei a correção</button>` : ''}
           ${canCorrect ? `<button class="btn btn-sm btn-amber" onclick="devolverSemanal('${semanaId}')">↩️ Devolver</button>` : ''}
@@ -8911,8 +8946,27 @@ function renderPlanejamentos() {
 // Ações em lote para planejamentos semanais
 function devolverSemanal(semanaId) {
   const dias = db.planejamentos.filter(p => p.semanaId === semanaId);
-  dias.forEach(p => { p.revisao = 'devolvido'; p.corrigido = false; pushHistorico(p, 'devolvido'); });
-  save(); renderPlanejamentos(); showToast('↩️ Semana devolvida para correção.');
+  if (!dias.length) return;
+  showPromptModal(
+    'Devolver a semana para correção',
+    'O que precisa ser ajustado?',
+    'Ex.: a atividade de quarta está longa demais para a faixa etária; sugiro dividir em dois momentos.',
+    (comentario) => {
+      dias.forEach(p => {
+        p.revisao = 'devolvido';
+        p.corrigido = false;
+        p.devolvidoEm = new Date().toISOString();
+        p.comentarioCorrecao = comentario;
+        p.comentarioPor = currentUser?.nome || currentUser?.usuario || '';
+        pushHistorico(p, 'devolvido', comentario);
+      });
+      save(); renderPlanejamentos(); renderCorrecoes();
+      showToast('↩️ Semana devolvida com o seu comentário.');
+    },
+    { obrigatorio: true, rotuloOk: 'Devolver',
+      sub: `Os ${dias.length} dias desta semana voltam para ${escapeHtml(dias[0].prof || 'a professora')} com o seu comentário.`,
+      msgVazio: 'Escreva o que precisa mudar — devolver sem dizer o quê faz a professora adivinhar.' }
+  );
 }
 function aprovarSemanal(semanaId) {
   const dias = db.planejamentos.filter(p => p.semanaId === semanaId);
@@ -8921,7 +8975,12 @@ function aprovarSemanal(semanaId) {
 }
 function profEnviarCorrecaoSemanal(semanaId) {
   const dias = db.planejamentos.filter(p => p.semanaId === semanaId);
-  dias.forEach(p => { p.revisao = 'revisado'; p.revisadoEm = new Date().toISOString(); pushHistorico(p, 'revisado'); });
+  dias.forEach(p => {
+    p.revisao = 'revisado';
+    p.revisadoEm = new Date().toISOString();
+    p.comentarioAtendido = true;   // o pedido continua no historico, mas sai do destaque
+    pushHistorico(p, 'revisado');
+  });
   save(); renderPlanejamentos(); showToast('📤 Correção enviada para a pedagoga!');
 }
 function deleteSemanal(semanaId) {
@@ -9813,6 +9872,71 @@ function deleteParecer(id) {
   save();
   logger.audit({ module: 'parecer', action: 'delete', message: `Parecer excluído: ${par.alunoNome}`, before: { alunoNome: par.alunoNome, periodo: par.periodo, turmaId: par.turmaId } });
   renderPareceres();
+}
+
+// A semana inteira num documento so. O salvamento semanal nunca mandou nada ao
+// Drive — so o diario mandava —, entao esses planejamentos nasciam sem docUrl e
+// o botao de Docs jamais aparecia. Um doc por semana, e nao cinco por dia,
+// porque e assim que a coordenacao le e comenta: a semana como unidade.
+async function enviarSemanaDrive(semanaId) {
+  const dias = db.planejamentos.filter(p => String(p.semanaId) === String(semanaId))
+    .sort((a, b) => String(a.data).localeCompare(String(b.data)));
+  if (!dias.length) { showToast('⚠️ Semana não encontrada.'); return; }
+  if (!appsScriptUrl) { showToast('⚠️ Configure o Google Drive em Configurações.'); return; }
+
+  const p0 = dias[0];
+  const turma = db.turmas.find(t => t.id === p0.turmaId);
+  const turmaNome = sanitizeName(turma ? turma.nome : 'Turma');
+  const ini = dias[0].data ? dias[0].data.replace(/-/g, '') : 'sem-data';
+  const fim = dias[dias.length - 1].data ? dias[dias.length - 1].data.replace(/-/g, '') : '';
+  const filename = sanitizeName(`Semana ${ini}-${fim} - ${turmaNome}`) + '.txt';
+
+  showToast('📤 Enviando a semana ao Drive…');
+  try {
+    const url = await uploadToDrive(filename, buildSemanaTxt(dias),
+      [], 'Escola Ponte do Saber', turmaNome, p0.bimestre || '', 'Planejamentos');
+    if (url) {
+      // O mesmo link vale para os cinco dias: o documento e da semana
+      dias.forEach(d => {
+        const atual = db.planejamentos.find(x => x.id === d.id);
+        if (atual) atual.docUrl = url;
+      });
+      save(); renderPlanejamentos(); renderCorrecoes();
+      showToast('✅ Semana no Drive. O botão 📄 Docs abre o documento para comentar.');
+    } else {
+      showToast('⚠️ Não foi possível enviar. Verifique o Apps Script em Configurações.');
+    }
+  } catch (e) {
+    showToast('⚠️ Erro ao enviar ao Drive: ' + e.message);
+  }
+}
+
+// Texto da semana inteira, na ordem dos dias
+function buildSemanaTxt(dias) {
+  const p0 = dias[0];
+  const turma = db.turmas.find(t => t.id === p0.turmaId);
+  const fmt = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }) : '—';
+  const linhas = [
+    'PLANEJAMENTO SEMANAL',
+    'Escola Ponte do Saber',
+    '',
+    `Turma: ${turma ? turma.nome : '—'}`,
+    `Professora: ${p0.prof || '—'}`,
+    `Período: ${p0.bimestre || '—'}`,
+    `Semana: ${fmt(dias[0].data)} a ${fmt(dias[dias.length - 1].data)}`,
+    '',
+    '='.repeat(60),
+    '',
+  ];
+  dias.forEach(p => {
+    linhas.push(fmt(p.data).toUpperCase(), '');
+    if (p.conteudos)       linhas.push('Conteúdos: ' + p.conteudos, '');
+    if (p.bncc)            linhas.push('BNCC: ' + p.bncc, '');
+    if (p.desenvolvimento) linhas.push('Desenvolvimento:', p.desenvolvimento, '');
+    linhas.push('-'.repeat(60), '');
+  });
+  linhas.push('', 'Comentários da coordenação podem ser feitos diretamente neste documento.');
+  return linhas.join('\n');
 }
 
 async function reenviarPlanejamentoDrive(id) {
@@ -14914,6 +15038,47 @@ function showConfirmModal(msg, onConfirm, opcoes) {
   overlay.querySelector('#_conf-cancel').onclick = () => overlay.remove();
   overlay.querySelector('#_conf-ok').onclick = () => { overlay.remove(); onConfirm(); };
   overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+}
+
+// Modal com campo de texto. Nasceu para a devolucao de planejamento: devolver
+// sem dizer o que mudar obriga a professora a adivinhar, e era exatamente o
+// que acontecia — o botao so trocava o status.
+function showPromptModal(titulo, rotulo, placeholder, onConfirm, opcoes) {
+  const o = opcoes || {};
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-box" style="max-width:460px;">
+      <div style="font-size:16.5px;font-weight:600;color:var(--gray-800);margin-bottom:4px;">${titulo}</div>
+      ${o.sub ? `<div style="font-size:13.5px;color:var(--gray-600);margin-bottom:14px;">${o.sub}</div>` : ''}
+      <div class="form-group">
+        <label for="_prompt-txt">${rotulo}</label>
+        <textarea id="_prompt-txt" placeholder="${escapeHtml(placeholder || '')}" style="min-height:110px;"></textarea>
+        <span id="_prompt-erro" style="font-size:12.5px;color:var(--red);display:none;"></span>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end;">
+        <button id="_prompt-cancel" class="btn btn-ghost">Cancelar</button>
+        <button id="_prompt-ok" class="btn btn-primary">${escapeHtml(o.rotuloOk || 'Confirmar')}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const txt = overlay.querySelector('#_prompt-txt');
+  const err = overlay.querySelector('#_prompt-erro');
+  const fechar = () => overlay.remove();
+  overlay.querySelector('#_prompt-cancel').onclick = fechar;
+  overlay.querySelector('#_prompt-ok').onclick = () => {
+    const valor = (txt.value || '').trim();
+    if (o.obrigatorio && !valor) {
+      err.textContent = o.msgVazio || 'Escreva o que precisa ser ajustado.';
+      err.style.display = '';
+      txt.focus();
+      return;
+    }
+    fechar();
+    onConfirm(valor);
+  };
+  overlay.onclick = (e) => { if (e.target === overlay) fechar(); };
+  setTimeout(() => txt.focus(), 60);
 }
 
 function showToast(msg, duration) {
