@@ -4617,7 +4617,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.21.0';
+const APP_VERSION = 'v2.21.1';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -14977,7 +14977,8 @@ async function gerarDocsFaltantes() {
        Cada um vira um documento compartilhado com a professora da turma, a pedagoga e a direção.
        Pode levar alguns minutos.
      </small>`,
-    () => _executarGeracaoDocs(faltam)
+    () => _executarGeracaoDocs(faltam),
+    { tipo: 'primary', icone: '📄', rotulo: 'Gerar documentos' }
   );
 }
 
@@ -15483,8 +15484,11 @@ function downloadTxt(content, filename) {
 // nada precisa dizer o que faz, e nao "Excluir" em vermelho.
 function showConfirmModal(msg, onConfirm, opcoes) {
   const o      = opcoes || {};
-  const rotulo = o.rotulo || 'Excluir';
   const tipo   = o.tipo   || 'danger';       // danger | primary
+  // "Excluir" so vale no tom de perigo. Um modal que confirma uma acao que
+  // apenas cria coisas nao pode oferecer um botao vermelho escrito Excluir —
+  // quem le rapido cancela por medo.
+  const rotulo = o.rotulo || (tipo === 'danger' ? 'Excluir' : 'Confirmar');
   const icone  = o.icone  || (tipo === 'danger' ? '⚠️' : '❓');
 
   const overlay = document.createElement('div');
