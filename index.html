@@ -2913,14 +2913,62 @@ function _listarPlanejamentos() {
 
   <div class="divider"></div>
   <div class="card-title" style="margin-bottom:12px;">📁 Pareceres Salvos</div>
-  <div style="position:relative;margin-bottom:14px;">
-    <input type="text" id="par-busca-nome" placeholder="🔍 Buscar parecer pelo nome do aluno…"
-      oninput="renderPareceres()"
-      style="width:100%;padding:11px 38px 11px 14px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:14px;" />
-    <button type="button" onclick="document.getElementById('par-busca-nome').value='';renderPareceres();"
-      title="Limpar busca"
-      style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--gray-400);">✕</button>
+
+  <!-- ── Filtros de pareceres ── -->
+  <div class="pl-filtros" id="par-filtros-box">
+    <div class="pl-filtros-row">
+      <!-- Busca livre -->
+      <div class="pl-filtro-group pl-busca-wrap" style="flex:3;min-width:220px;">
+        <label>Buscar</label>
+        <input type="text" id="par-busca-nome" placeholder="Nome do aluno…"
+          oninput="renderPareceres()" autocomplete="off">
+      </div>
+      <!-- Turma -->
+      <div class="pl-filtro-group" style="min-width:160px;">
+        <label>Turma</label>
+        <select id="filtro-par-turma" onchange="renderPareceres()">
+          <option value="">Todas as turmas</option>
+        </select>
+      </div>
+      <!-- Período -->
+      <div class="pl-filtro-group" style="min-width:150px;">
+        <label data-rotulo-periodo="">Bimestre</label>
+        <select id="par-filtro-periodo" onchange="renderPareceres()"></select>
+      </div>
+    </div>
+    <div class="pl-filtros-row">
+      <!-- Status -->
+      <div class="pl-filtro-group" style="min-width:150px;">
+        <label>Status</label>
+        <select id="par-filtro-status" onchange="renderPareceres()">
+          <option value="">Todos</option>
+          <option value="pendente">⏳ Pendente</option>
+          <option value="devolvido">⚠️ Devolvido</option>
+          <option value="revisado">🔄 Aguardando</option>
+          <option value="aprovado">✅ Aprovado</option>
+        </select>
+      </div>
+      <!-- Data de -->
+      <div class="pl-filtro-group" style="min-width:140px;">
+        <label>De</label>
+        <input type="date" id="par-filtro-de" onchange="renderPareceres()">
+      </div>
+      <!-- Data até -->
+      <div class="pl-filtro-group" style="min-width:140px;">
+        <label>Até</label>
+        <input type="date" id="par-filtro-ate" onchange="renderPareceres()">
+      </div>
+      <!-- Info + limpar -->
+      <div class="pl-filtro-group" style="flex:2;min-width:120px;justify-content:flex-end;">
+        <label>&nbsp;</label>
+        <div class="pl-filtros-info" style="padding:7px 0;">
+          <span id="par-filtros-count"></span>
+          <button class="pl-filtros-clear" id="par-filtros-clear" onclick="limparFiltrosPar()" style="display:none;">✕ Limpar filtros</button>
+        </div>
+      </div>
+    </div>
   </div>
+
   <div id="alerta-pareceres-devolvidos"></div>
   <div id="pareceres-list" class="item-list"></div>
 
@@ -4617,7 +4665,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.22.0';
+const APP_VERSION = 'v2.23.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -6620,6 +6668,7 @@ function aplicarRegimePeriodos() {
     'dash-periodo':       { legado: true, todos: 'Todos os ' + regimeInfo().plural.toLowerCase() },
     'imp-filtro-bimestre':{ legado: true, todos: 'Todos os ' + regimeInfo().plural.toLowerCase() },
     'corr-filtro':        { legado: true, todos: 'Todos os ' + regimeInfo().plural.toLowerCase() },
+    'par-filtro-periodo': { legado: true, todos: 'Todos os ' + regimeInfo().plural.toLowerCase() },
   };
 
   for (const [id, cfg] of Object.entries(SELECTS)) {
@@ -6648,12 +6697,12 @@ function aplicarRegimePeriodos() {
 function populateSelects() {
   const turmas = turmasVisiveis();
 
-  ['aluno-turma', 'pl-turma', 'pls-turma', 'par-turma', 'av-turma', 'filtro-pl-turma', 'plarq-turma'].forEach(id => {
+  ['aluno-turma', 'pl-turma', 'pls-turma', 'par-turma', 'av-turma', 'filtro-pl-turma', 'filtro-par-turma', 'plarq-turma'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     const prev = el.value;
     el.innerHTML = '';
-    if (id === 'filtro-pl-turma') el.innerHTML = '<option value="">Todas as turmas</option>';
+    if (id === 'filtro-pl-turma' || id === 'filtro-par-turma') el.innerHTML = '<option value="">Todas as turmas</option>';
     turmas.forEach(t => {
       const opt = document.createElement('option');
       opt.value = t.id;
@@ -8813,6 +8862,14 @@ function limparFiltrosPl() {
     if (el) el.value = '';
   });
   renderPlanejamentos();
+}
+
+function limparFiltrosPar() {
+  ['par-busca-nome','filtro-par-turma','par-filtro-periodo','par-filtro-status','par-filtro-de','par-filtro-ate'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  renderPareceres();
 }
 
 function renderPlanejamentos() {
@@ -11886,14 +11943,16 @@ ${pagesHtml}
 function renderPareceres() {
   const el = document.getElementById('pareceres-list');
   const alertEl = document.getElementById('alerta-pareceres-devolvidos');
+  const isProfPar = currentUser?.papel === 'professora';
   let list = db.pareceres;
-  if (currentUser?.papel === 'professora')
+  if (isProfPar)
     list = list.filter(p => getUsrTurmaIds(currentUser).includes(p.turmaId));
+  const totalGeralPar = list.length;
 
-  // Banner de alerta para professora quando há itens devolvidos
+  // Banner de alerta para professora quando há itens devolvidos (sobre o total, sem filtro)
   if (alertEl) {
     const devolvidos = list.filter(p => p.revisao === 'devolvido');
-    if (currentUser?.papel === 'professora' && devolvidos.length > 0) {
+    if (isProfPar && devolvidos.length > 0) {
       alertEl.innerHTML = `<div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:10px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px;">
         <span style="font-size:24px;">⚠️</span>
         <div>
@@ -11907,13 +11966,44 @@ function renderPareceres() {
   }
 
   // Filtro de busca pelo nome do aluno
-  const buscaParRaw = (document.getElementById('par-busca-nome')?.value || '').trim();
-  const buscaPar = buscaParRaw.toLowerCase();
-  if (buscaPar) list = list.filter(p => (p.alunoNome || '').toLowerCase().includes(buscaPar));
+  const buscaParRaw   = (document.getElementById('par-busca-nome')?.value || '').trim();
+  const buscaPar      = buscaParRaw.toLowerCase();
+  const filtroTurmaPar   = document.getElementById('filtro-par-turma')?.value || '';
+  const filtroPeriodoPar = document.getElementById('par-filtro-periodo')?.value || '';
+  const filtroStatusPar  = document.getElementById('par-filtro-status')?.value || '';
+  const filtroDePar      = document.getElementById('par-filtro-de')?.value || '';
+  const filtroAtePar     = document.getElementById('par-filtro-ate')?.value || '';
+
+  if (buscaPar)      list = list.filter(p => (p.alunoNome || '').toLowerCase().includes(buscaPar));
+  if (filtroTurmaPar) list = list.filter(p => p.turmaId === filtroTurmaPar);
+  if (filtroPeriodoPar) list = list.filter(p => p.periodo === filtroPeriodoPar);
+  if (filtroStatusPar) {
+    if (filtroStatusPar === 'pendente')      list = list.filter(p => !p.revisao && !p.corrigido);
+    else if (filtroStatusPar === 'devolvido') list = list.filter(p => p.revisao === 'devolvido');
+    else if (filtroStatusPar === 'revisado')  list = list.filter(p => p.revisao === 'revisado');
+    else if (filtroStatusPar === 'aprovado')  list = list.filter(p => p.corrigido || p.revisao === 'aprovado');
+  }
+  if (filtroDePar)  list = list.filter(p => p.data && p.data >= filtroDePar);
+  if (filtroAtePar) list = list.filter(p => p.data && p.data <= filtroAtePar);
+
+  // Atualiza indicador de quantidade e botão limpar
+  const temFiltroPar = buscaPar || filtroTurmaPar || filtroPeriodoPar || filtroStatusPar || filtroDePar || filtroAtePar;
+  const countElPar = document.getElementById('par-filtros-count');
+  const clearElPar = document.getElementById('par-filtros-clear');
+  if (countElPar) {
+    if (temFiltroPar) {
+      countElPar.textContent = `${list.length} de ${totalGeralPar} parecer${totalGeralPar !== 1 ? 'es' : ''}`;
+      countElPar.style.color = list.length === 0 ? '#ef4444' : 'var(--gray-500)';
+    } else {
+      countElPar.textContent = totalGeralPar > 0 ? `${totalGeralPar} parecer${totalGeralPar !== 1 ? 'es' : ''}` : '';
+      countElPar.style.color = 'var(--gray-400)';
+    }
+  }
+  if (clearElPar) clearElPar.style.display = temFiltroPar ? 'inline' : 'none';
 
   if (list.length === 0) {
-    el.innerHTML = buscaPar
-      ? `<div class="empty"><div class="icon">🔍</div><p>Nenhum parecer encontrado para "${escapeHtml(buscaParRaw)}".</p></div>`
+    el.innerHTML = temFiltroPar
+      ? `<div class="empty"><div class="icon">🔍</div><p>Nenhum parecer encontrado para os filtros aplicados.</p><button class="btn btn-secondary btn-sm" onclick="limparFiltrosPar()" style="margin-top:10px;">✕ Limpar filtros</button></div>`
       : '<div class="empty"><div class="icon">✨</div><p>Nenhum parecer salvo.</p></div>';
     return;
   }
