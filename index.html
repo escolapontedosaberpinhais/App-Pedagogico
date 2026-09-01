@@ -1931,7 +1931,7 @@
   <div class="card">
     <div class="card-title">☁️ Google Drive</div>
     <div class="alert alert-info" style="margin-bottom:16px;">
-      Gratuito, sem cobrança e sem OAuth. Um script salva os arquivos direto no seu Drive, organizados por turma e bimestre.
+      Gratuito, sem cobrança e sem OAuth. Um único script, implantado uma vez por alguém da escola, salva os arquivos de todas as turmas direto no Google Drive dessa conta — organizados por turma e bimestre.
     </div>
 
     <div class="card-title" style="font-size:14px; margin-bottom:8px;">Passo 1 — Criar o script</div>
@@ -2094,6 +2094,20 @@ function _listarPlanejamentos() {
       <li>Tipo: <strong>App da Web</strong> &nbsp;|&nbsp; Executar como: <strong>Eu</strong> &nbsp;|&nbsp; Acesso: <strong>Qualquer pessoa</strong></li>
       <li>Clique em <strong>Implantar</strong>, autorize e copie a <strong>URL do app da Web</strong></li>
     </ol>
+
+    <div class="alert" style="background:var(--red-light);border-left:4px solid var(--red);border-radius:6px;padding:12px 14px;margin:0 0 16px;font-size:13px;color:var(--red);">
+      <strong>⚠️ "Executar como: Eu" — de quem deve ser essa conta?</strong><br>
+      <span style="color:var(--gray-800);">
+      Todos os planejamentos e pareceres de <strong>todas as turmas e todas as professoras</strong> são salvos
+      dentro do Google Drive da conta que aparece aí como "Eu" no momento em que o script é implantado — não é
+      possível separar por professora, porque é <strong>um único script para a escola inteira</strong>.
+      <br><br>
+      Por isso essa conta <strong>nunca pode ser o Gmail pessoal de uma professora</strong> — nem da direção.
+      Use uma conta própria da escola, criada só para isso (ex.: um Gmail institucional). Se esse passo já foi
+      feito com uma conta pessoal, reimplante o script logado com a conta certa antes de colar a URL abaixo —
+      os documentos antigos continuam na conta anterior e precisam ser movidos ou recriados à parte.
+      </span>
+    </div>
 
     <div class="alert" style="background:#fef3c7;border-left:4px solid #f59e0b;border-radius:6px;padding:12px 14px;margin:0 0 16px;font-size:13px;color:#92400e;">
       <strong>⚠️ Usuários veem "Você precisa ter acesso" ao abrir documentos?</strong><br>
@@ -4665,7 +4679,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.23.0';
+const APP_VERSION = 'v2.23.1';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
