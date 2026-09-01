@@ -4617,7 +4617,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.21.1';
+const APP_VERSION = 'v2.22.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -7543,7 +7543,9 @@ async function imprimirPlanejamentoSemanal(semanaId) {
         }
       } catch(e) { /* usa dados locais */ }
     }
-    return p;
+    let imgSrc = p.imagemDesenvolvimento || null;
+    if (!imgSrc && p.temImagem) { try { imgSrc = await carregarImagemPlanej(p.id); } catch(e) { imgSrc = null; } }
+    return imgSrc ? { ...p, _imgImpressao: imgSrc } : p;
   }));
   save();
 
@@ -7569,6 +7571,9 @@ async function imprimirPlanejamentoSemanal(semanaId) {
     const bnccHtml = p.bncc ? `<div class="campo"><strong>BNCC:</strong> ${p.bncc.replace(/\n/g,'<br>')}</div>` : '';
     const diaDireitos = ((p.direitos?.length ? p.direitos : p0.direitos) || []).join(' · ') || '—';
     const diaCampos   = ((p.campos?.length   ? p.campos   : p0.campos)   || []).join('; ')  || '—';
+    const imgHtml = p._imgImpressao
+      ? `<div class="campo"><img src="${p._imgImpressao}" style="max-width:100%;max-height:120px;border-radius:4px;">` + '</div>'
+      : '';
     return `
       <div class="dia-box">
         <div class="dia-header">${diaLabel.toUpperCase()}</div>
@@ -7577,6 +7582,7 @@ async function imprimirPlanejamentoSemanal(semanaId) {
         <div class="campo"><strong>Conteúdos:</strong><br>${(p.conteudos||'—').replace(/\n/g,'<br>')}</div>
         ${bnccHtml}
         <div class="campo desenv"><strong>Desenvolvimento:</strong><br>${(p.desenvolvimento||'—').replace(/\n/g,'<br>')}</div>
+        ${imgHtml}
       </div>`;
   }).join('');
 
@@ -8923,11 +8929,19 @@ function renderPlanejamentos() {
     const borda = devolvido ? 'border:2px solid #f59e0b;background:#fffbeb;' : 'border:1.5px solid var(--green-mid);';
     const diasComDocSem = dias.filter(p => p.docUrl);
 
+    // O card semanal so mostrava texto: a foto que a professora anexa no dia
+    // ficava salva no Firestore mas nunca aparecia em lugar nenhum desta tela
+    // — nem aqui, nem no "Ver", nem na impressao. Este selo e o gatilho para
+    // ir ver a foto em verSemanal().
     const diasHtml = dias.map(p => {
       const dtDia = new Date(p.data + 'T12:00:00');
       const diaLabel = dtDia.toLocaleDateString('pt-BR', { weekday:'short', day:'2-digit', month:'2-digit' });
+      const temFoto = p.temImagem || p.imagemDesenvolvimento;
       return `<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:6px 10px;font-size:12px;">
-        <div style="font-weight:700;color:var(--green-dark);margin-bottom:3px;">${diaLabel.toUpperCase()}</div>
+        <div style="font-weight:700;color:var(--green-dark);margin-bottom:3px;display:flex;align-items:center;gap:5px;">
+          <span>${diaLabel.toUpperCase()}</span>
+          ${temFoto ? '<span title="Tem foto do desenvolvimento">🖼️</span>' : ''}
+        </div>
         <div style="color:#374151;">${(p.conteudos||'—').slice(0,60)}${(p.conteudos||'').length>60?'…':''}</div>
         <div style="color:#6b7280;font-size:11px;margin-top:2px;">${(p.desenvolvimento||'').slice(0,80)}${(p.desenvolvimento||'').length>80?'…':''}</div>
       </div>`;
@@ -9090,7 +9104,7 @@ function verSemanal(semanaId) {
 
   titulo.textContent = `📋 Planejamento Semanal — ${turma?.nome || ''}`;
 
-  corpo.innerHTML = dias.map(p => {
+  const diaBloco = (p, imgHtml) => {
     const dt = p.data ? new Date(p.data + 'T12:00:00') : null;
     const label = dt
       ? dt.toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'2-digit' }).toUpperCase()
@@ -9105,18 +9119,38 @@ function verSemanal(semanaId) {
            📄 Abrir no Google Docs
          </a>`
       : '';
-    return `<div style="border:1.5px solid #e5e7eb;border-radius:8px;padding:12px 14px;margin-bottom:10px;">
+    return `<div style="border:1.5px solid #e5e7eb;border-radius:8px;padding:12px 14px;margin-bottom:10px;" data-dia-id="${p.id}">
       <div style="font-weight:700;font-size:13px;color:#1a5c38;margin-bottom:6px;">${label}</div>
       <div style="font-size:12.5px;color:#374151;margin-bottom:3px;"><strong>Conteúdos:</strong> ${p.conteudos || '—'}</div>
       ${bnccHtml}
       <div style="font-size:12.5px;color:#374151;white-space:pre-wrap;margin-bottom:2px;">
         <strong>Desenvolvimento:</strong> ${p.desenvolvimento || '—'}
       </div>
+      <div class="_vs-img-slot">${imgHtml}</div>
       ${docsBtn}
     </div>`;
-  }).join('');
+  };
 
+  corpo.innerHTML = dias.map(p => diaBloco(p, '')).join('');
   overlay.style.display = 'block';
+
+  // As fotos ficam em documentos separados no Firestore (limite de 1 MiB por
+  // documento) — abre o modal com o texto na hora e completa cada foto assim
+  // que chega, em vez de travar tudo esperando o Firestore.
+  dias.forEach(async (p) => {
+    if (!p.temImagem && !p.imagemDesenvolvimento) return;
+    let imgSrc = p.imagemDesenvolvimento || null;
+    if (!imgSrc) { try { imgSrc = await carregarImagemPlanej(p.id); } catch (e) { imgSrc = null; } }
+    if (!imgSrc) return;
+    // Só atualiza se o modal ainda está mostrando esta mesma semana
+    if (overlay.style.display === 'none') return;
+    const slot = corpo.querySelector(`[data-dia-id="${p.id}"] ._vs-img-slot`);
+    if (!slot) return;
+    slot.innerHTML = `<div style="margin:6px 0 2px;">
+        <div style="font-size:11.5px;font-weight:600;color:var(--gray-700);margin-bottom:4px;">🖼️ Imagem do desenvolvimento</div>
+        <img src="${imgSrc}" alt="Imagem do planejamento" style="max-width:100%;max-height:220px;border-radius:6px;border:1px solid #e5e7eb;">
+      </div>`;
+  });
 }
 
 async function verPlanejamento(id) {
