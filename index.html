@@ -4723,7 +4723,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.24.0';
+const APP_VERSION = 'v2.24.1';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -11005,12 +11005,29 @@ function exportarOrientacoes() {
 // =====================================================================
 // MARCOS DO DESENVOLVIMENTO INFANTIL
 // =====================================================================
-// Janelas em MESES de idade, baseadas no Estudo Multicêntrico de
-// Desenvolvimento Motor da OMS e nos marcos usados na Caderneta da Criança
-// (Ministério da Saúde). Marco = idade em que a MAIORIA das crianças
-// consegue — não é prazo fixo, é faixa. Fora da faixa não é diagnóstico,
-// é sinal para observar com mais atenção e, se persistir, conversar com a
-// família.
+// Janelas em MESES de idade. Fontes, por domínio:
+//
+// MOTOR GROSSO (senta, engatinha, fica em pé, anda) — números direto do
+// WHO Multicentre Growth Reference Study Group, "WHO Motor Development
+// Study: windows of achievement for six gross motor development
+// milestones", Acta Paediatrica Suppl. 2006;450:86-95 — percentis 1 e 99
+// arredondados ao mês mais próximo. É o estudo de referência internacional
+// nessa área, com amostra em 5 países (inclui o Brasil não, mas Gana,
+// Índia, Noruega, Omã e EUA) e conceitualmente a base da tabela de marcos
+// motores da Caderneta da Criança do Ministério da Saúde. "Sustenta a
+// cabeça", "corre" e "pula" não fazem parte dos seis marcos do estudo —
+// vêm de consenso pediátrico mais amplo (ver abaixo).
+//
+// DEMAIS DOMÍNIOS (motor fino, linguagem, social/cognitivo, autonomia) —
+// não existe um estudo único com o mesmo rigor estatístico do motor
+// grosso. As janelas seguem o consenso usual em pediatria do
+// desenvolvimento, na linha das listas de marcos por idade do CDC
+// ("Learn the Signs. Act Early.", EUA) e da American Academy of
+// Pediatrics — por isso são janelas mais largas de propósito.
+//
+// Marco = idade em que a MAIORIA das crianças consegue — não é prazo
+// fixo, é faixa. Fora da faixa não é diagnóstico, é sinal para observar
+// com mais atenção e, se persistir, conversar com a família.
 const MARCOS_DOMINIOS = {
   motorGrosso: { label: 'Motor grosso',       cor: '#0F7355' },
   motorFino:   { label: 'Motor fino',         cor: '#1E4E8C' },
@@ -11020,18 +11037,19 @@ const MARCOS_DOMINIOS = {
 };
 
 const MARCOS_DESENVOLVIMENTO = [
-  // ── Motor grosso ──
-  { key:'cabeca',         dominio:'motorGrosso', label:'Sustenta a cabeça',              min:1,  max:4  },
-  { key:'senta',          dominio:'motorGrosso', label:'Senta sem apoio',                min:4,  max:9  },
-  { key:'engatinha',      dominio:'motorGrosso', label:'Engatinha',                      min:5,  max:13, obs:'Nem toda criança engatinha — algumas vão direto para andar.' },
-  { key:'pe_apoio',       dominio:'motorGrosso', label:'Fica em pé com apoio',           min:5,  max:12 },
-  { key:'anda_apoio',     dominio:'motorGrosso', label:'Anda com apoio (nos móveis)',    min:6,  max:14 },
-  { key:'anda_livre',     dominio:'motorGrosso', label:'Anda sem apoio',                 min:8,  max:18 },
-  { key:'corre',          dominio:'motorGrosso', label:'Corre',                          min:13, max:24 },
-  { key:'pula',           dominio:'motorGrosso', label:'Pula com os dois pés',           min:24, max:36 },
+  // ── Motor grosso (OMS, exceto cabeça/corre/pula — ver comentário acima) ──
+  { key:'cabeca',          dominio:'motorGrosso', label:'Sustenta a cabeça',              min:1,  max:4  },
+  { key:'senta',           dominio:'motorGrosso', label:'Senta sem apoio',                min:4,  max:9  },
+  { key:'pe_apoio',        dominio:'motorGrosso', label:'Fica em pé com apoio',           min:5,  max:11 },
+  { key:'engatinha',       dominio:'motorGrosso', label:'Engatinha',                      min:5,  max:14, obs:'Nem toda criança engatinha — algumas vão direto para andar.' },
+  { key:'anda_apoio',      dominio:'motorGrosso', label:'Anda com apoio (nos móveis)',    min:6,  max:14 },
+  { key:'pe_sozinho',      dominio:'motorGrosso', label:'Fica em pé sozinha, sem apoio',  min:7,  max:17 },
+  { key:'anda_livre',      dominio:'motorGrosso', label:'Anda sem apoio',                 min:8,  max:18 },
+  { key:'corre',           dominio:'motorGrosso', label:'Corre',                          min:15, max:24 },
+  { key:'pula',            dominio:'motorGrosso', label:'Pula com os dois pés',           min:24, max:36 },
   // ── Motor fino ──
   { key:'transfere_maos', dominio:'motorFino',   label:'Transfere objeto entre as mãos', min:5,  max:8  },
-  { key:'pinca',          dominio:'motorFino',   label:'Pinça (pega com dois dedos)',    min:8,  max:12 },
+  { key:'pinca',          dominio:'motorFino',   label:'Pinça (pega com dois dedos)',    min:9,  max:12 },
   { key:'rabisca',        dominio:'motorFino',   label:'Rabisca espontaneamente',        min:12, max:18 },
   { key:'copia_circulo',  dominio:'motorFino',   label:'Copia um círculo',               min:24, max:42 },
   { key:'recorta',        dominio:'motorFino',   label:'Recorta com tesoura',            min:42, max:54 },
@@ -11043,9 +11061,10 @@ const MARCOS_DESENVOLVIMENTO = [
   { key:'fala_compreensivel', dominio:'linguagem', label:'Fala compreensível a estranhos',  min:36, max:48 },
   // ── Social / cognitivo ──
   { key:'jogo_simbolico',          dominio:'social', label:'Jogo simbólico simples',              min:15, max:24 },
-  { key:'brincadeira_paralela',    dominio:'social', label:'Brincadeira paralela',                min:24, max:36 },
-  { key:'brincadeira_cooperativa', dominio:'social', label:'Brincadeira cooperativa com regras',  min:36, max:48 },
-  { key:'conta_ate_10',            dominio:'social', label:'Conta até 10 / reconhece cores',      min:48, max:60 },
+  { key:'brincadeira_paralela',    dominio:'social', label:'Brincadeira paralela (perto de outras crianças, cada uma na sua)', min:18, max:30 },
+  { key:'brincadeira_cooperativa', dominio:'social', label:'Brincadeira cooperativa com regras',  min:42, max:54 },
+  { key:'conta_ate_10',            dominio:'social', label:'Conta até 10 (de memória, sem entender a quantidade ainda)', min:24, max:36 },
+  { key:'reconhece_cores',         dominio:'social', label:'Reconhece cores básicas',             min:36, max:48 },
   // ── Autonomia ──
   { key:'come_sozinho',       dominio:'autonomia', label:'Come sozinho com as mãos',      min:8,  max:12 },
   { key:'controle_esfincter', dominio:'autonomia', label:'Controle esfincteriano diurno', min:24, max:42, obs:'Muito variável — não é sinal de alerta isolado antes dos 3 anos.' },
