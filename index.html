@@ -4723,7 +4723,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.24.1';
+const APP_VERSION = 'v2.25.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -11025,6 +11025,18 @@ function exportarOrientacoes() {
 // ("Learn the Signs. Act Early.", EUA) e da American Academy of
 // Pediatrics — por isso são janelas mais largas de propósito.
 //
+// COBERTURA 3-6 ANOS (Infantil III, IV e V) — a primeira versão desta
+// lista tinha quase só marcos de 0-2 anos, e ficava vazia justamente nas
+// turmas mais velhas (Infantil V não tinha NENHUM marco). Os itens
+// acrescentados aqui vêm de checklists pediátricos de referência para essa
+// faixa (CDC "Learn the Signs. Act Early." nos checklists de 3, 4 e 5
+// anos; literatura de integração visomotora — cópia de formas geométricas
+// — para os itens de traçado; e referências de terapia ocupacional para
+// autonomia como amarrar cadarço). Marcos como amarrar cadarço e pular
+// alternando os pés se estendem além dos 72 meses de propósito: a
+// habilidade só amadurece de verdade perto dos 6-7 anos, e uma criança de
+// 5 anos ainda dentro da janela não deve acender alerta nenhum.
+//
 // Marco = idade em que a MAIORIA das crianças consegue — não é prazo
 // fixo, é faixa. Fora da faixa não é diagnóstico, é sinal para observar
 // com mais atenção e, se persistir, conversar com a família.
@@ -11046,29 +11058,48 @@ const MARCOS_DESENVOLVIMENTO = [
   { key:'pe_sozinho',      dominio:'motorGrosso', label:'Fica em pé sozinha, sem apoio',  min:7,  max:17 },
   { key:'anda_livre',      dominio:'motorGrosso', label:'Anda sem apoio',                 min:8,  max:18 },
   { key:'corre',           dominio:'motorGrosso', label:'Corre',                          min:15, max:24 },
+  { key:'desce_escada_alternando', dominio:'motorGrosso', label:'Sobe e desce escada alternando os pés', min:24, max:36 },
   { key:'pula',            dominio:'motorGrosso', label:'Pula com os dois pés',           min:24, max:36 },
+  { key:'pedala_triciclo', dominio:'motorGrosso', label:'Pedala triciclo',                min:30, max:42 },
+  { key:'pega_bola',       dominio:'motorGrosso', label:'Pega uma bola arremessada/quicada', min:36, max:54 },
+  { key:'pula_um_pe_so',   dominio:'motorGrosso', label:'Pula num pé só, vários pulos seguidos', min:42, max:54 },
+  { key:'pula_alternando_pes', dominio:'motorGrosso', label:'Pula corda ou pula alternando os pés', min:60, max:78, obs:'Habilidade que amadurece perto dos 6-7 anos — dentro da janela aos 5 anos não é atraso.' },
   // ── Motor fino ──
   { key:'transfere_maos', dominio:'motorFino',   label:'Transfere objeto entre as mãos', min:5,  max:8  },
   { key:'pinca',          dominio:'motorFino',   label:'Pinça (pega com dois dedos)',    min:9,  max:12 },
   { key:'rabisca',        dominio:'motorFino',   label:'Rabisca espontaneamente',        min:12, max:18 },
+  { key:'usa_talher',     dominio:'motorFino',   label:'Usa garfo e colher com controle', min:30, max:42 },
   { key:'copia_circulo',  dominio:'motorFino',   label:'Copia um círculo',               min:24, max:42 },
   { key:'recorta',        dominio:'motorFino',   label:'Recorta com tesoura',            min:42, max:54 },
+  { key:'copia_quadrado', dominio:'motorFino',   label:'Copia um quadrado',              min:48, max:60 },
   { key:'desenha_pessoa', dominio:'motorFino',   label:'Desenha uma pessoa com 3+ partes', min:42, max:60 },
+  { key:'escreve_nome',   dominio:'motorFino',   label:'Tenta escrever o próprio nome',  min:48, max:66 },
+  { key:'copia_triangulo',dominio:'motorFino',   label:'Copia um triângulo',             min:54, max:66 },
+  { key:'amarra_cadarco', dominio:'motorFino',   label:'Amarra os cadarços (com prática)', min:60, max:78, obs:'Habilidade que amadurece perto dos 6-7 anos — dentro da janela aos 5 anos não é atraso.' },
   // ── Linguagem ──
   { key:'primeiras_palavras', dominio:'linguagem', label:'Primeiras palavras com sentido',  min:10, max:14 },
   { key:'frase_2_palavras',   dominio:'linguagem', label:'Frases de 2 palavras',            min:18, max:24 },
   { key:'frase_3_palavras',   dominio:'linguagem', label:'Frases de 3+ palavras',           min:24, max:36 },
   { key:'fala_compreensivel', dominio:'linguagem', label:'Fala compreensível a estranhos',  min:36, max:48 },
+  { key:'rima_palavras',      dominio:'linguagem', label:'Percebe rimas em músicas e palavras simples', min:42, max:60 },
+  { key:'segue_instrucoes_2_3', dominio:'linguagem', label:'Segue instruções de 2 a 3 passos', min:42, max:60 },
+  { key:'conta_historia',     dominio:'linguagem', label:'Conta uma história com começo, meio e fim', min:48, max:66 },
   // ── Social / cognitivo ──
   { key:'jogo_simbolico',          dominio:'social', label:'Jogo simbólico simples',              min:15, max:24 },
   { key:'brincadeira_paralela',    dominio:'social', label:'Brincadeira paralela (perto de outras crianças, cada uma na sua)', min:18, max:30 },
-  { key:'brincadeira_cooperativa', dominio:'social', label:'Brincadeira cooperativa com regras',  min:42, max:54 },
   { key:'conta_ate_10',            dominio:'social', label:'Conta até 10 (de memória, sem entender a quantidade ainda)', min:24, max:36 },
   { key:'reconhece_cores',         dominio:'social', label:'Reconhece cores básicas',             min:36, max:48 },
+  { key:'reconhece_letras',        dominio:'social', label:'Reconhece algumas letras (principalmente do próprio nome)', min:36, max:54 },
+  { key:'reconhece_formas',        dominio:'social', label:'Reconhece e nomeia formas geométricas básicas', min:42, max:54 },
+  { key:'brincadeira_cooperativa', dominio:'social', label:'Brincadeira cooperativa com regras',  min:42, max:54 },
+  { key:'espera_vez',              dominio:'social', label:'Espera a vez em brincadeiras com regras simples', min:42, max:66 },
+  { key:'conta_correspondencia',   dominio:'social', label:'Conta objetos com correspondência um a um (até 10)', min:42, max:60 },
   // ── Autonomia ──
   { key:'come_sozinho',       dominio:'autonomia', label:'Come sozinho com as mãos',      min:8,  max:12 },
   { key:'controle_esfincter', dominio:'autonomia', label:'Controle esfincteriano diurno', min:24, max:42, obs:'Muito variável — não é sinal de alerta isolado antes dos 3 anos.' },
+  { key:'escova_dentes_supervisao', dominio:'autonomia', label:'Escova os dentes com supervisão', min:36, max:54 },
   { key:'veste_sozinho',      dominio:'autonomia', label:'Veste-se com pouca ajuda',      min:42, max:54 },
+  { key:'usa_banheiro_sozinho', dominio:'autonomia', label:'Usa o banheiro sozinho, sem lembretes', min:42, max:60, obs:'Ajuda para limpar-se bem após evacuar é comum até mais tarde — isso sozinho não é atraso.' },
 ];
 
 const MARCOS_ESCALA_MAX_MESES = Math.max(...MARCOS_DESENVOLVIMENTO.map(m => m.max)) + 6;
@@ -11264,9 +11295,12 @@ function renderMarcoDetalheAluno(alunoId) {
   }).join('');
 
   el.innerHTML = `<div class="card">
-      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
+      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
         <span>${escapeHtml(aluno.nome)}</span>
-        <span class="badge badge-gray">${idadeTxt}</span>
+        <span style="display:flex;align-items:center;gap:8px;">
+          <span class="badge badge-gray">${idadeTxt}</span>
+          <button class="btn btn-secondary btn-sm" onclick="imprimirRelatorioMarcos('${aluno.id}')">🖨️ Imprimir relatório</button>
+        </span>
       </div>
     </div>
     ${alerta}
@@ -11378,6 +11412,125 @@ function renderMarcos() {
   renderMarcosTurma();
   const alunoId = document.getElementById('marcos-aluno')?.value;
   if (alunoId) renderMarcoDetalheAluno(alunoId);
+}
+
+// ── Relatório para impressão: o que a pedagoga leva pra conversar com a
+// professora sobre uma criança específica. Mesmo padrão visual das outras
+// impressões do sistema (planejamento semanal, parecer).
+function imprimirRelatorioMarcos(alunoId) {
+  const aluno = db.alunos.find(a => a.id === alunoId);
+  if (!aluno) return;
+  if (!aluno.nasc) { showToast('⚠️ Cadastre a data de nascimento do aluno antes de imprimir.'); return; }
+
+  const win = window.open('', '_blank', 'width=860,height=760');
+  if (!win) { showToast('⚠️ Popup bloqueado! Permita popups para imprimir.'); return; }
+
+  const turma = db.turmas.find(t => t.id === aluno.turmaId);
+  const idadeMeses = idadeEmMeses(aluno.nasc);
+  const anos = Math.floor(idadeMeses / 12), meses = idadeMeses % 12;
+  const idadeTxt = anos > 0
+    ? `${anos} ano${anos > 1 ? 's' : ''}${meses > 0 ? ` e ${meses} ${meses > 1 ? 'meses' : 'mês'}` : ''}`
+    : `${meses} ${meses === 1 ? 'mês' : 'meses'}`;
+  const nascFmt = new Date(aluno.nasc + 'T12:00:00').toLocaleDateString('pt-BR');
+  const hojeFmt = new Date().toLocaleDateString('pt-BR', { day:'2-digit', month:'long', year:'numeric' });
+  const logoEl  = document.querySelector('header img');
+  const logoSrc = logoEl?.src || '';
+  const logoHtml = logoSrc ? `<img src="${logoSrc}" style="height:52px;width:auto;">` : '';
+
+  const emAtencao = MARCOS_DESENVOLVIMENTO.filter(m => statusMarco(aluno, m).situacao === 'atencao');
+  const alertaHtml = emAtencao.length
+    ? `<div class="alerta">
+        <strong>⚠️ ${emAtencao.length} marco${emAtencao.length > 1 ? 's' : ''} em atenção</strong> — já passou da faixa esperada e ainda não foi observado:
+        <ul>${emAtencao.map(m => `<li>${escapeHtml(m.label)} (esperado até ${m.max} meses)</li>`).join('')}</ul>
+      </div>`
+    : `<div class="alerta-ok">✅ Nenhum marco em atenção no momento.</div>`;
+
+  const tabelasHtml = Object.entries(MARCOS_DOMINIOS).map(([domKey, dom]) => {
+    const marcos = MARCOS_DESENVOLVIMENTO.filter(m => m.dominio === domKey);
+    const linhas = marcos.map(m => {
+      const st = statusMarco(aluno, m);
+      const info = MARCOS_STATUS_INFO[st.situacao];
+      const dataTxt = st.dataAlcancado ? new Date(st.dataAlcancado + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+      return `<tr>
+        <td>${escapeHtml(m.label)}</td>
+        <td class="col-faixa">${m.min}–${m.max}m</td>
+        <td style="color:${info.cor};">${info.icone} ${escapeHtml(info.label)}</td>
+        <td class="col-data">${dataTxt}</td>
+      </tr>`;
+    }).join('');
+    return `<div class="dominio">
+      <div class="dominio-titulo" style="border-color:${dom.cor};color:${dom.cor};">${escapeHtml(dom.label)}</div>
+      <table>
+        <thead><tr><th>Marco</th><th class="col-faixa">Faixa</th><th>Situação</th><th class="col-data">Data</th></tr></thead>
+        <tbody>${linhas}</tbody>
+      </table>
+    </div>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<title>Marcos do Desenvolvimento — ${escapeHtml(aluno.nome)}</title>
+<style>
+@page { size:A4 portrait; margin:10mm 8mm; }
+*{ box-sizing:border-box; margin:0; padding:0; }
+body{ font-family:Arial,Helvetica,sans-serif; font-size:10.5px; color:#000; background:#f5f5f5; padding:12px; }
+.no-print{ display:flex; gap:10px; margin-bottom:14px; }
+.btn-p{ padding:8px 20px; background:#1D9E75; color:#fff; border:none; border-radius:5px; font-size:13px; font-weight:bold; cursor:pointer; }
+.btn-f{ padding:8px 20px; background:#fff; color:#555; border:1.5px solid #bbb; border-radius:5px; font-size:13px; cursor:pointer; }
+.page{ background:#fff; padding:16px 20px 20px; box-shadow:0 2px 12px rgba(0,0,0,.18); }
+.cabecalho{ display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid #1D9E75; padding-bottom:8px; margin-bottom:12px; }
+.escola-info{ text-align:center; flex:1; }
+.escola-info h1{ font-size:14px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; }
+.escola-info p{ font-size:10.5px; color:#555; margin-top:2px; }
+.meta-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:0; border:1.5px solid #000; margin-bottom:12px; }
+.meta-cell{ border:1px solid #000; padding:5px 8px; }
+.meta-cell strong{ display:block; font-size:8.5px; color:#444; text-transform:uppercase; margin-bottom:1px; }
+.meta-cell span{ font-size:11px; }
+.alerta{ background:#fef2f2; border:1.5px solid #dc2626; border-radius:6px; padding:9px 12px; margin-bottom:12px; font-size:11px; color:#7f1d1d; }
+.alerta ul{ margin:5px 0 0 16px; }
+.alerta-ok{ background:#f0fdf4; border:1.5px solid #16a34a; border-radius:6px; padding:9px 12px; margin-bottom:12px; font-size:11px; color:#14532d; }
+.dominio{ margin-bottom:12px; break-inside:avoid; }
+.dominio-titulo{ font-size:11.5px; font-weight:800; border-left:4px solid; padding:3px 8px; margin-bottom:4px; }
+table{ width:100%; border-collapse:collapse; }
+th, td{ border:1px solid #ccc; padding:4px 7px; font-size:9.5px; text-align:left; }
+th{ background:#f3f4f6; font-size:8.5px; text-transform:uppercase; color:#555; }
+.col-faixa, .col-data{ white-space:nowrap; width:70px; }
+.assinatura{ display:flex; justify-content:space-between; margin-top:26px; gap:30px; }
+.assinatura-linha{ flex:1; border-top:1.5px solid #000; padding-top:6px; text-align:center; font-size:10px; font-weight:bold; }
+.footer{ margin-top:8px; font-size:8px; color:#999; text-align:right; }
+@media print{ body{background:#fff;padding:0;} .no-print{display:none!important;} .dominio{page-break-inside:avoid;} }
+</style></head><body>
+<div class="no-print">
+  <button class="btn-p" onclick="window.print()">🖨️ Imprimir</button>
+  <button class="btn-f" onclick="window.close()">✕ Fechar</button>
+</div>
+<div class="page">
+  <div class="cabecalho">
+    ${logoHtml}
+    <div class="escola-info">
+      <h1>Escola Ponte do Saber</h1>
+      <p>Relatório de Marcos do Desenvolvimento</p>
+    </div>
+    <div style="width:52px;"></div>
+  </div>
+  <div class="meta-grid">
+    <div class="meta-cell"><strong>Aluno(a)</strong><span>${escapeHtml(aluno.nome)}</span></div>
+    <div class="meta-cell"><strong>Turma</strong><span>${escapeHtml(turma?.nome || '—')}</span></div>
+    <div class="meta-cell"><strong>Nascimento</strong><span>${nascFmt}</span></div>
+    <div class="meta-cell"><strong>Idade atual</strong><span>${idadeTxt}</span></div>
+  </div>
+  ${alertaHtml}
+  ${tabelasHtml}
+  <div class="assinatura">
+    <div class="assinatura-linha">Professora(o)</div>
+    <div class="assinatura-linha">Pedagoga</div>
+  </div>
+  <div class="footer">Gerado em ${hojeFmt} · Sistema Pedagógico Escola Ponte do Saber</div>
+</div>
+</body></html>`;
+
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
 }
 
 const OBS_CRITERIOS = [
