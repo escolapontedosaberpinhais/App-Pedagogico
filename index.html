@@ -1604,6 +1604,9 @@
     <button class="dnav-btn" id="dnav-orientacoes" onclick="drawerNav('orientacoes')" style="display:none;">
       <span class="di">&#x1F5E3;</span> Orienta&ccedil;&atilde;o (H.A.)
     </button>
+    <button class="dnav-btn" id="dnav-marcos" onclick="drawerNav('marcos')" style="display:none;">
+      <span class="di">&#x1F4C8;</span> Marcos do Desenvolvimento
+    </button>
 
     <!-- ⏰ Docentes -->
     <div class="dnav-group-label">&#x23F0; Docentes</div>
@@ -1657,6 +1660,7 @@
   <button id="nav-formacao" onclick="showTab('formacao')" data-tab="formacao" style="display:none;">🎓 Formação</button>
   <button id="nav-observacoes" onclick="showTab('observacoes')" data-tab="observacoes" style="display:none;">🔍 Observação em sala</button>
   <button id="nav-orientacoes" onclick="showTab('orientacoes')" data-tab="orientacoes" style="display:none;">🗣️ Orientação (H.A.)</button>
+  <button id="nav-marcos" onclick="showTab('marcos')" data-tab="marcos" style="display:none;">📈 Marcos do Desenvolvimento</button>
   <button id="nav-calendario" onclick="showTab('calendario')" data-tab="calendario" style="display:none;">📅 Calendário</button>
 </nav>
 
@@ -1694,6 +1698,7 @@
       <button data-tab="formacao" onclick="showTab('formacao');closeNavGrp()">🎓 Formação</button>
       <button data-tab="observacoes" onclick="showTab('observacoes');closeNavGrp()">🔍 Observação em sala</button>
       <button data-tab="orientacoes" onclick="showTab('orientacoes');closeNavGrp()">🗣️ Orientação (H.A.)</button>
+      <button data-tab="marcos" onclick="showTab('marcos');closeNavGrp()">📈 Marcos do Desenvolvimento</button>
     </div>
   </div>
   <!-- ⏰ Docentes -->
@@ -3829,6 +3834,45 @@ function _listarPlanejamentos() {
 
 </div>
 
+<!-- ===================== MARCOS DO DESENVOLVIMENTO ===================== -->
+<div id="tab-marcos" class="section">
+
+  <div class="section-header">
+    <h2>📈 Marcos do Desenvolvimento</h2>
+  </div>
+
+  <div class="alert alert-info" style="margin-bottom:16px;">
+    Acompanhamento individual por criança, do Berçário ao Infantil V. Cada marco tem uma <strong>faixa esperada</strong>
+    (não um prazo fixo) — desenvolvimento infantil varia de criança para criança. Fora da faixa não é diagnóstico,
+    é sinal para observar com mais atenção.
+  </div>
+
+  <div class="card">
+    <div class="card-title">👤 Selecionar Aluno</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Turma</label>
+        <select id="marcos-turma" onchange="popularAlunosMarcos()"></select>
+      </div>
+    </div>
+    <div style="margin-top:14px;">
+      <label style="font-size:13px;font-weight:600;color:var(--gray-600);">Aluno</label>
+      <input type="hidden" id="marcos-aluno" />
+      <div id="marcos-aluno-picker" class="aluno-picker"></div>
+    </div>
+  </div>
+
+  <div id="marcos-detalhe"></div>
+
+  <div class="divider"></div>
+  <div class="card-title" style="margin-bottom:12px;">🏫 Visão da turma</div>
+  <p style="font-size:13px;color:var(--gray-600);margin-bottom:12px;">
+    Quem tem marco em atenção nesta turma — clique num aluno para abrir o detalhe acima.
+  </p>
+  <div id="marcos-turma-lista" class="item-list"></div>
+
+</div>
+
 <div id="tab-formacao" class="section">
   <div class="section-header">
     <h2>🎓 Agenda de Formação Pedagógica</h2>
@@ -4679,7 +4723,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.23.1';
+const APP_VERSION = 'v2.24.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -4868,7 +4912,7 @@ async function migrarImagensPlanej() {
 async function loadFromFirestore() {
   const _t = logger.timer('firestore', 'load-initial');
   try {
-    const [rT, rA, rP, rPar, rAv, rU, rCfg, rNot, rHa, rRot, rAtiv, rDSA, rEP, rOc, rFm, rCal, rChat, rOri, rObs, rImp] = await Promise.all([
+    const [rT, rA, rP, rPar, rAv, rU, rCfg, rNot, rHa, rRot, rAtiv, rDSA, rEP, rOc, rFm, rCal, rChat, rOri, rObs, rImp, rMarcos] = await Promise.all([
       FSREF('turmas').get(), FSREF('alunos').get(),
       FSREF('planejamentos').get(), FSREF('pareceres').get(),
       FSREF('avaliacoes').get(), FSREF('usuarios').get(),
@@ -4879,6 +4923,7 @@ async function loadFromFirestore() {
       FSREF('agendaFormacao').get(), FSREF('calendarioEscolar').get(),
       FSREF('observacoes').get(), FSREF('impressoes').get(),
       FSREF('chatGeral').get(), FSREF('orientacoes').get(),
+      FSREF('marcosDesenvolvimento').get(),
     ]);
     if (rT.exists)   db.turmas        = rT.data().data   ?? [];
     if (rA.exists)   db.alunos        = rA.data().data   ?? [];
@@ -4956,6 +5001,8 @@ async function loadFromFirestore() {
     _chatGeralCarregado = true;
     if (rOri.exists) db.orientacoes = rOri.data().data ?? [];
     _orientacoesCarregadas = true;
+    if (rMarcos && rMarcos.exists) db.marcosDesenvolvimento = rMarcos.data().data ?? [];
+    _marcosCarregados = true;
     if (rCfg.exists) {
       db.apiKey = rCfg.data().apiKey ?? '';
       if (rCfg.data().regimePeriodos) {
@@ -5299,6 +5346,7 @@ function saveToFirestore() {
   if (_ocorrenciasCarregadas)   batch.set(FSREF('ocorrencias'),    { data: db.ocorrencias });
   if (_observacoesCarregadas)   batch.set(FSREF('observacoes'),    { data: db.observacoes });
   if (_orientacoesCarregadas)   batch.set(FSREF('orientacoes'),    { data: db.orientacoes });
+  if (_marcosCarregados)        batch.set(FSREF('marcosDesenvolvimento'), { data: db.marcosDesenvolvimento });
   if (_impressoesCarregadas)    batch.set(FSREF('impressoes'),     { data: db.impressoes });
   if (_agendaFormacaoCarregada) batch.set(FSREF('agendaFormacao'), { data: db.agendaFormacao });
   if (_calendarioEscolarCarregado && db.calendarioEscolar) batch.set(FSREF('calendarioEscolar'), { data: db.calendarioEscolar });
@@ -5532,6 +5580,7 @@ function refreshCurrentView() {
   if (id === 'tab-ocorrencias')     { renderOcorrencias(); }
   if (id === 'tab-observacoes')     { popularSelectsObservacao(); renderObservacoes(); popularSelectPlano(); renderPlanoAcao(); }
   if (id === 'tab-orientacoes')     { popularSelectsOrientacao(); renderOrientacoes(); }
+  if (id === 'tab-marcos')          { popularSelectsMarcos(); renderMarcos(); }
   if (id === 'tab-copias')          { popularSelectsCopias(); renderCopias(); }
   if (id === 'tab-formacao')        { renderFormacao(); }
   if (id === 'tab-calendario')      { renderCalendario(); }
@@ -5565,6 +5614,7 @@ let db = {
   agendaFormacao: [],
   calendarioEscolar: null,
   chatGeral: [],
+  marcosDesenvolvimento: [],
 };
 // Guardas: evita sobrescrever dados no Firestore antes de carregá-los
 let _firestoreOk                  = false;  // trava global: só grava após load bem-sucedido
@@ -5578,6 +5628,7 @@ let _impressoesCarregadas         = false;
 let _agendaFormacaoCarregada      = false;
 let _calendarioEscolarCarregado   = false;
 let _chatGeralCarregado           = false;
+let _marcosCarregados              = false;
 let _chatDMAtivo                  = null;
 let _chatDMUnsub                  = null;
 let _chatDMMsgs                   = [];
@@ -5591,6 +5642,7 @@ let _formacaoEditandoId           = null;
 function save() {
   // Backup local
   LS.set('ps_turmas', db.turmas);
+  LS.set('ps_marcos_desenvolvimento', db.marcosDesenvolvimento);
   LS.set('ps_alunos', db.alunos);
   LS.set('ps_planejamentos', db.planejamentos);
   LS.set('ps_pareceres', db.pareceres);
@@ -5810,6 +5862,8 @@ function aplicarPapel() {
   // Orientacao na hora-atividade: quem preenche e a pedagoga, a direcao acompanha
   nav('nav-orientacoes',  isGestao);
   nav('dnav-orientacoes', isGestao);
+  nav('nav-marcos',  isGestao);
+  nav('dnav-marcos', isGestao);
 
   // Calendário: gestão (diretor + pedagoga)
   nav('nav-calendario',    isGestao);
@@ -6308,7 +6362,7 @@ const _TAB_GRUPOS = {
   dashboard: 'inicio',
   cadastro: 'gestao', impressao: 'gestao', copias: 'gestao',
   rotina: 'pedagogico', avaliacoes: 'pedagogico', correcao: 'pedagogico', formacao: 'pedagogico',
-  observacoes: 'pedagogico',
+  observacoes: 'pedagogico', marcos: 'pedagogico',
   'hora-atividade': 'docentes', planejamento: 'docentes', pareceres: 'docentes', atividades: 'docentes',
   auditoria: 'controle', ocorrencias: 'controle', calendario: 'controle',
 };
@@ -6369,6 +6423,7 @@ function showTab(tab) {
   if (tab === 'ocorrencias')    { renderOcorrencias(); }
   if (tab === 'observacoes')    { popularSelectsObservacao(); renderObservacoes(); popularSelectPlano(); renderPlanoAcao(); }
   if (tab === 'orientacoes')    { popularSelectsOrientacao(); renderOrientacoes(); }
+  if (tab === 'marcos')         { popularSelectsMarcos(); renderMarcos(); }
   if (tab === 'copias')         { popularSelectsCopias(); renderCopias(); }
   if (tab === 'calendario')     { renderCalendario(); }
 }
@@ -10947,6 +11002,365 @@ function exportarOrientacoes() {
   showToast('⬇️ Fichas exportadas!');
 }
 
+// =====================================================================
+// MARCOS DO DESENVOLVIMENTO INFANTIL
+// =====================================================================
+// Janelas em MESES de idade, baseadas no Estudo Multicêntrico de
+// Desenvolvimento Motor da OMS e nos marcos usados na Caderneta da Criança
+// (Ministério da Saúde). Marco = idade em que a MAIORIA das crianças
+// consegue — não é prazo fixo, é faixa. Fora da faixa não é diagnóstico,
+// é sinal para observar com mais atenção e, se persistir, conversar com a
+// família.
+const MARCOS_DOMINIOS = {
+  motorGrosso: { label: 'Motor grosso',       cor: '#0F7355' },
+  motorFino:   { label: 'Motor fino',         cor: '#1E4E8C' },
+  linguagem:   { label: 'Linguagem',          cor: '#9C5107' },
+  social:      { label: 'Social e cognitivo', cor: '#5b21b6' },
+  autonomia:   { label: 'Autonomia',          cor: '#b91c1c' },
+};
+
+const MARCOS_DESENVOLVIMENTO = [
+  // ── Motor grosso ──
+  { key:'cabeca',         dominio:'motorGrosso', label:'Sustenta a cabeça',              min:1,  max:4  },
+  { key:'senta',          dominio:'motorGrosso', label:'Senta sem apoio',                min:4,  max:9  },
+  { key:'engatinha',      dominio:'motorGrosso', label:'Engatinha',                      min:5,  max:13, obs:'Nem toda criança engatinha — algumas vão direto para andar.' },
+  { key:'pe_apoio',       dominio:'motorGrosso', label:'Fica em pé com apoio',           min:5,  max:12 },
+  { key:'anda_apoio',     dominio:'motorGrosso', label:'Anda com apoio (nos móveis)',    min:6,  max:14 },
+  { key:'anda_livre',     dominio:'motorGrosso', label:'Anda sem apoio',                 min:8,  max:18 },
+  { key:'corre',          dominio:'motorGrosso', label:'Corre',                          min:13, max:24 },
+  { key:'pula',           dominio:'motorGrosso', label:'Pula com os dois pés',           min:24, max:36 },
+  // ── Motor fino ──
+  { key:'transfere_maos', dominio:'motorFino',   label:'Transfere objeto entre as mãos', min:5,  max:8  },
+  { key:'pinca',          dominio:'motorFino',   label:'Pinça (pega com dois dedos)',    min:8,  max:12 },
+  { key:'rabisca',        dominio:'motorFino',   label:'Rabisca espontaneamente',        min:12, max:18 },
+  { key:'copia_circulo',  dominio:'motorFino',   label:'Copia um círculo',               min:24, max:42 },
+  { key:'recorta',        dominio:'motorFino',   label:'Recorta com tesoura',            min:42, max:54 },
+  { key:'desenha_pessoa', dominio:'motorFino',   label:'Desenha uma pessoa com 3+ partes', min:42, max:60 },
+  // ── Linguagem ──
+  { key:'primeiras_palavras', dominio:'linguagem', label:'Primeiras palavras com sentido',  min:10, max:14 },
+  { key:'frase_2_palavras',   dominio:'linguagem', label:'Frases de 2 palavras',            min:18, max:24 },
+  { key:'frase_3_palavras',   dominio:'linguagem', label:'Frases de 3+ palavras',           min:24, max:36 },
+  { key:'fala_compreensivel', dominio:'linguagem', label:'Fala compreensível a estranhos',  min:36, max:48 },
+  // ── Social / cognitivo ──
+  { key:'jogo_simbolico',          dominio:'social', label:'Jogo simbólico simples',              min:15, max:24 },
+  { key:'brincadeira_paralela',    dominio:'social', label:'Brincadeira paralela',                min:24, max:36 },
+  { key:'brincadeira_cooperativa', dominio:'social', label:'Brincadeira cooperativa com regras',  min:36, max:48 },
+  { key:'conta_ate_10',            dominio:'social', label:'Conta até 10 / reconhece cores',      min:48, max:60 },
+  // ── Autonomia ──
+  { key:'come_sozinho',       dominio:'autonomia', label:'Come sozinho com as mãos',      min:8,  max:12 },
+  { key:'controle_esfincter', dominio:'autonomia', label:'Controle esfincteriano diurno', min:24, max:42, obs:'Muito variável — não é sinal de alerta isolado antes dos 3 anos.' },
+  { key:'veste_sozinho',      dominio:'autonomia', label:'Veste-se com pouca ajuda',      min:42, max:54 },
+];
+
+const MARCOS_ESCALA_MAX_MESES = Math.max(...MARCOS_DESENVOLVIMENTO.map(m => m.max)) + 6;
+
+// Idade em meses completos numa data (ou hoje), a partir do nascimento do aluno.
+function idadeEmMeses(nasc, ateData) {
+  if (!nasc) return null;
+  const n = new Date(nasc + 'T12:00:00');
+  const d = ateData ? new Date(ateData + 'T12:00:00') : new Date();
+  if (isNaN(n) || isNaN(d)) return null;
+  let meses = (d.getFullYear() - n.getFullYear()) * 12 + (d.getMonth() - n.getMonth());
+  if (d.getDate() < n.getDate()) meses--;
+  return Math.max(0, meses);
+}
+
+function marcoRegistro(alunoId, marcoKey) {
+  return (db.marcosDesenvolvimento || []).find(m => m.alunoId === alunoId && m.marco === marcoKey);
+}
+
+// Situação de UM marco para UM aluno, na idade atual dele.
+// situacao: alcancado_no_prazo | alcancado_cedo | alcancado_tarde |
+//           atencao (passou da janela e ainda não foi observado) |
+//           na_janela (dentro da janela, ainda não observado) |
+//           aguardando (ainda não chegou na janela) | sem_data_nascimento
+function statusMarco(aluno, marco) {
+  const reg = marcoRegistro(aluno.id, marco.key);
+  if (reg && reg.dataAlcancado) {
+    const idadeAlcancou = idadeEmMeses(aluno.nasc, reg.dataAlcancado);
+    let situacao = 'alcancado_no_prazo';
+    if (idadeAlcancou !== null) {
+      if (idadeAlcancou < marco.min) situacao = 'alcancado_cedo';
+      else if (idadeAlcancou > marco.max) situacao = 'alcancado_tarde';
+    }
+    return { situacao, idadeAlcancou, dataAlcancado: reg.dataAlcancado };
+  }
+  const idadeAtual = idadeEmMeses(aluno.nasc);
+  if (idadeAtual === null) return { situacao: 'sem_data_nascimento' };
+  if (idadeAtual > marco.max)  return { situacao: 'atencao',    idadeAtual };
+  if (idadeAtual >= marco.min) return { situacao: 'na_janela',  idadeAtual };
+  return { situacao: 'aguardando', idadeAtual };
+}
+
+const MARCOS_STATUS_INFO = {
+  alcancado_no_prazo: { cor: 'var(--green)',  icone: '✅', label: 'Alcançado no prazo' },
+  alcancado_cedo:     { cor: 'var(--green)',  icone: '✅', label: 'Alcançado adiantado' },
+  alcancado_tarde:    { cor: 'var(--amber)',  icone: '🟡', label: 'Alcançado depois do esperado' },
+  atencao:            { cor: 'var(--red)',    icone: '⚠️', label: 'Ainda não observado — já passou da faixa esperada' },
+  na_janela:          { cor: 'var(--info)',   icone: '🔵', label: 'Dentro da faixa esperada, ainda não observado' },
+  aguardando:         { cor: 'var(--gray-400)', icone: '⏳', label: 'Ainda não chegou na faixa esperada' },
+  sem_data_nascimento:{ cor: 'var(--gray-400)', icone: '❔', label: 'Cadastre a data de nascimento do aluno' },
+};
+
+// Marca (ou atualiza) que o aluno alcançou o marco numa data. Undo: passar
+// dataAlcancado vazio remove o registro — a criança pode ter sido observada
+// por engano ou a data corrigida.
+function salvarMarco(alunoId, marcoKey, dataAlcancado) {
+  if (!dataAlcancado) { removerMarco(alunoId, marcoKey); return; }
+  db.marcosDesenvolvimento = db.marcosDesenvolvimento || [];
+  let reg = marcoRegistro(alunoId, marcoKey);
+  if (reg) {
+    reg.dataAlcancado = dataAlcancado;
+  } else {
+    reg = { id: uid(), alunoId, marco: marcoKey, dataAlcancado };
+    db.marcosDesenvolvimento.push(reg);
+  }
+  reg.registradoPor = currentUser?.nome || currentUser?.usuario || '';
+  reg.registradoEm  = new Date().toISOString();
+  save();
+  logger.audit({ module: 'marcos-desenvolvimento', action: 'registrar', message: `Marco "${marcoKey}" registrado`, meta: { alunoId, marcoKey, dataAlcancado } });
+  renderMarcoDetalheAluno(alunoId);
+  renderMarcosTurma();
+}
+
+function removerMarco(alunoId, marcoKey) {
+  const antes = (db.marcosDesenvolvimento || []).length;
+  db.marcosDesenvolvimento = (db.marcosDesenvolvimento || []).filter(m => !(m.alunoId === alunoId && m.marco === marcoKey));
+  if (db.marcosDesenvolvimento.length === antes) return;
+  save();
+  logger.audit({ module: 'marcos-desenvolvimento', action: 'remover', message: `Marco "${marcoKey}" removido`, meta: { alunoId, marcoKey } });
+  renderMarcoDetalheAluno(alunoId);
+  renderMarcosTurma();
+}
+
+// ── Seleção de turma/aluno na aba ──────────────────────────────────────────
+function popularSelectsMarcos() {
+  const sel = document.getElementById('marcos-turma');
+  if (!sel) return;
+  const prev = sel.value;
+  const turmas = turmasVisiveis();
+  sel.innerHTML = '<option value="">Selecione a turma</option>' +
+    turmas.map(t => `<option value="${t.id}">${escapeHtml(t.nome)}</option>`).join('');
+  if (prev && turmas.some(t => t.id === prev)) sel.value = prev;
+  else if (turmas.length === 1) sel.value = turmas[0].id;
+  popularAlunosMarcos();
+}
+
+function popularAlunosMarcos() {
+  const turmaId = document.getElementById('marcos-turma')?.value || '';
+  const picker  = document.getElementById('marcos-aluno-picker');
+  const hidden  = document.getElementById('marcos-aluno');
+  if (!picker || !hidden) return;
+  const alunoAtual = hidden.value;
+  picker.innerHTML = '';
+  const alunos = db.alunos.filter(a => a.turmaId === turmaId);
+  if (!turmaId) {
+    picker.innerHTML = '<span class="aluno-picker-empty">Selecione a turma para ver os alunos.</span>';
+  } else if (alunos.length === 0) {
+    picker.innerHTML = '<span class="aluno-picker-empty">Nenhum aluno cadastrado nesta turma.</span>';
+  } else {
+    alunos.forEach(a => {
+      const initials = a.nome.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+      const card = document.createElement('div');
+      card.className = 'aluno-pick-card';
+      card.dataset.id = a.id;
+      card.innerHTML = `<div class="av">${initials}</div>${escapeHtml(a.nome)}`;
+      card.onclick = () => selecionarAlunoMarcos(a.id);
+      picker.appendChild(card);
+    });
+  }
+  // Mantém o aluno selecionado se ele ainda estiver na turma escolhida
+  if (alunoAtual && alunos.some(a => a.id === alunoAtual)) {
+    selecionarAlunoMarcos(alunoAtual);
+  } else {
+    hidden.value = '';
+    document.getElementById('marcos-detalhe').innerHTML = '';
+  }
+}
+
+function selecionarAlunoMarcos(id) {
+  document.getElementById('marcos-aluno').value = id;
+  document.querySelectorAll('#marcos-aluno-picker .aluno-pick-card').forEach(c => {
+    c.classList.toggle('selected', c.dataset.id === id);
+  });
+  renderMarcoDetalheAluno(id);
+}
+
+// ── Detalhe do aluno: formulário por domínio + gráfico ─────────────────────
+function renderMarcoDetalheAluno(alunoId) {
+  const el = document.getElementById('marcos-detalhe');
+  if (!el) return;
+  const aluno = db.alunos.find(a => a.id === alunoId);
+  if (!aluno) { el.innerHTML = ''; return; }
+
+  if (!aluno.nasc) {
+    el.innerHTML = `<div class="card">
+      <div class="alert" style="background:var(--amber-light);border-left:4px solid var(--amber);color:#92400e;">
+        ⚠️ ${escapeHtml(aluno.nome)} não tem data de nascimento cadastrada. Cadastre em
+        <strong>Cadastro → Alunos</strong> para calcular a idade e comparar com as faixas esperadas.
+      </div>
+    </div>`;
+    return;
+  }
+
+  const idadeMeses = idadeEmMeses(aluno.nasc);
+  const anos = Math.floor(idadeMeses / 12), meses = idadeMeses % 12;
+  const idadeTxt = anos > 0
+    ? `${anos} ano${anos > 1 ? 's' : ''}${meses > 0 ? ` e ${meses} ${meses > 1 ? 'meses' : 'mês'}` : ''}`
+    : `${meses} ${meses === 1 ? 'mês' : 'meses'}`;
+
+  const emAtencao = MARCOS_DESENVOLVIMENTO.filter(m => statusMarco(aluno, m).situacao === 'atencao');
+
+  const alerta = emAtencao.length ? `<div class="alert" style="background:var(--red-light);border-left:4px solid var(--red);color:var(--red);margin-bottom:16px;">
+    <strong>⚠️ ${emAtencao.length} marco${emAtencao.length > 1 ? 's' : ''} em atenção:</strong>
+    <ul style="margin:6px 0 0 18px;">
+      ${emAtencao.map(m => `<li>${escapeHtml(m.label)} — esperado até ${m.max} meses, ${escapeHtml(aluno.nome.split(' ')[0])} já tem ${idadeMeses} meses.</li>`).join('')}
+    </ul>
+  </div>` : `<div class="alert alert-info" style="margin-bottom:16px;">✅ Nenhum marco em atenção no momento.</div>`;
+
+  const dominiosHtml = Object.entries(MARCOS_DOMINIOS).map(([domKey, dom]) => {
+    const marcos = MARCOS_DESENVOLVIMENTO.filter(m => m.dominio === domKey);
+    const linhas = marcos.map(m => {
+      const st = statusMarco(aluno, m);
+      const info = MARCOS_STATUS_INFO[st.situacao];
+      const marcado = !!st.dataAlcancado;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--gray-100);flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:8px;flex:1;min-width:220px;cursor:pointer;">
+          <input type="checkbox" style="width:auto;" ${marcado ? 'checked' : ''}
+            onchange="onToggleMarco('${aluno.id}','${m.key}', this.checked)">
+          <span>${escapeHtml(m.label)}</span>
+        </label>
+        <span style="font-size:11.5px;color:var(--gray-500);white-space:nowrap;">${m.min}–${m.max} meses</span>
+        <input type="date" id="marco-data-${m.key}" value="${st.dataAlcancado || ''}"
+          ${marcado ? '' : 'disabled'} style="max-width:150px;"
+          onchange="salvarMarco('${aluno.id}','${m.key}', this.value)">
+        <span title="${escapeHtml(info.label)}" style="white-space:nowrap;font-size:12.5px;color:${info.cor};">${info.icone} ${escapeHtml(info.label)}</span>
+      </div>
+      ${m.obs ? `<div style="font-size:11.5px;color:var(--gray-500);margin:-4px 0 4px;">${escapeHtml(m.obs)}</div>` : ''}`;
+    }).join('');
+    return `<div class="card" style="border-left:4px solid ${dom.cor};margin-bottom:14px;">
+      <div class="card-title" style="font-size:14px;color:${dom.cor};">${escapeHtml(dom.label)}</div>
+      ${linhas}
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `<div class="card">
+      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>${escapeHtml(aluno.nome)}</span>
+        <span class="badge badge-gray">${idadeTxt}</span>
+      </div>
+    </div>
+    ${alerta}
+    <div class="card">
+      <div class="card-title" style="font-size:14px;margin-bottom:10px;">📊 Linha do tempo</div>
+      ${svgMarcosAluno(aluno)}
+    </div>
+    ${dominiosHtml}`;
+}
+
+// Checkbox desmarcada some com o registro (undo simples); marcada usa hoje
+// como data padrao, que a professora/pedagoga pode ajustar no campo ao lado.
+function onToggleMarco(alunoId, marcoKey, marcado) {
+  if (marcado) {
+    salvarMarco(alunoId, marcoKey, new Date().toISOString().slice(0, 10));
+  } else {
+    removerMarco(alunoId, marcoKey);
+  }
+}
+
+// ── Gráfico SVG: um "dumbbell" por marco — janela esperada + marcador ──────
+function svgMarcosAluno(aluno) {
+  const idadeAtual = idadeEmMeses(aluno.nasc);
+  const marcos = MARCOS_DESENVOLVIMENTO;
+  const rowH = 20, labelW = 190, chartW = 380, padTop = 10, padBottom = 26;
+  const H = padTop + marcos.length * rowH + padBottom;
+  const W = labelW + chartW + 16;
+  const escalaMax = MARCOS_ESCALA_MAX_MESES;
+  const x = (meses) => labelW + (Math.min(meses, escalaMax) / escalaMax) * chartW;
+
+  let linhas = '';
+  marcos.forEach((m, i) => {
+    const y = padTop + i * rowH + rowH / 2;
+    const dom = MARCOS_DOMINIOS[m.dominio];
+    const st = statusMarco(aluno, m);
+    const info = MARCOS_STATUS_INFO[st.situacao];
+    const x1 = x(m.min), x2 = x(m.max);
+    linhas += `<rect x="${labelW}" y="${y - 3}" width="${chartW}" height="6" fill="var(--gray-100)" rx="3"/>`;
+    linhas += `<rect x="${x1}" y="${y - 3}" width="${Math.max(2, x2 - x1)}" height="6" fill="${dom.cor}" opacity="0.35" rx="3"/>`;
+    if (st.dataAlcancado) {
+      const xm = x(st.idadeAlcancou ?? m.min);
+      linhas += `<circle cx="${xm}" cy="${y}" r="4.5" fill="${info.cor}" stroke="#fff" stroke-width="1.2"/>`;
+    } else if (idadeAtual !== null) {
+      const xm = x(idadeAtual);
+      linhas += `<circle cx="${xm}" cy="${y}" r="4" fill="${info.cor}" stroke="#fff" stroke-width="1"/>`;
+    }
+    linhas += `<text x="0" y="${y + 3.5}" font-size="10.5" fill="var(--gray-700)">${escapeHtml(m.label.length > 30 ? m.label.slice(0, 29) + '…' : m.label)}</text>`;
+  });
+
+  // Linha vertical marcando a idade atual da crianca
+  let linhaIdade = '';
+  if (idadeAtual !== null) {
+    const xi = x(idadeAtual);
+    linhaIdade = `<line x1="${xi}" y1="${padTop - 4}" x2="${xi}" y2="${H - padBottom + 4}" stroke="var(--gray-400)" stroke-width="1" stroke-dasharray="3,2"/>
+      <text x="${xi}" y="${H - padBottom + 16}" font-size="10" fill="var(--gray-500)" text-anchor="middle">hoje (${idadeAtual}m)</text>`;
+  }
+
+  return `<div style="overflow-x:auto;">
+    <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Linha do tempo de desenvolvimento de ${escapeHtml(aluno.nome)}">
+      ${linhas}
+      ${linhaIdade}
+    </svg>
+  </div>
+  <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--gray-600);margin-top:8px;">
+    <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--green);vertical-align:middle;"></span> Alcançado</span>
+    <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--amber);vertical-align:middle;"></span> Alcançado depois do esperado</span>
+    <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--red);vertical-align:middle;"></span> Em atenção</span>
+    <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--gray-400);vertical-align:middle;"></span> Ainda não chegou na faixa</span>
+  </div>`;
+}
+
+// ── Visão da turma inteira: quem tem marco em atenção ───────────────────────
+function renderMarcosTurma() {
+  const el = document.getElementById('marcos-turma-lista');
+  if (!el) return;
+  const turmaId = document.getElementById('marcos-turma')?.value || '';
+  const alunos = turmaId ? db.alunos.filter(a => a.turmaId === turmaId) : [];
+
+  if (!alunos.length) {
+    el.innerHTML = '<div class="empty"><div class="icon">👶</div><p>Selecione uma turma para ver os alunos.</p></div>';
+    return;
+  }
+
+  const linhas = alunos.map(a => {
+    if (!a.nasc) return { aluno: a, emAtencao: -1 };
+    const n = MARCOS_DESENVOLVIMENTO.filter(m => statusMarco(a, m).situacao === 'atencao').length;
+    return { aluno: a, emAtencao: n };
+  }).sort((x, y) => y.emAtencao - x.emAtencao);
+
+  el.innerHTML = linhas.map(({ aluno, emAtencao }) => {
+    const badge = emAtencao < 0
+      ? `<span class="badge badge-gray">Sem data de nascimento</span>`
+      : emAtencao > 0
+        ? `<span class="badge" style="background:var(--red-light);color:var(--red);">⚠️ ${emAtencao} em atenção</span>`
+        : `<span class="badge" style="background:#d1fae5;color:#065f46;">✅ Em dia</span>`;
+    return `<div class="item-card">
+      <div class="info">
+        <strong>${escapeHtml(aluno.nome)}</strong>
+        <div style="margin-top:4px;">${badge}</div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-secondary btn-sm" onclick="selecionarAlunoMarcos('${aluno.id}')">👁️ Ver</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderMarcos() {
+  renderMarcosTurma();
+  const alunoId = document.getElementById('marcos-aluno')?.value;
+  if (alunoId) renderMarcoDetalheAluno(alunoId);
+}
+
 const OBS_CRITERIOS = [
   { key: 'organizacao',  label: 'Organização do espaço e materiais',      dica: 'Materiais ao alcance, espaço preparado para a proposta' },
   { key: 'rotina',       label: 'Rotina e transições entre atividades',   dica: 'Previsibilidade, tempo de espera, passagem entre momentos' },
@@ -15311,6 +15725,18 @@ function bkHoraAtividade() {
   return L.join('\n');
 }
 
+function bkMarcosDesenvolvimento() {
+  const L = _bkCabecalho('MARCOS DO DESENVOLVIMENTO', db.marcosDesenvolvimento.length);
+  db.marcosDesenvolvimento.forEach(r => {
+    const aluno = db.alunos.find(a => a.id === r.alunoId);
+    const marco = MARCOS_DESENVOLVIMENTO.find(m => m.key === r.marco);
+    L.push(`${aluno ? aluno.nome : '—'} — ${marco ? marco.label : r.marco}`);
+    L.push(`Alcançado em: ${_bkData(r.dataAlcancado)}`);
+    L.push(`Registrado por ${r.registradoPor || '—'} em ${_bkData(r.registradoEm)}`, '', '-'.repeat(60), '');
+  });
+  return L.join('\n');
+}
+
 const BACKUP_TIPOS = [
   { pasta: 'Fichas de Observacao',      rotulo: 'Fichas de observação',      chave: 'observacoes',   build: bkObservacoes },
   { pasta: 'Registros de Orientacao',   rotulo: 'Registros de orientação',   chave: 'orientacoes',   build: bkOrientacoes },
@@ -15318,6 +15744,7 @@ const BACKUP_TIPOS = [
   { pasta: 'Rotinas',                   rotulo: 'Rotinas',                   chave: 'rotinas',       build: bkRotinas },
   { pasta: 'Atividades',                rotulo: 'Atividades',                chave: 'atividades',    build: bkAtividades },
   { pasta: 'Hora-Atividade',            rotulo: 'Hora-atividade',            chave: 'horaAtividade', build: bkHoraAtividade },
+  { pasta: 'Marcos do Desenvolvimento', rotulo: 'Marcos do desenvolvimento', chave: 'marcosDesenvolvimento', build: bkMarcosDesenvolvimento },
 ];
 
 // Senha nunca sai do sistema, nem em backup.
@@ -15330,6 +15757,7 @@ function dadosParaBackup() {
     observacoes: db.observacoes, orientacoes: db.orientacoes,
     ocorrencias: db.ocorrencias, rotinas: db.rotinas,
     atividades: db.atividades, horaAtividade: db.horaAtividade,
+    marcosDesenvolvimento: db.marcosDesenvolvimento,
     avaliacoes: db.avaliacoes, diasSemAula: db.diasSemAula,
     agendaFormacao: db.agendaFormacao, calendarioEscolar: db.calendarioEscolar,
     entregasPareceres: db.entregasPareceres, impressoes: db.impressoes,
