@@ -4723,7 +4723,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.26.1';
+const APP_VERSION = 'v2.26.2';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -11534,13 +11534,13 @@ th{ background:#f3f4f6; font-size:8.5px; text-transform:uppercase; color:#555; }
 }
 
 const OBS_CRITERIOS = [
-  { key: 'organizacao',  label: 'Organização do espaço e materiais',      dica: 'Materiais ao alcance, espaço preparado para a proposta' },
-  { key: 'rotina',       label: 'Rotina e transições entre atividades',   dica: 'Previsibilidade, tempo de espera, passagem entre momentos' },
-  { key: 'adequacao',    label: 'Adequação à faixa etária',               dica: 'A proposta cabe no que a idade dá conta' },
-  { key: 'interacao',    label: 'Interação professora–crianças',          dica: 'Acolhimento, escuta, mediação de conflitos' },
+  { key: 'organizacao',  label: 'Organização do espaço e materiais',      dica: 'Os materiais estão ao alcance das crianças e o espaço está preparado para a atividade proposta, ou a professora perde tempo procurando coisas / improvisando?' },
+  { key: 'rotina',       label: 'Rotina e transições entre atividades',   dica: 'As crianças sabem o que vem a seguir e as trocas de atividade acontecem sem caos, ou a rotina é confusa, com esperas longas e transições desorganizadas?' },
+  { key: 'adequacao',    label: 'Adequação à faixa etária',               dica: 'A atividade proposta está no nível que essa idade dá conta — nem fácil demais, nem impossível para eles — ou está claramente fora do que a turma consegue fazer?' },
+  { key: 'interacao',    label: 'Interação professora–crianças',          dica: 'A professora acolhe, escuta e resolve os conflitos das crianças com atenção, ou trata a turma de forma distante ou impaciente?' },
   { key: 'registro',     label: 'Registro pedagógico',                    dica: 'A professora documenta o que observa nas crianças — anota no diário, guarda produções no portfólio, preenche a ficha de avaliação — ou dá a aula sem deixar registro?' },
-  { key: 'seguranca',    label: 'Segurança e cuidados básicos',           dica: 'Higiene, alimentação, descanso, supervisão' },
-  { key: 'planejamento', label: 'Cumprimento do planejamento previsto',   dica: 'O que estava planejado aconteceu' },
+  { key: 'seguranca',    label: 'Segurança e cuidados básicos',           dica: 'Higiene, alimentação, descanso e supervisão das crianças estão sendo cuidados de forma adequada, ou há falhas visíveis de segurança ou cuidado básico?' },
+  { key: 'planejamento', label: 'Cumprimento do planejamento previsto',   dica: 'O que estava planejado para o dia realmente aconteceu, ou a aula foi bem diferente do que estava programado?' },
 ];
 
 // Criterio que existia antes e nao entrou na ficha. Continua sendo exibido nos
