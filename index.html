@@ -4723,7 +4723,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.25.0';
+const APP_VERSION = 'v2.26.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -11607,6 +11607,8 @@ function renderCriteriosObservacao() {
       <div id="obs-${c.key}-val" style="font-size:12.5px;color:var(--gray-500);font-weight:600;margin-top:6px;">
         Não observado — fica fora da média
       </div>
+      <textarea id="obs-${c.key}-just" placeholder="Por que essa nota? O que foi visto que justifica (opcional, mas aparece no relatório impresso)…"
+        style="margin-top:8px;min-height:44px;font-size:12.5px;padding:7px 10px;"></textarea>
     </div>`).join('')
     + `<div style="font-size:12.5px;color:var(--gray-500);padding-top:12px;line-height:1.6;">
          <strong style="color:var(--gray-700);">—</strong> não observado ou não se aplica · fica fora da média<br>
@@ -11720,12 +11722,17 @@ function salvarObservacao() {
   // pedagoga nao viu, ou que nao se aplicava aquela aula.
   const notas = {};
   const avaliadas = [];
+  const justificativas = {};
   OBS_CRITERIOS.forEach(c => {
     const v = document.getElementById('obs-' + c.key)?.value;
-    if (v === '' || v === undefined || v === null) { notas[c.key] = OBS_NA; return; }
-    const n = Number(v);
-    notas[c.key] = n;
-    avaliadas.push(n);
+    const observado = !(v === '' || v === undefined || v === null);
+    if (!observado) { notas[c.key] = OBS_NA; }
+    else { const n = Number(v); notas[c.key] = n; avaliadas.push(n); }
+    // Justificativa só faz sentido presa a uma nota — sem nota não há o que
+    // justificar, mesmo que a caixa tenha texto (ex.: escrito e depois
+    // desmarcado, ou digitado por engano no item errado).
+    const just = document.getElementById('obs-' + c.key + '-just')?.value.trim() || '';
+    if (observado && just) justificativas[c.key] = just;
   });
   if (!avaliadas.length) {
     aviso('⚠️ Avalie ao menos um item — os demais podem ficar como não observados.', '#b45309');
@@ -11740,6 +11747,7 @@ function salvarObservacao() {
     turmaId,
     data,
     ...notas,
+    justificativas,
     media: Math.round(media * 100) / 100,
     avaliados: avaliadas.length,
     totalCriterios: OBS_CRITERIOS.length,
@@ -11815,6 +11823,8 @@ function editarObservacao(id) {
   OBS_CRITERIOS.forEach(c => {
     const n = obsNota(o, c.key);
     obsDarNota(c.key, n === null ? '' : n);
+    const just = document.getElementById('obs-' + c.key + '-just');
+    if (just) just.value = (o.justificativas && o.justificativas[c.key]) || '';
   });
 
   obsModoEdicao(true, o);
@@ -12051,11 +12061,15 @@ function montarDevolutiva(o) {
     `Data da observação: ${dataFmt}${o.horario ? ' · ' + o.horario : ''}`,
     ``,
     `AVALIAÇÃO POR CRITÉRIO`,
-    ...obsCriteriosDe(o).map(c => {
+    ...obsCriteriosDe(o).flatMap(c => {
       const n = obsNota(o, c.key);
-      return n === null
+      const linha = n === null
         ? `${c.label}: não observado / não se aplica`
         : `${c.label}: ${n}/5 — ${OBS_ESCALA[n] || ''}`;
+      const just = o.justificativas && o.justificativas[c.key];
+      // A justificativa vem indentada, logo abaixo da nota que ela explica —
+      // é assim que fica claro, no relatorio impresso, o PORQUE de cada nota.
+      return just ? [linha, `    → ${just}`] : [linha];
     }),
     `Média geral: ${Number(o.media).toFixed(1)}/5` +
       (o.avaliados && o.totalCriterios && o.avaliados < o.totalCriterios
