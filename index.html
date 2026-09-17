@@ -4788,7 +4788,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.27.0';
+const APP_VERSION = 'v2.27.1';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -5902,9 +5902,9 @@ function aplicarPapel() {
   nav('nav-hora-atividade', isDiretor || isPedagoga || isProfessora);
   nav('dnav-hora-atividade',isDiretor || isPedagoga || isProfessora);
 
-  // Rotina
-  nav('nav-rotina',         isDiretor || isPedagoga || isProfessora);
-  nav('dnav-rotina',        isDiretor || isPedagoga || isProfessora);
+  // Rotina: secretaria entra so para consultar e imprimir (editor segue na gestao)
+  nav('nav-rotina',         isDiretor || isPedagoga || isProfessora || isSecretaria);
+  nav('dnav-rotina',        isDiretor || isPedagoga || isProfessora || isSecretaria);
 
   // Atividades
   nav('nav-atividades',     isDiretor || isPedagoga || isProfessora);
