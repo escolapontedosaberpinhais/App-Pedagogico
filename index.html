@@ -4126,6 +4126,7 @@ function _listarPlanejamentos() {
       </div>
       <div style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap;">
         <button class="btn btn-secondary btn-sm" onclick="calAbrirFormEvento(null)">➕ Novo Evento</button>
+        <button class="btn btn-secondary btn-sm" onclick="calAbrirRecorrentes()">🔁 Marcações semanais</button>
         <button class="btn btn-secondary btn-sm" onclick="calAbrirBimestres()">📊 <span data-rotulo-cal="plural">Bimestres</span></button>
         <button class="btn btn-primary btn-sm" onclick="imprimirCalendario()">🖨️ Imprimir</button>
       </div>
@@ -4157,6 +4158,18 @@ function _listarPlanejamentos() {
         <label>Descrição</label>
         <input type="text" id="cal-ev-descricao" placeholder="Ex: Tiradentes" style="width:100%;">
       </div>
+      <div class="form-group" style="margin:0;grid-column:1/-1;">
+        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-weight:600;">
+          <input type="checkbox" id="cal-ev-interno" style="width:auto;margin-top:2px;">
+          <span>Somente uso interno da equipe
+            <span style="display:block;font-weight:400;font-size:12.5px;color:var(--gray-600);margin-top:2px;">
+              Aparece aqui no sistema para direção e pedagoga — para orientar planejamento e eventos —
+              mas <strong>não sai no calendário impresso das famílias</strong>.
+              Ex.: Dia da Bandeira, Dia do Soldado, Dia da Água.
+            </span>
+          </span>
+        </label>
+      </div>
       <div class="form-group" style="margin:0;">
         <label>
           <input type="checkbox" id="cal-ev-range" onchange="calToggleRange()" style="margin-right:5px;">
@@ -4176,6 +4189,58 @@ function _listarPlanejamentos() {
     <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">
       <button class="btn btn-secondary btn-sm" onclick="calFecharFormEvento()">Cancelar</button>
       <button class="btn btn-primary btn-sm" onclick="calSalvarEvento()">💾 Salvar</button>
+    </div>
+  </div>
+
+  <!-- Form: Marcacoes semanais recorrentes -->
+  <div id="cal-form-recorrentes" class="card cal-no-print" style="display:none;margin-bottom:14px;border:2px solid var(--green);">
+    <div class="card-title">🔁 Marcações que se repetem toda semana</div>
+    <p style="font-size:13px;color:var(--gray-600);margin:6px 0 14px;">
+      Para o que acontece sempre no mesmo dia da semana — como o Vox Dei toda quarta-feira.
+      Em vez de lançar data por data, você cria a regra uma vez e o ano inteiro fica marcado.
+      No calendário o dia aparece com uma <strong>moldura colorida em volta</strong>, então
+      se aquela quarta também for feriado, as duas marcações aparecem juntas, sem uma apagar a outra.
+    </p>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;" class="cal-form-grid">
+      <div class="form-group" style="margin:0;">
+        <label>Tipo</label>
+        <select id="cal-rec-tipo" style="width:100%;">
+          <option value="vox_dei">🌊 Vox Dei</option>
+          <option value="formacao">🟣 Formação</option>
+          <option value="evento">✅ Evento Escolar</option>
+          <option value="comemoracao">🩵 Comemoração</option>
+          <option value="simulado">☕ Simulado</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Descrição</label>
+        <input type="text" id="cal-rec-descricao" placeholder="Ex: Vox Dei" style="width:100%;">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Dia da semana</label>
+        <select id="cal-rec-dow" style="width:100%;">
+          <option value="1">Segunda-feira</option>
+          <option value="2">Terça-feira</option>
+          <option value="3" selected>Quarta-feira</option>
+          <option value="4">Quinta-feira</option>
+          <option value="5">Sexta-feira</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>A partir de (opcional)</label>
+        <input type="date" id="cal-rec-inicio" style="width:100%;">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Até (opcional)</label>
+        <input type="date" id="cal-rec-fim" style="width:100%;">
+      </div>
+      <div class="form-group" style="margin:0;display:flex;align-items:flex-end;">
+        <button class="btn btn-primary btn-sm" style="width:100%;" onclick="calSalvarRecorrente()">➕ Adicionar marcação</button>
+      </div>
+    </div>
+    <div id="cal-rec-lista" class="item-list" style="margin-top:14px;"></div>
+    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">
+      <button class="btn btn-secondary btn-sm" onclick="calFecharRecorrentes()">Fechar</button>
     </div>
   </div>
 
@@ -4723,7 +4788,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.26.2';
+const APP_VERSION = 'v2.27.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -17378,6 +17443,9 @@ function _calDefaultData(ano) {
     ano,
     bimestres: periodos,
     eventos,
+    // Marcacoes que se repetem toda semana (ex.: Vox Dei toda quarta). Ficam
+    // separadas dos eventos porque nao sao 40 datas soltas: sao UMA regra.
+    recorrentes: [],
     _nextId: 100,
   };
 }
@@ -17500,16 +17568,41 @@ function _calDatasDoEvento(ev) {
   return datas;
 }
 
-function _calEventosDaData(dataStr) {
+// incluirInternos=false deixa de fora o que a equipe marcou como uso interno.
+// A impressao das familias passa false; a tela da gestao usa o padrao.
+function _calEventosDaData(dataStr, incluirInternos = true) {
   if (!db.calendarioEscolar) return [];
-  return db.calendarioEscolar.eventos.filter(ev => _calDatasDoEvento(ev).includes(dataStr));
+  return db.calendarioEscolar.eventos.filter(ev =>
+    (incluirInternos || !ev.interno) && _calDatasDoEvento(ev).includes(dataStr));
 }
 
-function _calCorDaData(dataStr) {
-  const evs = _calEventosDaData(dataStr);
+function _calCorDaData(dataStr, incluirInternos = true) {
+  const evs = _calEventosDaData(dataStr, incluirInternos);
   if (!evs.length) return null;
   evs.sort((a, b) => (CAL_TIPOS[a.tipo]?.prioridade ?? 99) - (CAL_TIPOS[b.tipo]?.prioridade ?? 99));
   return CAL_TIPOS[evs[0].tipo]?.cor ?? null;
+}
+
+// ── Marcacoes semanais recorrentes ────────────────────────────────────────
+// A cor de fundo do dia ja pertence ao evento de maior prioridade (feriado,
+// inicio de periodo...). A recorrente NAO disputa esse fundo: ela vira uma
+// moldura por dentro da celula. Assim uma quarta-feira que tambem e feriado
+// aparece vermelha de feriado E com a moldura do Vox Dei, sem uma apagar a
+// outra — que era exatamente o risco de pintar o fundo.
+function _calRecorrentesDaData(dataStr) {
+  const cal = db.calendarioEscolar;
+  if (!cal || !Array.isArray(cal.recorrentes) || !cal.recorrentes.length) return [];
+  const dow = new Date(dataStr + 'T12:00:00').getDay();
+  return cal.recorrentes.filter(r =>
+    Number(r.diaSemana) === dow &&
+    (!r.inicio || dataStr >= r.inicio) &&
+    (!r.fim    || dataStr <= r.fim));
+}
+
+function _calMolduraDaData(dataStr) {
+  const rec = _calRecorrentesDaData(dataStr);
+  if (!rec.length) return null;
+  return CAL_TIPOS[rec[0].tipo]?.cor ?? '#1e3a8a';
 }
 
 function _calNoBimestre(dataStr) {
@@ -17555,6 +17648,7 @@ function _calNextId() {
 
 const CAL_MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const CAL_DOW   = ['D','S','T','Q','Q','S','S'];
+const CAL_DOW_NOME = ['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
 
 function renderMesCalendario(ano, mes) {
   const diasNoMes = new Date(ano, mes, 0).getDate();
@@ -17581,7 +17675,13 @@ function renderMesCalendario(ano, mes) {
     let style = '';
     if (cor) style = `background:${cor};color:#fff;font-weight:700;border-radius:4px;`;
 
-    const tooltip = evs.map(ev => ev.descricao).join(' | ');
+    // Moldura por dentro: soma-se a qualquer cor de fundo em vez de substitui-la
+    const moldura = _calMolduraDaData(ds);
+    if (moldura) style += `box-shadow:inset 0 0 0 2px ${moldura};border-radius:4px;`;
+
+    const rec = _calRecorrentesDaData(ds);
+    const tooltip = [...evs.map(ev => ev.descricao + (ev.interno ? ' (interno)' : '')),
+                     ...rec.map(r => r.descricao)].join(' | ');
     const titleAttr = tooltip ? ` title="${escapeHtml(tooltip)}"` : '';
 
     cells += `<div class="${cls}" style="${style}"${titleAttr}>${d}</div>`;
@@ -17646,10 +17746,15 @@ function renderCalendario() {
   // Legenda
   const leg = document.getElementById('cal-legenda');
   if (leg) {
+    const recs = (db.calendarioEscolar.recorrentes || []);
     leg.innerHTML = Object.entries(CAL_TIPOS).map(([, t]) =>
       `<div class="cal-legenda-item"><div class="cal-legenda-cor" style="background:${t.cor};"></div><span>${t.label}</span></div>`
     ).join('') +
-    `<div class="cal-legenda-item"><div class="cal-legenda-cor" style="background:#dcfce7;border:1px solid #86efac;"></div><span>Dia Letivo</span></div>`;
+    `<div class="cal-legenda-item"><div class="cal-legenda-cor" style="background:#dcfce7;border:1px solid #86efac;"></div><span>Dia Letivo</span></div>` +
+    recs.map(r => {
+      const cor = CAL_TIPOS[r.tipo]?.cor ?? '#1e3a8a';
+      return `<div class="cal-legenda-item"><div class="cal-legenda-cor" style="background:transparent;box-shadow:inset 0 0 0 2px ${cor};"></div><span>${escapeHtml(r.descricao)} (toda ${CAL_DOW_NOME[r.diaSemana]})</span></div>`;
+    }).join('');
   }
 
   // Tabela de bimestres
@@ -17712,8 +17817,8 @@ function renderCalEventosList() {
       : (ev.dataInicio && ev.dataFim ? `${_calFmtData(ev.dataInicio)} a ${_calFmtData(ev.dataFim)}` : '');
     return `<div class="cal-evento-item">
       <div class="cal-evento-cor" style="background:${tipo.cor};"></div>
-      <div class="cal-evento-nome">${escapeHtml(ev.descricao)}</div>
-      <div class="cal-evento-data">${tipo.label} · ${dataStr}</div>
+      <div class="cal-evento-nome">${escapeHtml(ev.descricao)}${ev.interno ? ` <span class="badge" style="background:var(--gray-200);color:var(--gray-700);font-size:10.5px;">🔒 interno</span>` : ''}</div>
+      <div class="cal-evento-data">${tipo.label} · ${dataStr}${ev.interno ? ' · não sai no calendário das famílias' : ''}</div>
       ${isGestao ? `
         <button class="btn btn-secondary btn-sm" onclick="calAbrirFormEvento('${ev.id}')" title="Editar">✏️</button>
         <button class="btn btn-danger btn-sm" onclick="calExcluirEvento('${ev.id}')" title="Excluir">🗑️</button>
@@ -17742,6 +17847,7 @@ function calAbrirFormEvento(id) {
   document.getElementById('cal-ev-inicio').value = '';
   document.getElementById('cal-ev-fim').value = '';
   document.getElementById('cal-ev-range').checked = false;
+  document.getElementById('cal-ev-interno').checked = false;
   document.getElementById('cal-ev-id').value = '';
   calToggleRange();
 
@@ -17751,6 +17857,7 @@ function calAbrirFormEvento(id) {
       titulo.textContent = '✏️ Editar Evento';
       document.getElementById('cal-ev-tipo').value = ev.tipo;
       document.getElementById('cal-ev-descricao').value = ev.descricao;
+      document.getElementById('cal-ev-interno').checked = !!ev.interno;
       document.getElementById('cal-ev-id').value = ev.id;
       if (ev.data) {
         document.getElementById('cal-ev-data').value = ev.data;
@@ -17791,16 +17898,24 @@ function calSalvarEvento() {
 
   if (!db.calendarioEscolar) { showToast('❗ Crie o calendário primeiro.'); return; }
 
-  const ev = { tipo, descricao };
+  const ev = { tipo, descricao, interno: !!document.getElementById('cal-ev-interno')?.checked };
   if (isRange) { ev.dataInicio = inicio; ev.dataFim = fim; }
   else         { ev.data = data; }
 
+  // Trocar de data unica para periodo (ou o contrario) precisa APAGAR as
+  // chaves antigas, senao o evento fica com data e dataInicio ao mesmo tempo.
+  // Apagar de verdade, nao gravar undefined: o Firestore recusa undefined.
+  const limpar = (alvo) => {
+    (isRange ? ['data'] : ['dataInicio', 'dataFim']).forEach(k => delete alvo[k]);
+    return alvo;
+  };
+
   if (evId) {
     const idx = db.calendarioEscolar.eventos.findIndex(e => e.id === evId);
-    if (idx >= 0) db.calendarioEscolar.eventos[idx] = { ...db.calendarioEscolar.eventos[idx], ...ev };
+    if (idx >= 0) db.calendarioEscolar.eventos[idx] = limpar({ ...db.calendarioEscolar.eventos[idx], ...ev });
   } else {
     ev.id = _calNextId();
-    db.calendarioEscolar.eventos.push(ev);
+    db.calendarioEscolar.eventos.push(limpar(ev));
   }
 
   _calendarioEscolarCarregado = true;
@@ -17808,6 +17923,94 @@ function calSalvarEvento() {
   calFecharFormEvento();
   renderCalendario();
   showToast('✅ Evento salvo!');
+}
+
+// ── Marcacoes semanais recorrentes (ex.: Vox Dei toda quarta) ─────────────
+function calAbrirRecorrentes() {
+  const form = document.getElementById('cal-form-recorrentes');
+  if (!form) return;
+  if (!db.calendarioEscolar) { showToast('❗ Crie o calendário primeiro.'); return; }
+  form.style.display = '';
+  document.getElementById('cal-form-evento').style.display = 'none';
+  document.getElementById('cal-form-bimestres').style.display = 'none';
+  renderCalRecorrentes();
+  form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function calFecharRecorrentes() {
+  const form = document.getElementById('cal-form-recorrentes');
+  if (form) form.style.display = 'none';
+}
+
+function renderCalRecorrentes() {
+  const el = document.getElementById('cal-rec-lista');
+  if (!el || !db.calendarioEscolar) return;
+  const recs = db.calendarioEscolar.recorrentes || [];
+  if (!recs.length) {
+    el.innerHTML = '<div class="empty" style="padding:16px;"><p>Nenhuma marcação semanal ainda.</p></div>';
+    return;
+  }
+  el.innerHTML = recs.map(r => {
+    const cor = CAL_TIPOS[r.tipo]?.cor ?? '#1e3a8a';
+    const periodo = (r.inicio || r.fim)
+      ? ` · ${r.inicio ? 'de ' + _calFmtData(r.inicio) : ''}${r.fim ? ' até ' + _calFmtData(r.fim) : ''}`
+      : ' · o ano todo';
+    return `<div class="item-card">
+      <div class="info">
+        <strong><span style="display:inline-block;width:12px;height:12px;border-radius:3px;box-shadow:inset 0 0 0 2px ${cor};vertical-align:middle;margin-right:6px;"></span>${escapeHtml(r.descricao)}</strong>
+        <span style="font-size:12.5px;color:var(--gray-600);">Toda ${CAL_DOW_NOME[r.diaSemana]}${periodo}</span>
+      </div>
+      <div class="actions">
+        <button class="btn btn-danger btn-sm" onclick="calExcluirRecorrente('${r.id}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function calSalvarRecorrente() {
+  if (!db.calendarioEscolar) { showToast('❗ Crie o calendário primeiro.'); return; }
+  const descricao = document.getElementById('cal-rec-descricao').value.trim();
+  if (!descricao) { showToast('❗ Informe a descrição (ex.: Vox Dei).'); return; }
+  const inicio = document.getElementById('cal-rec-inicio').value;
+  const fim    = document.getElementById('cal-rec-fim').value;
+  if (inicio && fim && inicio > fim) { showToast('❗ A data de início deve ser anterior ao fim.'); return; }
+
+  const rec = {
+    id: _calNextId(),
+    tipo: document.getElementById('cal-rec-tipo').value,
+    descricao,
+    diaSemana: Number(document.getElementById('cal-rec-dow').value),
+  };
+  if (inicio) rec.inicio = inicio;
+  if (fim)    rec.fim = fim;
+
+  db.calendarioEscolar.recorrentes = db.calendarioEscolar.recorrentes || [];
+  db.calendarioEscolar.recorrentes.push(rec);
+  _calendarioEscolarCarregado = true;
+  save();
+  document.getElementById('cal-rec-descricao').value = '';
+  renderCalRecorrentes();
+  renderCalendario();
+  showToast(`✅ ${descricao} marcado em toda ${CAL_DOW_NOME[rec.diaSemana]}.`);
+  logger.audit({ module: 'calendario', action: 'recorrente-criar', message: `Marcação semanal: ${descricao} (${CAL_DOW_NOME[rec.diaSemana]})` });
+}
+
+function calExcluirRecorrente(id) {
+  if (!db.calendarioEscolar) return;
+  const rec = (db.calendarioEscolar.recorrentes || []).find(r => String(r.id) === String(id));
+  if (!rec) return;
+  showConfirmModal(
+    `Remover a marcação <strong>${escapeHtml(rec.descricao)}</strong> de toda ${CAL_DOW_NOME[rec.diaSemana]}?`,
+    () => {
+      db.calendarioEscolar.recorrentes = db.calendarioEscolar.recorrentes.filter(r => String(r.id) !== String(id));
+      _calendarioEscolarCarregado = true;
+      save();
+      renderCalRecorrentes();
+      renderCalendario();
+      showToast('🗑️ Marcação removida.');
+    },
+    { rotulo: 'Remover marcação' }
+  );
 }
 
 function calExcluirEvento(id) {
@@ -17911,7 +18114,7 @@ function imprimirCalendario() {
       const dow = new Date(ano, mesNum - 1, d).getDay();
       if (dow === 0 || dow === 6) continue;
       if (!_calNoBimestre(ds)) continue;
-      const evs = _calEventosDaData(ds);
+      const evs = _calEventosDaData(ds, false);
       if (!evs.some(ev => ['feriado','recesso','colonia','formacao'].includes(ev.tipo))) c++;
     }
     return c;
@@ -17925,7 +18128,7 @@ function imprimirCalendario() {
     const result = [];
     for (let d = 1; d <= total; d++) {
       const ds = `${ano}-${m2}-${String(d).padStart(2,'0')}`;
-      for (const ev of _calEventosDaData(ds)) {
+      for (const ev of _calEventosDaData(ds, false)) {
         if (!seen.has(ev.id)) {
           seen.add(ev.id);
           const datasNoMes = _calDatasDoEvento(ev).filter(dt => dt.startsWith(prefix)).sort();
@@ -17970,7 +18173,7 @@ function imprimirCalendario() {
       const ds = `${ano}-${m2}-${d2}`;
       const dow = new Date(ano, mesNum - 1, d).getDay();
       const isFds = dow === 0 || dow === 6;
-      const cor = _calCorDaData(ds);
+      const cor = _calCorDaData(ds, false);
       const noBim = _calNoBimestre(ds);
 
       let style = '';
@@ -17981,6 +18184,8 @@ function imprimirCalendario() {
       } else if (isFds) {
         style = `color:${corMes};opacity:.45;font-weight:600;`;
       }
+      const moldura = _calMolduraDaData(ds);
+      if (moldura) style += `box-shadow:inset 0 0 0 1.5px ${moldura};`;
       cells += `<td style="${style}">${d}</td>`;
       col++;
       if (col === 7 && d < diasNoMes) { cells += '</tr><tr>'; col = 0; }
@@ -18029,6 +18234,10 @@ function imprimirCalendario() {
         ).join('')}
         <div class="legenda-item"><span class="legenda-cor" style="background-color:#dcfce7;border:1px solid #86efac;"></span>Dia Letivo</div>
         <div class="legenda-item"><span class="legenda-cor" style="background-color:#fff;border:1px solid #ccc;"></span>Final de Semana</div>
+        ${(cal.recorrentes || []).map(r => {
+          const c = CAL_TIPOS[r.tipo]?.cor ?? '#1e3a8a';
+          return `<div class="legenda-item"><span class="legenda-cor" style="background-color:#fff;box-shadow:inset 0 0 0 2px ${c};"></span>${r.descricao} — toda ${CAL_DOW_NOME[r.diaSemana]}</div>`;
+        }).join('')}
       </div>
     </div>`;
 
