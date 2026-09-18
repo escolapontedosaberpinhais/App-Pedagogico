@@ -3580,6 +3580,8 @@ function _listarPlanejamentos() {
       para o próximo lançamento — dá para registrar vários seguidos.
     </div>
 
+    <div id="cop-modo-edicao" style="display:none;margin-bottom:14px;"></div>
+
     <div class="form-grid">
       <div class="form-group">
         <label>Solicitante *</label>
@@ -3626,7 +3628,7 @@ function _listarPlanejamentos() {
     <div id="cop-cota-meter" style="display:none;margin:0 0 14px;"></div>
 
     <div class="btn-row">
-      <button class="btn btn-primary" onclick="salvarCopia()">💾 Registrar</button>
+      <button class="btn btn-primary" id="cop-btn-salvar" onclick="salvarCopia()">💾 Registrar</button>
       <button class="btn btn-secondary" onclick="limparFormCopia()">🗑️ Limpar</button>
     </div>
     <div id="cop-status" style="margin-top:10px;font-size:13px;"></div>
@@ -4788,7 +4790,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.27.1';
+const APP_VERSION = 'v2.28.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -10494,10 +10496,13 @@ function cotaDoUsuario(profId) {
 }
 
 // Páginas já lançadas para essa pessoa no mês (AAAA-MM)
-function copUsadoNoMes(profId, mes) {
+// ignorarId: durante uma correcao o proprio lancamento sai da conta, senao
+// ele seria somado duas vezes (o valor antigo mais o novo).
+function copUsadoNoMes(profId, mes, ignorarId) {
   if (!profId) return 0;
   return (db.impressoes || [])
     .filter(r => r.profId === profId && String(r.data || '').startsWith(mes))
+    .filter(r => !ignorarId || String(r.id) !== String(ignorarId))
     .reduce((soma, r) => soma + (Number(r.total) || 0), 0);
 }
 
@@ -10521,7 +10526,7 @@ function copAtualizarCota() {
 
   const data  = document.getElementById('cop-data')?.value || new Date().toISOString().slice(0, 10);
   const mes   = String(data).slice(0, 7);
-  const usado = copUsadoNoMes(profId, mes);
+  const usado = copUsadoNoMes(profId, mes, _copEditando);
   const nesta = copCalcularTotal();
   const depois = usado + nesta;
   const pct    = Math.min(100, Math.round((depois / cota) * 100));
@@ -10634,9 +10639,55 @@ function limparFormCopia() {
   ['cop-desc'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   const pg = document.getElementById('cop-paginas'); if (pg) pg.value = 1;
   const cp = document.getElementById('cop-copias');  if (cp) cp.value = 1;
+  // Limpar o formulario tambem encerra a correcao: o campo some, a correcao some junto.
+  _copEditando = null;
+  copModoEdicao(false);
   copCalcularTotal();
   copAtualizarCota();
   const st = document.getElementById('cop-status'); if (st) st.textContent = '';
+}
+
+// ── Correção de um lançamento já registrado ────────────────────────────
+let _copEditando = null;
+
+function editarCopia(id) {
+  const r = (db.impressoes || []).find(x => String(x.id) === String(id));
+  if (!r) return;
+  _copEditando = String(id);
+
+  const set = (campo, valor) => { const el = document.getElementById(campo); if (el) el.value = valor ?? ''; };
+  set('cop-prof',   r.profId);
+  set('cop-turma',  r.turmaId);
+  set('cop-data',   r.data);
+  set('cop-desc',   r.descricao);
+  set('cop-paginas', r.paginas || 1);
+  set('cop-copias',  r.copias  || 1);
+  set('cop-origem',  r.origem  || 'externa');
+
+  copModoEdicao(true, r);
+  copCalcularTotal();
+  copAtualizarCota();
+  document.getElementById('cop-desc')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function copModoEdicao(ligado, r) {
+  const btn = document.getElementById('cop-btn-salvar');
+  if (btn) btn.textContent = ligado ? '💾 Salvar correção' : '💾 Registrar';
+  const cab = document.getElementById('cop-modo-edicao');
+  if (!cab) return;
+  if (!ligado) { cab.style.display = 'none'; cab.innerHTML = ''; return; }
+  const d = r.data ? new Date(r.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+  cab.style.display = '';
+  cab.innerHTML = `<div class="alert alert-warn" style="margin-bottom:0;">
+      <strong>Corrigindo o lançamento de ${escapeHtml(r.prof || '—')} — ${d}.</strong>
+      O registro será substituído no lugar, sem criar um novo.
+      <button class="btn btn-ghost btn-sm" style="margin-left:8px;" onclick="cancelarEdicaoCopia()">Cancelar correção</button>
+    </div>`;
+}
+
+function cancelarEdicaoCopia() {
+  limparFormCopia();
+  showToast('Correção cancelada.');
 }
 
 function salvarCopia() {
@@ -10656,7 +10707,7 @@ function salvarCopia() {
   const dataReg = document.getElementById('cop-data')?.value || new Date().toISOString().slice(0, 10);
   const cota    = cotaDoUsuario(profId);
   if (cota) {
-    const usado   = copUsadoNoMes(profId, String(dataReg).slice(0, 7));
+    const usado   = copUsadoNoMes(profId, String(dataReg).slice(0, 7), _copEditando);
     const depois  = usado + paginas * copias;
     if (depois > cota) {
       const excesso = depois - cota;
@@ -10688,6 +10739,36 @@ function salvarCopia() {
     criadoEm: new Date().toISOString(),
   };
 
+  // Correção: grava por cima do lançamento existente, preservando quem lançou
+  // e quando, e deixando registrado quem corrigiu.
+  if (_copEditando) {
+    const i = db.impressoes.findIndex(x => String(x.id) === String(_copEditando));
+    if (i === -1) {
+      _copEditando = null;
+      copModoEdicao(false);
+      aviso('⚠️ Este lançamento não existe mais — nada foi alterado.', '#b45309');
+      renderCopias();
+      return;
+    }
+    const antigo = db.impressoes[i];
+    db.impressoes[i] = {
+      ...reg,
+      id: antigo.id,
+      registradoPor: antigo.registradoPor || reg.registradoPor,
+      criadoEm: antigo.criadoEm || reg.criadoEm,
+      corrigidoPor: currentUser?.nome || currentUser?.usuario || '',
+      corrigidoEm: new Date().toISOString(),
+    };
+    _impressoesCarregadas = true;
+    save();
+    renderCopias();
+    limparFormCopia();          // também encerra o modo correção
+    document.getElementById('cop-desc')?.focus();
+    if (!avisarSePendente()) showToast(`✏️ Lançamento corrigido: ${reg.total} página(s).`);
+    aviso(`✏️ Correção salva: ${reg.total} página(s).`, '#059669');
+    return;
+  }
+
   db.impressoes.unshift(reg);
   _impressoesCarregadas = true;
   save();
@@ -10706,6 +10787,8 @@ function deleteCopia(id) {
   if (!r) return;
   showConfirmModal('Excluir este lançamento?', () => {
     db.impressoes = db.impressoes.filter(x => String(x.id) !== String(id));
+    // Se era justamente o que estava aberto para correção, o formulário volta ao normal
+    if (_copEditando && String(_copEditando) === String(id)) limparFormCopia();
     save(); renderCopias();
     showToast('🗑️ Lançamento excluído.');
   });
@@ -10830,9 +10913,11 @@ function renderCopias() {
           ${r.paginas} pág × ${r.copias} cópia(s) = <strong style="color:var(--green-dark);">${r.total} páginas</strong>
           &nbsp;·&nbsp; ${ORIGEM[r.origem] || r.origem || '—'}
           ${r.registradoPor ? ' · lançado por ' + escapeHtml(r.registradoPor) : ''}
+          ${r.corrigidoPor ? ' · <em>corrigido por ' + escapeHtml(r.corrigidoPor) + '</em>' : ''}
         </span>
       </div>
       <div class="actions">
+        <button class="btn btn-secondary btn-sm" onclick="editarCopia('${r.id}')" title="Editar">✏️</button>
         <button class="btn btn-danger btn-sm" onclick="deleteCopia('${r.id}')" title="Excluir">🗑️</button>
       </div>
     </div>`;
