@@ -2355,6 +2355,23 @@ function _listarPlanejamentos() {
       <button class="btn btn-primary" onclick="diagnosticarColecoes()">🔍 Diagnosticar</button>
     </div>
     <div id="cfg-reparo-resultado" style="margin-top:14px;"></div>
+
+    <div class="divider"></div>
+    <div style="font-size:13px;font-weight:600;color:var(--gray-700);margin-bottom:4px;">
+      ♻️ Restaurar fichas de observação do backup
+    </div>
+    <p style="font-size:12.5px;color:var(--gray-600);margin-bottom:10px;">
+      As fichas apagadas continuam salvas no Drive, em
+      <strong>Escola Ponte do Saber → Backup → Fichas de Observacao</strong>.
+      Abra o arquivo mais recente, selecione tudo (Ctrl+A), copie (Ctrl+C) e cole abaixo.
+      Só entram as fichas que ainda não existem no sistema — nenhuma ficha atual é alterada.
+    </p>
+    <textarea id="cfg-restaura-texto" rows="4" placeholder="Cole aqui o conteúdo do arquivo de backup…"
+              style="width:100%;font-family:monospace;font-size:12px;"></textarea>
+    <div class="btn-row" style="margin-top:8px;">
+      <button class="btn btn-secondary" onclick="conferirRestauroObs()">🔍 Conferir o que será restaurado</button>
+    </div>
+    <div id="cfg-restaura-resultado" style="margin-top:12px;"></div>
   </div>
 
   <div class="card" id="card-vinculo-prof" style="display:none;">
@@ -4810,7 +4827,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.29.0';
+const APP_VERSION = 'v2.31.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -5120,6 +5137,9 @@ async function loadFromFirestore() {
         db.cfgBackup = rCfg.data().cfgBackup;
         LS.set('ps_cfg_backup', db.cfgBackup);
       }
+      // Marcadores das manutencoes ja executadas. Ficam no servidor, nao no
+      // aparelho, para que a correcao rode uma vez so na escola inteira.
+      db.manutencao = rCfg.data().manutencao || {};
       if (rCfg.data().model) localStorage.setItem('ps_gemini_model', rCfg.data().model);
       // Sincroniza URL do Apps Script do Firestore → todos os dispositivos usam a mesma URL
       if (rCfg.data().appsScriptUrl) {
@@ -5706,6 +5726,7 @@ let db = {
   regimesPorAno:  LS.get('ps_regimes_por_ano', {}),            // { 2026: 'bimestral', 2027: 'trimestral' }
   cotasCopias: LS.get('ps_cotas_copias', { padrao: 0, porUsuario: {}, bloquear: false }),
   cfgBackup:   LS.get('ps_cfg_backup', { automatico: true, ultimo: '' }),
+  manutencao:  {},
   ocorrencias: [],
   observacoes: [],
   orientacoes: [],
@@ -6741,15 +6762,55 @@ function _tipoDoRegistro(r) {
   return null;
 }
 
-// Classifica um array inteiro. So devolve um tipo quando TODOS os registros
-// concordam; qualquer duvida vira 'misto' ou 'desconhecido' e o reparo para.
-function _tipoDoArray(arr) {
-  if (!Array.isArray(arr)) return 'invalido';
-  if (!arr.length) return 'vazio';
-  const tipos = new Set(arr.map(_tipoDoRegistro));
-  if (tipos.has(null)) return 'desconhecido';
-  if (tipos.size > 1)  return 'misto';
-  return [...tipos][0];
+// A separacao e REGISTRO A REGISTRO, nao documento a documento. Na pratica os
+// documentos ficaram misturados: as vezes o sistema carregava certo (pelo
+// listener em tempo real) e gravava certo, as vezes carregava trocado. Mover
+// documentos inteiros nao resolveria e ainda apagaria o que estava certo.
+function _planoDeReparo(lidos) {
+  const porTipo       = {};   // tipo -> [registro]
+  const vistos        = {};   // tipo -> Set de ids ja aceitos
+  const desconhecidos = {};   // documento -> [registro que nao sei classificar]
+  const origem        = {};   // documento -> { tipo: quantos }
+  REPARO_COLECOES.forEach(nome => {
+    porTipo[nome] = []; vistos[nome] = new Set();
+    desconhecidos[nome] = []; origem[nome] = {};
+  });
+
+  // Duas passadas: primeiro os registros que ja estao no documento certo, para
+  // que sejam eles a sobreviver a uma eventual duplicata de mesmo id.
+  const passar = (soNoLugarCerto) => {
+    REPARO_COLECOES.forEach(nome => {
+      (lidos[nome] || []).forEach(reg => {
+        const tipo = _tipoDoRegistro(reg);
+        if (!tipo) {
+          if (soNoLugarCerto) {
+            desconhecidos[nome].push(reg);
+            origem[nome]['?'] = (origem[nome]['?'] || 0) + 1;
+          }
+          return;
+        }
+        if (soNoLugarCerto !== (tipo === nome)) return;
+        origem[nome][tipo] = (origem[nome][tipo] || 0) + 1;
+        const id = String(reg && reg.id);
+        if (vistos[tipo].has(id)) return;      // mesma coisa gravada em dois lugares
+        vistos[tipo].add(id);
+        porTipo[tipo].push(reg);
+      });
+    });
+  };
+  passar(true);
+  passar(false);
+
+  // O que nao consegui identificar fica exatamente onde esta. Nao adivinho, e
+  // tambem nao deixo cair fora do documento na hora de regravar.
+  const plano = {};
+  REPARO_COLECOES.forEach(nome => {
+    plano[nome] = porTipo[nome].concat(desconhecidos[nome]);
+  });
+  // O chat depende da ordem cronologica para fazer sentido na tela.
+  plano.chatGeral.sort((a, b) => (Number(a.criadoEm) || 0) - (Number(b.criadoEm) || 0));
+
+  return { plano, origem, desconhecidos };
 }
 
 async function diagnosticarColecoes() {
@@ -6762,7 +6823,8 @@ async function diagnosticarColecoes() {
     const docs = await Promise.all(REPARO_COLECOES.map(nome => FSREF(nome).get()));
     lidos = {};
     REPARO_COLECOES.forEach((nome, i) => {
-      lidos[nome] = docs[i].exists ? (docs[i].data().data ?? []) : [];
+      const d = docs[i].exists ? (docs[i].data().data ?? []) : [];
+      lidos[nome] = Array.isArray(d) ? d : [];
     });
   } catch (e) {
     el.innerHTML = `<div class="alert alert-err">Não consegui ler os documentos: ${escapeHtml(e.message)}</div>`;
@@ -6770,87 +6832,84 @@ async function diagnosticarColecoes() {
   }
 
   _reparoLidos = lidos;
-  const conteudo = {};
-  REPARO_COLECOES.forEach(nome => { conteudo[nome] = _tipoDoArray(lidos[nome]); });
+  const { plano, origem, desconhecidos } = _planoDeReparo(lidos);
+  _reparoPlano = plano;
 
-  const foraDoLugar = REPARO_COLECOES.filter(nome =>
-    conteudo[nome] !== 'vazio' && conteudo[nome] !== nome);
+  const descreverOrigem = (nome) => {
+    const partes = Object.keys(origem[nome]).map(tipo => {
+      const qtd = origem[nome][tipo];
+      if (tipo === '?')      return `<span style="color:#dc2626;">${qtd} não identificado(s)</span>`;
+      if (tipo === nome)     return `<span style="color:#059669;">${qtd} no lugar certo</span>`;
+      return `<span style="color:#b45309;">${qtd} de ${REPARO_ROTULOS[tipo]}</span>`;
+    });
+    return partes.length ? partes.join('<br>') : '<span style="color:var(--gray-400);">vazio</span>';
+  };
 
-  const linhas = REPARO_COLECOES.map(nome => {
-    const tipo = conteudo[nome];
-    const qtd  = Array.isArray(lidos[nome]) ? lidos[nome].length : 0;
-    let situacao, cor;
-    if (tipo === 'vazio')      { situacao = 'vazio';                          cor = 'var(--gray-400)'; }
-    else if (tipo === nome)    { situacao = '✅ no lugar certo';              cor = '#059669'; }
-    else if (REPARO_ROTULOS[tipo]) { situacao = `⚠️ contém ${REPARO_ROTULOS[tipo]}`; cor = '#b45309'; }
-    else                       { situacao = `🚫 conteúdo ${tipo}`;            cor = '#dc2626'; }
-    return `<tr>
+  const linhas = REPARO_COLECOES.map(nome => `<tr>
       <td style="padding:7px 12px;border-bottom:1px solid var(--gray-200);font-weight:600;">${REPARO_ROTULOS[nome]}</td>
-      <td style="padding:7px 12px;border-bottom:1px solid var(--gray-200);text-align:center;font-variant-numeric:tabular-nums;">${qtd}</td>
-      <td style="padding:7px 12px;border-bottom:1px solid var(--gray-200);color:${cor};">${situacao}</td>
-    </tr>`;
-  }).join('');
+      <td style="padding:7px 12px;border-bottom:1px solid var(--gray-200);text-align:center;font-variant-numeric:tabular-nums;">${(lidos[nome] || []).length}</td>
+      <td style="padding:7px 12px;border-bottom:1px solid var(--gray-200);font-size:12.5px;">${descreverOrigem(nome)}</td>
+      <td style="padding:7px 12px;border-bottom:1px solid var(--gray-200);text-align:center;font-variant-numeric:tabular-nums;font-weight:700;color:var(--green-dark);">${plano[nome].length}</td>
+    </tr>`).join('');
 
   const tabela = `<div style="overflow-x:auto;margin-bottom:14px;">
       <table style="border-collapse:collapse;width:100%;border:1px solid var(--gray-200);border-radius:8px;overflow:hidden;">
         <thead><tr style="background:var(--green-light);">
           <th style="padding:9px 12px;text-align:left;color:var(--green-dark);font-size:13px;">Documento</th>
-          <th style="padding:9px 12px;text-align:center;color:var(--green-dark);font-size:13px;width:80px;">Registros</th>
+          <th style="padding:9px 12px;text-align:center;color:var(--green-dark);font-size:13px;width:70px;">Hoje</th>
           <th style="padding:9px 12px;text-align:left;color:var(--green-dark);font-size:13px;">O que tem dentro</th>
+          <th style="padding:9px 12px;text-align:center;color:var(--green-dark);font-size:13px;width:90px;">Depois</th>
         </tr></thead>
         <tbody>${linhas}</tbody>
       </table>
     </div>`;
 
-  if (!foraDoLugar.length) {
-    el.innerHTML = tabela + `<div class="alert alert-info" style="margin-bottom:0;">
-      <strong>Está tudo no lugar certo.</strong> Nenhum reparo é necessário.</div>`;
+  const mudou = REPARO_COLECOES.some(nome =>
+    JSON.stringify(plano[nome]) !== JSON.stringify(lidos[nome] || []));
+
+  const qtdDesconhecidos = REPARO_COLECOES.reduce((s, n) => s + desconhecidos[n].length, 0);
+  const avisoDesconhecidos = qtdDesconhecidos ? `<div class="alert alert-warn">
+      <strong>${qtdDesconhecidos} registro(s) não puderam ser identificados.</strong>
+      Eles ficam exatamente onde estão — não são movidos nem apagados. Use o botão
+      “Baixar dados brutos” para eu analisar quais são.
+    </div>` : '';
+
+  const botaoBruto = `<button class="btn btn-secondary" onclick="baixarBrutoColecoes()">⬇️ Baixar dados brutos</button>`;
+
+  if (!mudou) {
+    el.innerHTML = tabela + avisoDesconhecidos + `<div class="alert alert-info" style="margin-bottom:14px;">
+        <strong>Está tudo no lugar certo.</strong> Nenhum reparo é necessário.</div>
+      <div class="btn-row">${botaoBruto}</div>`;
     return;
   }
 
-  // Duas coleções com o mesmo conteúdo, ou conteúdo que não deu para
-  // identificar: parar e pedir análise em vez de arriscar sobrescrever.
-  // A conferência olha TODOS os documentos preenchidos, não só os que estão
-  // fora do lugar: um documento certo e outro trocado podem carregar o mesmo
-  // tipo, e aí um apagaria o outro.
-  const tiposUteis = REPARO_COLECOES
-    .map(n => conteudo[n])
-    .filter(t => t !== 'vazio');
-  const naoIdentificado = tiposUteis.some(t => !REPARO_ROTULOS[t]);
-  const duplicado = new Set(tiposUteis).size !== tiposUteis.length;
-  if (naoIdentificado || duplicado) {
-    el.innerHTML = tabela + `<div class="alert alert-err" style="margin-bottom:0;">
-      <strong>Não vou reparar automaticamente.</strong>
-      ${naoIdentificado ? 'Há conteúdo que não consegui identificar com segurança. ' : ''}
-      ${duplicado ? 'Dois documentos parecem ter o mesmo tipo de registro. ' : ''}
-      Mexer aqui poderia apagar dado bom. Me mostre esta tela para eu analisar caso a caso.</div>`;
-    return;
-  }
+  const movimentos = REPARO_COLECOES
+    .filter(nome => plano[nome].length !== (lidos[nome] || []).length)
+    .map(nome => {
+      const de = (lidos[nome] || []).length, para = plano[nome].length;
+      return `<li><strong>${REPARO_ROTULOS[nome]}</strong>: ${de} → ${para} registro(s)</li>`;
+    }).join('');
 
-  // O plano cobre os QUATRO documentos, não só os que têm conteúdo a receber.
-  // Um documento cujo conteúdo foi embora para outro lugar precisa ficar
-  // vazio, senão o registro acaba duplicado nos dois.
-  const achado = {};
-  REPARO_COLECOES.forEach(nome => {
-    const tipo = conteudo[nome];
-    if (tipo !== 'vazio') achado[tipo] = lidos[nome];
-  });
-  const destino = {};
-  REPARO_COLECOES.forEach(nome => { destino[nome] = achado[nome] || []; });
-  _reparoPlano = destino;
-
-  const movimentos = foraDoLugar.map(nome =>
-    `<li>${lidos[nome].length} registro(s) de <strong>${REPARO_ROTULOS[conteudo[nome]]}</strong>`
-    + ` saem de "${REPARO_ROTULOS[nome]}" e voltam para o seu documento</li>`
-  ).join('');
-
-  el.innerHTML = tabela + `<div class="alert alert-warn">
-      <strong>Encontrei ${foraDoLugar.length} documento(s) fora do lugar.</strong>
+  el.innerHTML = tabela + avisoDesconhecidos + `<div class="alert alert-warn">
+      <strong>Cada registro volta para o documento do seu tipo.</strong>
       <ul style="margin:8px 0 0 18px;font-size:13px;">${movimentos}</ul>
+      <div style="font-size:12.5px;margin-top:8px;">
+        Registros iguais gravados em dois lugares entram uma vez só. Nada é apagado:
+        a soma dos “Depois” mais os não identificados bate com o total de hoje.
+      </div>
     </div>
     <div class="btn-row">
       <button class="btn btn-primary" onclick="repararColecoes()">💾 Baixar backup e reparar</button>
+      ${botaoBruto}
     </div>`;
+}
+
+// Exporta os quatro documentos como estao, para analise fora do sistema.
+function baixarBrutoColecoes() {
+  if (!_reparoLidos) { showToast('⚠️ Rode o diagnóstico primeiro.'); return; }
+  const carimbo = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  downloadTxt(JSON.stringify(_reparoLidos, null, 2), `colecoes-brutas-${carimbo}.json`);
+  showToast('⬇️ Arquivo salvo no seu computador.');
 }
 
 let _reparoLidos = null;
@@ -6858,19 +6917,24 @@ let _reparoPlano = null;
 
 function repararColecoes() {
   if (!_reparoPlano || !_reparoLidos) { showToast('⚠️ Rode o diagnóstico primeiro.'); return; }
+
+  // Trava de seguranca: nenhum registro pode sumir na regravacao.
+  const antes  = REPARO_COLECOES.reduce((s, n) => s + (_reparoLidos[n] || []).length, 0);
+  const depois = REPARO_COLECOES.reduce((s, n) => s + _reparoPlano[n].length, 0);
+  if (depois > antes) { showToast('🚫 Reparo cancelado: o plano criaria registros. Me chame.', 9000); return; }
+
   showConfirmModal(
-    'Devolver cada coleção ao seu documento?<br>'
-    + '<small style="color:#888;font-weight:400;">Um arquivo de backup dos quatro documentos será '
-    + 'baixado antes de qualquer gravação.</small>',
+    `Devolver cada registro ao documento do seu tipo?<br>`
+    + `<small style="color:#888;font-weight:400;">${antes} registro(s) hoje → ${depois} depois `
+    + `(a diferença são cópias do mesmo registro gravadas em dois lugares). `
+    + `Um backup dos quatro documentos será baixado antes de qualquer gravação.</small>`,
     async () => {
-      // Backup primeiro: se algo der errado na gravação, o estado anterior
-      // está no arquivo que acabou de ser salvo no computador.
       const carimbo = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
       downloadTxt(JSON.stringify(_reparoLidos, null, 2), `backup-colecoes-${carimbo}.json`);
 
       const plano = _reparoPlano;
       try {
-        await Promise.all(Object.keys(plano).map(nome =>
+        await Promise.all(REPARO_COLECOES.map(nome =>
           FSREF(nome).set({ data: plano[nome] })));
       } catch (e) {
         showToast('❌ Falha ao gravar: ' + e.message, 8000);
@@ -6878,20 +6942,346 @@ function repararColecoes() {
       }
 
       // A memória tem de acompanhar, senão o próximo save() regrava o antigo.
-      Object.keys(plano).forEach(nome => { db[nome] = plano[nome]; });
+      REPARO_COLECOES.forEach(nome => { db[nome] = plano[nome]; });
       LS.set('ps_impressoes',  db.impressoes);
       LS.set('ps_orientacoes', db.orientacoes);
       LS.set('ps_observacoes', db.observacoes);
 
       _reparoPlano = null;
-      showToast('✅ Coleções reparadas. O backup foi salvo no seu computador.', 7000);
+      showToast('✅ Registros reorganizados. O backup foi salvo no seu computador.', 7000);
       logger.audit({ module: 'config', action: 'reparo-colecoes',
-        message: 'Coleções trocadas devolvidas aos seus documentos',
-        after: Object.fromEntries(Object.keys(plano).map(n => [n, plano[n].length])) });
+        message: 'Registros devolvidos aos documentos do seu tipo',
+        after: Object.fromEntries(REPARO_COLECOES.map(n => [n, plano[n].length])) });
       diagnosticarColecoes();
       refreshCurrentView();
     },
     { rotulo: 'Reparar', tipo: 'primary' }
+  );
+}
+
+// ── Fichas de observacao a restaurar, uma vez so ────────────────────────
+// TEMPORARIO. A troca de colecoes apagou 17 fichas do servidor; elas so
+// sobreviveram no backup diario do Drive. Ficam aqui para que a volta
+// aconteca sozinha, sem ninguem precisar colar nada. Assim que a
+// restauracao rodar na escola, este bloco sai do codigo — ele contem
+// avaliacoes de desempenho das professoras e o index.html e servido a
+// qualquer pessoa que abra o endereco do sistema.
+// Depois de remover, a lista vazia faz a rotina abaixo nao fazer nada.
+const RESTAURO_OBSERVACOES = [
+  {"data":"2026-09-17","prof":"Caroline Vitória dos Santos","turmaNome":"Infantil I","notas":{"organizacao":4,"rotina":4,"adequacao":4,"interacao":4,"registro":4,"seguranca":3,"planejamento":4},"horario":"14:30","media":3.86,"avaliados":7,"totalCriterios":7,"pontosFortes":"A professora seguiu a orientação dada e realizou a atividade no espaço da multiuso, organizando a turma em três grupos. Em duas mesas, foram distribuídas as propostas, e as crianças participaram em duplas, vivenciando a atividade de forma mais direcionada. Enquanto isso, as demais crianças permaneciam em outro espaço, realizando brincadeiras e interações com os colegas. A organização possibilitou um melhor aproveitamento da proposta, favorecendo a participação e o acompanhamento das crianças durante a atividade.","pontosMelhoria":"Limpeza do nariz das crianças","combinados":"Para que ela repasse as professoras sobre manter a higienização do nariz","criadoPor":"Jhenny Karolynne Bastos","criadoEm":"2026-09-17T12:00:00.000Z"},
+  {"data":"2026-09-14","prof":"Fabiane Eudoxia de Franca Gusso","turmaNome":"Berçário","notas":{"organizacao":4,"rotina":3,"adequacao":4,"interacao":4,"registro":4,"seguranca":4,"planejamento":4},"horario":"14:15","media":3.86,"avaliados":7,"totalCriterios":7,"pontosFortes":"As duas fizeram o momento de interação de acordo com o andamento da atividade","pontosMelhoria":"A professora necessita se preparar melhor, para realização das atividades onde tudo já deve estar préviamente organizado para assim dar inicio","combinados":"Ainda não conversei com ela sobre esse ocorrido que irei abordar hoje no momento de hora atividade da professora.","criadoPor":"Jhenny Karolynne Bastos","criadoEm":"2026-09-14T12:00:00.000Z"},
+  {"data":"2026-09-10","prof":"Thalita Godoy Marques do Carmo","turmaNome":"Infantil II","notas":{"organizacao":5,"rotina":5,"adequacao":4,"interacao":4,"registro":"","seguranca":4,"planejamento":4},"horario":"9:15","media":4.33,"avaliados":6,"totalCriterios":7,"pontosFortes":"Observei um momento de interação das crianças onde a professora estava na mesa e os alunos brincando no tapete tranquilamente.","criadoPor":"Jhenny Karolynne Bastos","criadoEm":"2026-09-10T12:00:00.000Z"},
+  {"data":"2026-09-09","prof":"Caroline Vitória dos Santos","turmaNome":"Infantil I","notas":{"organizacao":"","rotina":4,"adequacao":4,"interacao":5,"registro":"","seguranca":4,"planejamento":4},"horario":"10:00","media":4.2,"avaliados":5,"totalCriterios":7,"pontosFortes":"Acompanhei a rotina de alimentação e, em seguida, o momento de escovação. Durante o acompanhamento, percebi uma melhora na comunicação entre as professoras, especialmente na interação com a professora auxiliar. Ambas estavam envolvidas e auxiliando as crianças durante o momento da alimentação.\nObservei, porém, uma dificuldade relacionada à organização do momento de higienização dos babadores, pois, enquanto uma professora realiza a limpeza, também é necessário manter a atenção e os cuidados com as crianças que permanecem no espaço. No momento, ainda não foi identificada uma estratégia que possibilite realizar esse procedimento de forma mais organizada e segura, sendo um ponto que permanece em observação para buscarmos uma solução que favoreça a rotina da turma.","combinados":"Autorizei ela deixar os babadores no refeitório dentro da caixa em um ambiente que não atrapalhe","criadoPor":"Jhenny Karolynne Bastos","criadoEm":"2026-09-09T12:00:00.000Z"},
+  {"data":"2026-09-08","prof":"Thalita Godoy Marques do Carmo","turmaNome":"Infantil II","notas":{"organizacao":4,"rotina":4,"adequacao":5,"interacao":5,"registro":"","seguranca":4,"planejamento":4},"horario":"13:45","media":4.33,"avaliados":6,"totalCriterios":7,"pontosFortes":"Acompanhei o momento de parque, onde ambas as professoras estavam em momento de interação com eles.","combinados":"Pedi para que as professoras fiquem sempre atentas no escorrega maior para não correr o risco das crianças cairem.","criadoPor":"Jhenny Karolynne Bastos","criadoEm":"2026-09-08T12:00:00.000Z"},
+  {"data":"2026-09-08","prof":"Caroline Vitória dos Santos","turmaNome":"Infantil I","notas":{"organizacao":4,"rotina":4,"adequacao":4,"interacao":5,"registro":"","seguranca":4,"planejamento":4},"horario":"14:00","media":4.17,"avaliados":6,"totalCriterios":7,"pontosFortes":"Acompanhei a rotina de saída do parque para o momento de atividade. A professora Carol, juntamente com a professora Ray, direcionou as crianças para realizarem a hidratação e, em seguida, deu início à atividade proposta para o período da tarde.\nA proposta consistia em passar um copo plástico de um lado para o outro de um fio, trabalhando a coordenação motora, a atenção e a interação entre as crianças. Para melhor organização, as professoras dividiram a turma em dois grupos, ficando cada grupo sob a supervisão de uma professora.\nNa sequência, a professora conseguiu organizar dois espaços distintos, possibilitando que os grupos participassem de momentos de interação e brincadeiras de forma mais tranquila e organizada.","pontosMelhoria":"Hoje estavam com o numero de alunos reduzidos o que acabou facilitando no desenvolvimento da atividade","criadoPor":"Jhenny Karolynne Bastos","criadoEm":"2026-09-08T12:00:00.000Z"},
+  {"data":"2026-09-04","prof":"Caroline Vitória dos Santos","turmaNome":"Infantil I","notas":{"organizacao":"","rotina":4,"adequacao":4,"interacao":3,"registro":"","seguranca":4,"planejamento":""},"horario":"10:00","media":3.75,"avaliados":4,"totalCriterios":7,"pontosFortes":"Acompanhei o momento do almoço das crianças e orientei a professora quanto à importância de verificar, antes de encaminhar a turma ao refeitório, se a refeição já está pronta para ser servida. Caso o almoço ainda não esteja disponível, a orientação é que a professora leve as crianças ao parque para aguardarem até que o momento da alimentação esteja organizado.\nRessaltei que, por serem crianças pequenas e estarem em uma fase de constante exploração e descoberta, é natural que apresentem dificuldade em permanecer por períodos prolongados paradas no mesmo ambiente. Dessa forma, é importante organizar a rotina considerando suas necessidades e características, proporcionando momentos de espera mais adequados e tranquilos para o grupo.","pontosMelhoria":"Estratégias para o momento da alimentação.","combinados":"Ficou combinado ela fazer a verificação antes de ir para o refeitório com eles","criadoPor":"Jhenny Karolynne Bastos","criadoEm":"2026-09-04T12:00:00.000Z"},
+  {"data":"2026-09-03","prof":"Fabiane Eudoxia de Franca Gusso","turmaNome":"Berçário","notas":{"organizacao":4,"rotina":4,"adequacao":4,"interacao":4,"registro":"","seguranca":4,"planejamento":4},"horario":"14:15","media":4,"avaliados":6,"totalCriterios":7,"pontosFortes":"Acompanhei o momento de contação de histórias, que já estava programado no planejamento do dia. Em seguida, conforme orientação realizada, a professora Fabi conduziu os alunos ao parque para o momento de brincadeiras.\nDurante essa atividade, foi observado que uma das alunas estava apresentando febre. Enquanto a professora Fabi permaneceu responsável pela supervisão e organização da turma no parque, a professora Andressa acompanhou a aluna e realizou o banho, conforme os procedimentos da escola.\nApós finalizar o banho e os cuidados necessários, a professora Andressa retornou ao parque juntamente com a aluna e as demais crianças, dando continuidade à rotina.","criadoPor":"Jhenny Karolynne Bastos","criadoEm":"2026-09-03T12:00:00.000Z"},
+  {"data":"2026-09-03","prof":"Paula Adaiane Mendes Babics","turmaNome":"Infantil III","notas":{"organizacao":4,"rotina":4,"adequacao":4,"interacao":4,"registro":"","seguranca":4,"planejamento":5},"horario":"13:40","media":4.17,"avaliados":6,"totalCriterios":7,"pontosFortes":"Acompanhei a rotina do inicio da tarde, onde aconteceu tudo de forma tranquila com a organização para irem para o lanche da tarde e o acontecimento do lanche da tarde como programado.","criadoPor":"Jhenny Karolynne Bastos","criadoEm":"2026-09-03T12:00:00.000Z"},
+  {"data":"2026-09-02","prof":"Fabiane Eudoxia de Franca Gusso","turmaNome":"Berçário","notas":{"organizacao":4,"rotina":"","adequacao":"","interacao":"","registro":"","seguranca":5,"planejamento":""},"horario":"15:10","media":4.5,"avaliados":2,"totalCriterios":7,"pontosFortes":"Acompanhei o processo de alimentação das crianças, seguido do momento de trocas. O processo teve início às 15h10, quando auxiliei a professora Andressa na alimentação das crianças, enquanto a professora Fabi realizava uma troca necessária.\nNa sequência, por estar auxiliando no momento da alimentação, a professora Fabi iniciou a organização das camas e, posteriormente, deu continuidade às trocas das crianças.\nEm conversa com a professora Fabi, reforcei a importância de permanecer atenta às agendas. Orientei que, ao chegar, realize sempre a conferência da agenda de cada criança, verificando se há alguma informação ou orientação importante da família. Também ressaltei a necessidade de verificar se existem medicações a serem administradas e, caso haja, realizar a conferência da receita médica antes da administração, garantindo que os horários e as dosagens estejam de acordo com a prescrição.","pontosMelhoria":"Se interar dos assuntos e rotina da manhã todos os dias assim que chega a escola.","combinados":"Pedi para que assim que chegue a escola olhe as informações na agenda","criadoPor":"Jhenny Karolynne Bastos","criadoEm":"2026-09-02T12:00:00.000Z"},
+  {"data":"2026-09-01","prof":"Paula Adaiane Mendes Babics","turmaNome":"Infantil III","notas":{"organizacao":4,"rotina":5,"adequacao":5,"interacao":5,"registro":4,"seguranca":5,"planejamento":5},"horario":"14:00","media":4.71,"avaliados":7,"totalCriterios":7,"pontosFortes":"Foi observada a interação da professora com as crianças no início da aula, momento em que realizou a retomada do tema abordado no dia anterior, estabelecendo uma continuidade com a atividade proposta para o dia.\nNa rotina de sala, a professora iniciou com uma oração, proporcionando a participação das crianças. A aluna Lívia iniciou a oração e, em seguida, convidou os demais colegas a darem continuidade, demonstrando envolvimento e participação no momento.\nApós a oração, a professora realizou a contagem da quantidade de crianças presentes, explorando também a identificação e contagem de meninos e meninas. Na sequência, iniciou a atividade planejada para o dia, reunindo as crianças à mesa e oferecendo o suporte e as orientações necessárias para a realização da proposta.\nDe modo geral, foi possível observar uma boa condução da rotina, com incentivo à participação das crianças, retomada dos conhecimentos trabalhados anteriormente e acompanhamento durante o desenvolvimento da atividade.","criadoPor":"Jhenny Karolynne Bastos","criadoEm":"2026-09-01T12:00:00.000Z"},
+  {"data":"2026-08-31","prof":"Giovana Rupel de Andrade","turmaNome":"Infantil IV","notas":{"organizacao":5,"rotina":5,"adequacao":4,"interacao":4,"registro":"","seguranca":4,"planejamento":5},"horario":"15:00","media":4.5,"avaliados":6,"totalCriterios":7,"pontosFortes":"Apesar de estarem em um grupo pequeno de alunos, a turma estava tranquila e direcionada em suas atividades","combinados":"Passei esse período só observando a turma, e estava tudo em ordem","criadoPor":"Jhenny Karolynne Bastos","criadoEm":"2026-08-31T12:00:00.000Z"},
+  {"data":"2026-08-31","prof":"Fabiane Eudoxia de Franca Gusso","turmaNome":"Berçário","notas":{"organizacao":4,"rotina":4,"adequacao":4,"interacao":4,"registro":"","seguranca":4,"planejamento":3},"horario":"13:40","media":3.83,"avaliados":6,"totalCriterios":7,"pontosFortes":"Estão conseguindo se enquadrar melhor na rotina, fazem a interação corretamente e os cuidados de higiene quando finalizei o acompanhamento ela estava organizando eles para iniciar uma atividade","pontosMelhoria":"Ficar atenta com a aplicação do planejamento","proximo":"2026-09-01","criadoPor":"Jhenny Karolynne Bastos","criadoEm":"2026-08-31T12:00:00.000Z"},
+  {"data":"2026-08-31","prof":"Giovana Rupel de Andrade","turmaNome":"Infantil IV","notas":{"organizacao":"","rotina":4,"adequacao":"","interacao":4,"registro":"","seguranca":4,"planejamento":""},"horario":"10:15","media":4,"avaliados":3,"totalCriterios":7,"pontosFortes":"Foi somente um acompanhamento para rotina de almoço, vale ressaltar que é uma turma tranquila que se alimenta super de forma autônoma. O único aluno que apresenta dificuldades na alimentação é o Nathan.","pontosMelhoria":"O progresso dele na parte alimentar.","combinados":"Ofertar a alimentação para esse aluno no prato que vem de casa para ver se assim conseguimos fazer ele de adaptar a rotina da alimentação","proximo":"2026-09-01","criadoPor":"Jhenny Karolynne Bastos","criadoEm":"2026-08-31T12:00:00.000Z"},
+  {"data":"2026-08-28","prof":"Fabiane Eudoxia de Franca Gusso","turmaNome":"Berçário","notas":{"organizacao":4,"rotina":4,"adequacao":4,"interacao":4,"registro":"","seguranca":4,"planejamento":2},"horario":"14:00","media":3.67,"avaliados":6,"totalCriterios":7,"pontosFortes":"As professoras demonstraram atenção durante os momentos de interação com as crianças, mantendo os cuidados necessários ao longo da rotina. A professora Fabi aguardou a professora Andressa finalizar a troca de fraldas para, então, iniciar a atividade pedagógica.\nA proposta foi realizada dentro da sala de aula, utilizando materiais adequados e que não apresentavam riscos às crianças. Foi desenvolvida uma atividade com canudos plásticos, na qual as crianças precisavam utilizar a concentração e a coordenação motora para retirá-los do tatame, estimulando, de forma lúdica, suas habilidades motoras e cognitivas.","pontosMelhoria":"Foi orientada a professora quanto à importância de solicitar os materiais necessários para as atividades pedagógicas com antecedência. No dia de hoje, a professora procurou a coordenação para solicitar canudos que seriam utilizados em uma das propostas. Foi possível verificar a disponibilidade do material e atender à solicitação, porém foi reforçado que nem sempre os materiais solicitados estarão disponíveis na escola.\nDessa forma, foi orientado que os pedidos sejam realizados previamente, possibilitando que a escola tenha tempo hábil para verificar a disponibilidade e, quando necessário, providenciar os materiais para a realização das atividades planejadas.","combinados":"Como combinado, foi solicitado à professora que mantenha seu planejamento atualizado e em dia, bem como realize a solicitação dos materiais necessários para as atividades com antecedência, possibilitando que a escola possa se organizar e providenciar os recursos necessários para a execução das propostas pedagógicas.","criadoPor":"Jhenny Karolynne Bastos","criadoEm":"2026-08-28T12:00:00.000Z"},
+  {"data":"2026-08-28","prof":"Giovana Rupel de Andrade","turmaNome":"Infantil IV","notas":{"organizacao":"","rotina":5,"adequacao":"","interacao":4,"registro":"","seguranca":4,"planejamento":5},"horario":"13:15","media":4.5,"avaliados":4,"totalCriterios":7,"pontosFortes":"Acompanhei parte do período com a professora, durante a rotina pós-sono até o início do lanche da tarde. As atividades ocorreram de forma tranquila e conforme o planejado. Durante o lanche, a professora aguardou que todos os alunos terminassem a refeição para, posteriormente, oferecer a repetição a todos.\nApós o término da refeição, dirigiu-se com as crianças para a sala, onde iniciou a conferência das mochilas e, em seguida, das apostilas. Enquanto realizava essas conferências, as crianças permaneceram brincando no tatame de forma tranquila.","criadoPor":"Jhenny Karolynne Bastos","criadoEm":"2026-08-28T12:00:00.000Z"},
+  {"data":"2026-08-25","prof":"Giovana Rupel de Andrade","turmaNome":"Infantil V","notas":{"organizacao":5,"rotina":5,"adequacao":4,"interacao":4,"registro":"","seguranca":4,"planejamento":""},"horario":"10h","media":4.4,"avaliados":5,"totalCriterios":7,"pontosFortes":"A professora estava fazendo momentos de interações com as crianças","combinados":"Fiquei de verificar o dia para sentarmos e montarmos os devocionais para trabalhar com as crianças do contraturno","proximo":"2026-08-26","criadoPor":"Jhenny Karolynne Bastos","criadoEm":"2026-08-25T12:00:00.000Z"},
+];
+
+const RESTAURO_VERSAO = 'observacoes-v1';
+
+// Acrescenta as fichas que faltam. Nunca altera nem apaga o que ja existe:
+// a ficha do dia da correcao, por exemplo, permanece intacta.
+async function restaurarObservacoesAutomatico() {
+  if (!_firestoreOk) return;
+  if (db.manutencao?.[RESTAURO_VERSAO]) return;
+  if (!RESTAURO_OBSERVACOES.length) { await _marcarManutencao(RESTAURO_VERSAO, { semDados: true }); return; }
+
+  let atuais;
+  try {
+    const doc = await FSREF('observacoes').get();
+    const d = doc.exists ? (doc.data().data ?? []) : [];
+    atuais = Array.isArray(d) ? d : [];
+  } catch (e) {
+    logger.warn({ module: 'restauro', action: 'ler', message: 'Não consegui ler as observações', error: e });
+    return;
+  }
+
+  const existentes = new Set(atuais.map(_obsChave));
+  const faltando = RESTAURO_OBSERVACOES.filter(f => !existentes.has(_obsChave(f)));
+  if (!faltando.length) { await _marcarManutencao(RESTAURO_VERSAO, { nadaAFazer: true }); return; }
+
+  const lista = faltando.map(_obsParaRegistro).concat(atuais);
+  lista.sort((a, b) => String(b.data).localeCompare(String(a.data)));
+
+  try {
+    await FSREF('observacoes').set({ data: lista });
+  } catch (e) {
+    logger.error({ module: 'restauro', action: 'gravar', message: 'Falha ao restaurar as observações', error: e });
+    return;
+  }
+
+  db.observacoes = lista;
+  _observacoesCarregadas = true;
+  LS.set('ps_observacoes', db.observacoes);
+  await _marcarManutencao(RESTAURO_VERSAO, { restauradas: faltando.length, total: lista.length });
+  logger.audit({ module: 'restauro', action: 'automatico',
+    message: `Restauradas ${faltando.length} fichas de observação do backup`,
+    after: { restauradas: faltando.length, total: lista.length } });
+  showToast(`♻️ ${faltando.length} fichas de observação foram recuperadas do backup.`, 9000);
+}
+
+// ── Reparo automatico, uma vez so na escola inteira ──────────────────────
+// A troca de colecoes (corrigida na v2.28.1) deixou registros gravados no
+// documento errado. Em vez de depender de alguem lembrar de abrir
+// Configuracoes e clicar, a correcao roda sozinha na primeira vez que o
+// sistema abre. O marcador fica no servidor: o segundo aparelho a abrir ja
+// encontra tudo arrumado e nao faz nada.
+const REPARO_VERSAO = 'colecoes-v1';
+
+// Trava de reentrancia: duas chamadas ao mesmo tempo leriam os dois o
+// marcador como vazio e fariam o mesmo trabalho em duplicidade.
+let _manutencaoEmCurso = null;
+
+function manutencaoAutomatica() {
+  if (_manutencaoEmCurso) return _manutencaoEmCurso;
+  _manutencaoEmCurso = (async () => {
+    await repararColecoesAutomatico();       // primeiro devolve cada registro ao seu lugar
+    await restaurarObservacoesAutomatico();  // depois traz de volta as fichas apagadas
+  })();
+  return _manutencaoEmCurso;
+}
+
+async function repararColecoesAutomatico() {
+  if (!_firestoreOk) return;                                  // load falhou: nao mexe em nada
+  if (db.manutencao?.[REPARO_VERSAO]) return;                 // ja rodou nesta escola
+
+  let lidos;
+  try {
+    const docs = await Promise.all(REPARO_COLECOES.map(nome => FSREF(nome).get()));
+    lidos = {};
+    REPARO_COLECOES.forEach((nome, i) => {
+      const d = docs[i].exists ? (docs[i].data().data ?? []) : [];
+      lidos[nome] = Array.isArray(d) ? d : [];
+    });
+  } catch (e) {
+    logger.warn({ module: 'reparo', action: 'ler', message: 'Não consegui ler as coleções para o reparo automático', error: e });
+    return;   // sem marcar: tenta de novo na proxima abertura
+  }
+
+  const { plano } = _planoDeReparo(lidos);
+
+  // Nada fora do lugar: marca como feito e sai sem gravar dado nenhum.
+  const precisa = REPARO_COLECOES.some(nome =>
+    JSON.stringify(plano[nome]) !== JSON.stringify(lidos[nome]));
+  if (!precisa) { await _marcarManutencao(REPARO_VERSAO, { semAlteracao: true }); return; }
+
+  // Trava: a reorganizacao move registros, nunca inventa. Se a conta nao
+  // fecha, alguma coisa esta errada no meu raciocinio e e melhor nao gravar.
+  const antes  = REPARO_COLECOES.reduce((t, n) => t + lidos[n].length, 0);
+  const depois = REPARO_COLECOES.reduce((t, n) => t + plano[n].length, 0);
+  if (depois > antes) {
+    logger.error({ module: 'reparo', action: 'trava', message: `Reparo automático abortado: ${antes} → ${depois} registros` });
+    return;
+  }
+
+  try {
+    await Promise.all(REPARO_COLECOES.map(nome => FSREF(nome).set({ data: plano[nome] })));
+  } catch (e) {
+    logger.error({ module: 'reparo', action: 'gravar', message: 'Falha no reparo automático', error: e });
+    return;   // sem marcar: tenta de novo
+  }
+
+  REPARO_COLECOES.forEach(nome => { db[nome] = plano[nome]; });
+  LS.set('ps_impressoes',  db.impressoes);
+  LS.set('ps_orientacoes', db.orientacoes);
+  LS.set('ps_observacoes', db.observacoes);
+
+  const resumo = Object.fromEntries(REPARO_COLECOES.map(n => [n, plano[n].length]));
+  await _marcarManutencao(REPARO_VERSAO, { antes, depois, resumo });
+  logger.audit({ module: 'reparo', action: 'automatico',
+    message: `Reparo automático das coleções: ${antes} → ${depois} registros`, after: resumo });
+  showToast(`🔧 Organização dos dados corrigida: ${plano.impressoes.length} solicitações de cópia e `
+          + `${plano.orientacoes.length} orientações voltaram para o lugar.`, 9000);
+}
+
+async function _marcarManutencao(chave, detalhe) {
+  db.manutencao = Object.assign({}, db.manutencao, {
+    [chave]: Object.assign({ em: new Date().toISOString() }, detalhe || {}),
+  });
+  try {
+    await FSREF('config').set({ manutencao: db.manutencao }, { merge: true });
+  } catch (e) {
+    logger.warn({ module: 'reparo', action: 'marcar', message: 'Não gravou o marcador da manutenção', error: e });
+  }
+}
+
+
+// ── Restauracao das fichas de observacao a partir do backup do Drive ──────
+// O backup e texto legivel, nao JSON, entao a volta e uma leitura do texto.
+// Ele nao guarda id, profId nem turmaId: o id e novo e a professora e a turma
+// sao reencontradas pelo nome. Justificativas por criterio nao existem nesses
+// arquivos porque o recurso e posterior a eles.
+function _obsDoBackup(texto) {
+  const porLabel = {};
+  OBS_CRITERIOS.concat(OBS_CRITERIOS_LEGADO).forEach(c => { porLabel[c.label] = c.key; });
+  const iso = (br) => {
+    const m = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(br || '');
+    return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
+  };
+  const CAMPOS = {
+    'Pontos fortes': 'pontosFortes', 'Pontos a melhorar': 'pontosMelhoria',
+    'Combinados': 'combinados', 'Próximo passo': 'proximo',
+  };
+
+  const fichas = [];
+  let atual = null, campo = null;
+  String(texto || '').split('\n').forEach(linha => {
+    const l = linha.replace(/\r$/, '');
+    const cab = /^(\d{2}\/\d{2}\/\d{4}) — (.+?) · (.+)$/.exec(l);
+    if (cab) {
+      atual = { data: iso(cab[1]), prof: cab[2].trim(), turmaNome: cab[3].trim(), notas: {} };
+      fichas.push(atual); campo = null; return;
+    }
+    if (!atual) return;
+    let m;
+    if ((m = /^Horário: (.*)$/.exec(l)))  { atual.horario = m[1].trim(); campo = null; return; }
+    if ((m = /^Média: ([\d.]+)\/5 \((\d+) de (\d+) critérios/.exec(l))) {
+      atual.media = Number(m[1]); atual.avaliados = Number(m[2]);
+      atual.totalCriterios = Number(m[3]); campo = null; return;
+    }
+    if ((m = /^· (.+?): (não observado|(\d) — .+)$/.exec(l))) {
+      const chave = porLabel[m[1].trim()];
+      if (chave) atual.notas[chave] = m[3] ? Number(m[3]) : OBS_NA;
+      else atual.desconhecido = true;
+      campo = null; return;
+    }
+    if ((m = /^Registrado por (.+?) em (\d{2}\/\d{2}\/\d{4})$/.exec(l))) {
+      atual.criadoPor = m[1].trim();
+      atual.criadoEm = iso(m[2]) + 'T12:00:00.000Z';
+      campo = null; return;
+    }
+    if ((m = /^(Pontos fortes|Pontos a melhorar|Combinados|Próximo passo): ([\s\S]*)$/.exec(l))) {
+      campo = CAMPOS[m[1]]; atual[campo] = m[2]; return;
+    }
+    // Texto longo quebrado em varias linhas continua no mesmo campo
+    if (campo && l.trim() && !/^-{5,}$/.test(l)) { atual[campo] += '\n' + l; return; }
+    if (!l.trim() || /^-{5,}$/.test(l)) campo = null;
+  });
+
+  // Uma ficha so entra se estiver inteira e coerente: a media gravada no
+  // arquivo tem de bater com as notas lidas, senao a leitura errou em algo.
+  const boas = [], recusadas = [];
+  fichas.forEach(f => {
+    const notas = Object.values(f.notas);
+    const avaliadas = notas.filter(n => n !== OBS_NA && n !== '');
+    const media = avaliadas.length
+      ? Math.round(avaliadas.reduce((s, n) => s + n, 0) / avaliadas.length * 100) / 100 : null;
+    const coerente = f.data && f.prof && !f.desconhecido
+      && Object.keys(f.notas).length >= OBS_CRITERIOS.length
+      && avaliadas.length === f.avaliados
+      && (media === null || Math.abs(media - f.media) < 0.011);
+    (coerente ? boas : recusadas).push(f);
+  });
+  return { boas, recusadas, total: fichas.length };
+}
+
+// Monta o registro no formato que o sistema grava, reencontrando as chaves.
+function _obsParaRegistro(f) {
+  const turma = db.turmas.find(t => t.nome === f.turmaNome);
+  const reg = {
+    id: uid(),
+    prof: f.prof,
+    profId: resolverProfId(f.prof),
+    turmaId: turma ? turma.id : '',
+    data: f.data,
+    justificativas: {},
+    media: f.media,
+    avaliados: f.avaliados,
+    totalCriterios: f.totalCriterios || OBS_CRITERIOS.length,
+    pontosFortes:   f.pontosFortes   || '',
+    pontosMelhoria: f.pontosMelhoria || '',
+    combinados:     f.combinados     || '',
+    proximo:        f.proximo        || '',
+    horario:        f.horario        || '',
+    criadoPor: f.criadoPor || '',
+    criadoEm:  f.criadoEm  || new Date().toISOString(),
+    restauradoDeBackup: true,
+  };
+  Object.keys(f.notas).forEach(k => { reg[k] = f.notas[k]; });
+  return reg;
+}
+
+// Mesma ficha = mesma professora no mesmo dia. Serve para nao duplicar o que
+// ja esta no sistema quando o backup for colado duas vezes.
+const _obsChave = (o) => `${o.data}|${normalizarNome(o.prof || '')}`;
+
+let _restauroPlano = null;
+
+function conferirRestauroObs() {
+  const el = document.getElementById('cfg-restaura-resultado');
+  if (!el) return;
+  const texto = document.getElementById('cfg-restaura-texto')?.value || '';
+  if (!texto.trim()) { el.innerHTML = '<div class="alert alert-warn">Cole o conteúdo do arquivo de backup primeiro.</div>'; return; }
+
+  const { boas, recusadas, total } = _obsDoBackup(texto);
+  if (!total) {
+    el.innerHTML = `<div class="alert alert-err">Não reconheci nenhuma ficha nesse texto.
+      Confira se copiou de <strong>Fichas de Observacao</strong> e não de outra pasta do backup.</div>`;
+    return;
+  }
+
+  const existentes = new Set((db.observacoes || []).map(_obsChave));
+  const novas = [], jaTem = [];
+  boas.forEach(f => (existentes.has(_obsChave(f)) ? jaTem : novas).push(f));
+  _restauroPlano = novas;
+
+  const semTurma = novas.filter(f => !db.turmas.some(t => t.nome === f.turmaNome));
+  const semProf  = novas.filter(f => !resolverProfId(f.prof));
+
+  const lista = novas.slice(0, 30).map(f =>
+    `<li>${escapeHtml(_bkData(f.data))} — ${escapeHtml(f.prof)} · ${escapeHtml(f.turmaNome)} (média ${f.media})</li>`).join('');
+
+  el.innerHTML = `
+    <div class="alert ${novas.length ? 'alert-warn' : 'alert-info'}">
+      <strong>${total} ficha(s) no arquivo.</strong>
+      ${novas.length} será(ão) restaurada(s), ${jaTem.length} já existe(m) no sistema
+      ${recusadas.length ? `, <span style="color:#dc2626;">${recusadas.length} não pude ler com segurança e ficam de fora</span>` : ''}.
+      ${semTurma.length ? `<br><span style="color:#b45309;">⚠️ ${semTurma.length} ficha(s) com turma que não existe no cadastro — entram sem turma.</span>` : ''}
+      ${semProf.length ? `<br><span style="color:#b45309;">⚠️ ${semProf.length} ficha(s) cuja professora não achei no cadastro — o nome é mantido como texto.</span>` : ''}
+    </div>
+    ${novas.length ? `<ul style="font-size:12.5px;margin:0 0 12px 18px;">${lista}
+      ${novas.length > 30 ? `<li>… e mais ${novas.length - 30}</li>` : ''}</ul>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="restaurarObsDoBackup()">♻️ Restaurar ${novas.length} ficha(s)</button>
+      </div>` : ''}`;
+}
+
+function restaurarObsDoBackup() {
+  if (!_restauroPlano || !_restauroPlano.length) { showToast('⚠️ Rode a conferência primeiro.'); return; }
+  const quantas = _restauroPlano.length;
+  showConfirmModal(
+    `Restaurar ${quantas} ficha(s) de observação?<br>`
+    + `<small style="color:#888;font-weight:400;">Elas são acrescentadas às que já existem. `
+    + `Nenhuma ficha atual é alterada ou apagada.</small>`,
+    () => {
+      const antes = (db.observacoes || []).length;
+      const novos = _restauroPlano.map(_obsParaRegistro);
+      db.observacoes = novos.concat(db.observacoes || []);
+      db.observacoes.sort((a, b) => String(b.data).localeCompare(String(a.data)));
+      _observacoesCarregadas = true;
+      save();
+      _restauroPlano = null;
+      const campo = document.getElementById('cfg-restaura-texto'); if (campo) campo.value = '';
+      document.getElementById('cfg-restaura-resultado').innerHTML =
+        `<div class="alert alert-info" style="margin-bottom:0;"><strong>${novos.length} ficha(s) restaurada(s).</strong>
+         O sistema tinha ${antes} e agora tem ${db.observacoes.length}.</div>`;
+      showToast(`♻️ ${novos.length} ficha(s) de observação restauradas.`, 7000);
+      logger.audit({ module: 'config', action: 'restauro-observacoes',
+        message: `Restauradas ${novos.length} fichas de observação do backup`,
+        after: { antes, depois: db.observacoes.length } });
+      refreshCurrentView();
+    },
+    { rotulo: 'Restaurar', tipo: 'primary' }
   );
 }
 
@@ -6901,6 +7291,9 @@ function renderCardReparoColecoes() {
   card.style.display = currentUser?.papel === 'diretor' ? '' : 'none';
   const el = document.getElementById('cfg-reparo-resultado');
   if (el) el.innerHTML = '';
+  const rest = document.getElementById('cfg-restaura-resultado');
+  if (rest) rest.innerHTML = '';
+  _restauroPlano = null;
 }
 
 // Prepara o cartao de configuracao do regime (aba Configuracoes, so direcao)
@@ -7243,6 +7636,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   await carregarParecerDeletedIds(); // idem para pareceres
   await resgatarLocaisNaoSincronizados();  // reenvia o que ficou só no aparelho
   setupSync();
+  await manutencaoAutomatica();   // conserta sozinho o que a troca de colecoes desarrumou
   document.getElementById('loading-screen').style.display = 'none';
 
   // Cria usuário diretor padrão APENAS numa primeira execução real —
