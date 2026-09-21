@@ -4810,7 +4810,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.29.0';
+const APP_VERSION = 'v2.29.1';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -6741,15 +6741,55 @@ function _tipoDoRegistro(r) {
   return null;
 }
 
-// Classifica um array inteiro. So devolve um tipo quando TODOS os registros
-// concordam; qualquer duvida vira 'misto' ou 'desconhecido' e o reparo para.
-function _tipoDoArray(arr) {
-  if (!Array.isArray(arr)) return 'invalido';
-  if (!arr.length) return 'vazio';
-  const tipos = new Set(arr.map(_tipoDoRegistro));
-  if (tipos.has(null)) return 'desconhecido';
-  if (tipos.size > 1)  return 'misto';
-  return [...tipos][0];
+// A separacao e REGISTRO A REGISTRO, nao documento a documento. Na pratica os
+// documentos ficaram misturados: as vezes o sistema carregava certo (pelo
+// listener em tempo real) e gravava certo, as vezes carregava trocado. Mover
+// documentos inteiros nao resolveria e ainda apagaria o que estava certo.
+function _planoDeReparo(lidos) {
+  const porTipo       = {};   // tipo -> [registro]
+  const vistos        = {};   // tipo -> Set de ids ja aceitos
+  const desconhecidos = {};   // documento -> [registro que nao sei classificar]
+  const origem        = {};   // documento -> { tipo: quantos }
+  REPARO_COLECOES.forEach(nome => {
+    porTipo[nome] = []; vistos[nome] = new Set();
+    desconhecidos[nome] = []; origem[nome] = {};
+  });
+
+  // Duas passadas: primeiro os registros que ja estao no documento certo, para
+  // que sejam eles a sobreviver a uma eventual duplicata de mesmo id.
+  const passar = (soNoLugarCerto) => {
+    REPARO_COLECOES.forEach(nome => {
+      (lidos[nome] || []).forEach(reg => {
+        const tipo = _tipoDoRegistro(reg);
+        if (!tipo) {
+          if (soNoLugarCerto) {
+            desconhecidos[nome].push(reg);
+            origem[nome]['?'] = (origem[nome]['?'] || 0) + 1;
+          }
+          return;
+        }
+        if (soNoLugarCerto !== (tipo === nome)) return;
+        origem[nome][tipo] = (origem[nome][tipo] || 0) + 1;
+        const id = String(reg && reg.id);
+        if (vistos[tipo].has(id)) return;      // mesma coisa gravada em dois lugares
+        vistos[tipo].add(id);
+        porTipo[tipo].push(reg);
+      });
+    });
+  };
+  passar(true);
+  passar(false);
+
+  // O que nao consegui identificar fica exatamente onde esta. Nao adivinho, e
+  // tambem nao deixo cair fora do documento na hora de regravar.
+  const plano = {};
+  REPARO_COLECOES.forEach(nome => {
+    plano[nome] = porTipo[nome].concat(desconhecidos[nome]);
+  });
+  // O chat depende da ordem cronologica para fazer sentido na tela.
+  plano.chatGeral.sort((a, b) => (Number(a.criadoEm) || 0) - (Number(b.criadoEm) || 0));
+
+  return { plano, origem, desconhecidos };
 }
 
 async function diagnosticarColecoes() {
@@ -6762,7 +6802,8 @@ async function diagnosticarColecoes() {
     const docs = await Promise.all(REPARO_COLECOES.map(nome => FSREF(nome).get()));
     lidos = {};
     REPARO_COLECOES.forEach((nome, i) => {
-      lidos[nome] = docs[i].exists ? (docs[i].data().data ?? []) : [];
+      const d = docs[i].exists ? (docs[i].data().data ?? []) : [];
+      lidos[nome] = Array.isArray(d) ? d : [];
     });
   } catch (e) {
     el.innerHTML = `<div class="alert alert-err">Não consegui ler os documentos: ${escapeHtml(e.message)}</div>`;
@@ -6770,87 +6811,84 @@ async function diagnosticarColecoes() {
   }
 
   _reparoLidos = lidos;
-  const conteudo = {};
-  REPARO_COLECOES.forEach(nome => { conteudo[nome] = _tipoDoArray(lidos[nome]); });
+  const { plano, origem, desconhecidos } = _planoDeReparo(lidos);
+  _reparoPlano = plano;
 
-  const foraDoLugar = REPARO_COLECOES.filter(nome =>
-    conteudo[nome] !== 'vazio' && conteudo[nome] !== nome);
+  const descreverOrigem = (nome) => {
+    const partes = Object.keys(origem[nome]).map(tipo => {
+      const qtd = origem[nome][tipo];
+      if (tipo === '?')      return `<span style="color:#dc2626;">${qtd} não identificado(s)</span>`;
+      if (tipo === nome)     return `<span style="color:#059669;">${qtd} no lugar certo</span>`;
+      return `<span style="color:#b45309;">${qtd} de ${REPARO_ROTULOS[tipo]}</span>`;
+    });
+    return partes.length ? partes.join('<br>') : '<span style="color:var(--gray-400);">vazio</span>';
+  };
 
-  const linhas = REPARO_COLECOES.map(nome => {
-    const tipo = conteudo[nome];
-    const qtd  = Array.isArray(lidos[nome]) ? lidos[nome].length : 0;
-    let situacao, cor;
-    if (tipo === 'vazio')      { situacao = 'vazio';                          cor = 'var(--gray-400)'; }
-    else if (tipo === nome)    { situacao = '✅ no lugar certo';              cor = '#059669'; }
-    else if (REPARO_ROTULOS[tipo]) { situacao = `⚠️ contém ${REPARO_ROTULOS[tipo]}`; cor = '#b45309'; }
-    else                       { situacao = `🚫 conteúdo ${tipo}`;            cor = '#dc2626'; }
-    return `<tr>
+  const linhas = REPARO_COLECOES.map(nome => `<tr>
       <td style="padding:7px 12px;border-bottom:1px solid var(--gray-200);font-weight:600;">${REPARO_ROTULOS[nome]}</td>
-      <td style="padding:7px 12px;border-bottom:1px solid var(--gray-200);text-align:center;font-variant-numeric:tabular-nums;">${qtd}</td>
-      <td style="padding:7px 12px;border-bottom:1px solid var(--gray-200);color:${cor};">${situacao}</td>
-    </tr>`;
-  }).join('');
+      <td style="padding:7px 12px;border-bottom:1px solid var(--gray-200);text-align:center;font-variant-numeric:tabular-nums;">${(lidos[nome] || []).length}</td>
+      <td style="padding:7px 12px;border-bottom:1px solid var(--gray-200);font-size:12.5px;">${descreverOrigem(nome)}</td>
+      <td style="padding:7px 12px;border-bottom:1px solid var(--gray-200);text-align:center;font-variant-numeric:tabular-nums;font-weight:700;color:var(--green-dark);">${plano[nome].length}</td>
+    </tr>`).join('');
 
   const tabela = `<div style="overflow-x:auto;margin-bottom:14px;">
       <table style="border-collapse:collapse;width:100%;border:1px solid var(--gray-200);border-radius:8px;overflow:hidden;">
         <thead><tr style="background:var(--green-light);">
           <th style="padding:9px 12px;text-align:left;color:var(--green-dark);font-size:13px;">Documento</th>
-          <th style="padding:9px 12px;text-align:center;color:var(--green-dark);font-size:13px;width:80px;">Registros</th>
+          <th style="padding:9px 12px;text-align:center;color:var(--green-dark);font-size:13px;width:70px;">Hoje</th>
           <th style="padding:9px 12px;text-align:left;color:var(--green-dark);font-size:13px;">O que tem dentro</th>
+          <th style="padding:9px 12px;text-align:center;color:var(--green-dark);font-size:13px;width:90px;">Depois</th>
         </tr></thead>
         <tbody>${linhas}</tbody>
       </table>
     </div>`;
 
-  if (!foraDoLugar.length) {
-    el.innerHTML = tabela + `<div class="alert alert-info" style="margin-bottom:0;">
-      <strong>Está tudo no lugar certo.</strong> Nenhum reparo é necessário.</div>`;
+  const mudou = REPARO_COLECOES.some(nome =>
+    JSON.stringify(plano[nome]) !== JSON.stringify(lidos[nome] || []));
+
+  const qtdDesconhecidos = REPARO_COLECOES.reduce((s, n) => s + desconhecidos[n].length, 0);
+  const avisoDesconhecidos = qtdDesconhecidos ? `<div class="alert alert-warn">
+      <strong>${qtdDesconhecidos} registro(s) não puderam ser identificados.</strong>
+      Eles ficam exatamente onde estão — não são movidos nem apagados. Use o botão
+      “Baixar dados brutos” para eu analisar quais são.
+    </div>` : '';
+
+  const botaoBruto = `<button class="btn btn-secondary" onclick="baixarBrutoColecoes()">⬇️ Baixar dados brutos</button>`;
+
+  if (!mudou) {
+    el.innerHTML = tabela + avisoDesconhecidos + `<div class="alert alert-info" style="margin-bottom:14px;">
+        <strong>Está tudo no lugar certo.</strong> Nenhum reparo é necessário.</div>
+      <div class="btn-row">${botaoBruto}</div>`;
     return;
   }
 
-  // Duas coleções com o mesmo conteúdo, ou conteúdo que não deu para
-  // identificar: parar e pedir análise em vez de arriscar sobrescrever.
-  // A conferência olha TODOS os documentos preenchidos, não só os que estão
-  // fora do lugar: um documento certo e outro trocado podem carregar o mesmo
-  // tipo, e aí um apagaria o outro.
-  const tiposUteis = REPARO_COLECOES
-    .map(n => conteudo[n])
-    .filter(t => t !== 'vazio');
-  const naoIdentificado = tiposUteis.some(t => !REPARO_ROTULOS[t]);
-  const duplicado = new Set(tiposUteis).size !== tiposUteis.length;
-  if (naoIdentificado || duplicado) {
-    el.innerHTML = tabela + `<div class="alert alert-err" style="margin-bottom:0;">
-      <strong>Não vou reparar automaticamente.</strong>
-      ${naoIdentificado ? 'Há conteúdo que não consegui identificar com segurança. ' : ''}
-      ${duplicado ? 'Dois documentos parecem ter o mesmo tipo de registro. ' : ''}
-      Mexer aqui poderia apagar dado bom. Me mostre esta tela para eu analisar caso a caso.</div>`;
-    return;
-  }
+  const movimentos = REPARO_COLECOES
+    .filter(nome => plano[nome].length !== (lidos[nome] || []).length)
+    .map(nome => {
+      const de = (lidos[nome] || []).length, para = plano[nome].length;
+      return `<li><strong>${REPARO_ROTULOS[nome]}</strong>: ${de} → ${para} registro(s)</li>`;
+    }).join('');
 
-  // O plano cobre os QUATRO documentos, não só os que têm conteúdo a receber.
-  // Um documento cujo conteúdo foi embora para outro lugar precisa ficar
-  // vazio, senão o registro acaba duplicado nos dois.
-  const achado = {};
-  REPARO_COLECOES.forEach(nome => {
-    const tipo = conteudo[nome];
-    if (tipo !== 'vazio') achado[tipo] = lidos[nome];
-  });
-  const destino = {};
-  REPARO_COLECOES.forEach(nome => { destino[nome] = achado[nome] || []; });
-  _reparoPlano = destino;
-
-  const movimentos = foraDoLugar.map(nome =>
-    `<li>${lidos[nome].length} registro(s) de <strong>${REPARO_ROTULOS[conteudo[nome]]}</strong>`
-    + ` saem de "${REPARO_ROTULOS[nome]}" e voltam para o seu documento</li>`
-  ).join('');
-
-  el.innerHTML = tabela + `<div class="alert alert-warn">
-      <strong>Encontrei ${foraDoLugar.length} documento(s) fora do lugar.</strong>
+  el.innerHTML = tabela + avisoDesconhecidos + `<div class="alert alert-warn">
+      <strong>Cada registro volta para o documento do seu tipo.</strong>
       <ul style="margin:8px 0 0 18px;font-size:13px;">${movimentos}</ul>
+      <div style="font-size:12.5px;margin-top:8px;">
+        Registros iguais gravados em dois lugares entram uma vez só. Nada é apagado:
+        a soma dos “Depois” mais os não identificados bate com o total de hoje.
+      </div>
     </div>
     <div class="btn-row">
       <button class="btn btn-primary" onclick="repararColecoes()">💾 Baixar backup e reparar</button>
+      ${botaoBruto}
     </div>`;
+}
+
+// Exporta os quatro documentos como estao, para analise fora do sistema.
+function baixarBrutoColecoes() {
+  if (!_reparoLidos) { showToast('⚠️ Rode o diagnóstico primeiro.'); return; }
+  const carimbo = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  downloadTxt(JSON.stringify(_reparoLidos, null, 2), `colecoes-brutas-${carimbo}.json`);
+  showToast('⬇️ Arquivo salvo no seu computador.');
 }
 
 let _reparoLidos = null;
@@ -6858,19 +6896,24 @@ let _reparoPlano = null;
 
 function repararColecoes() {
   if (!_reparoPlano || !_reparoLidos) { showToast('⚠️ Rode o diagnóstico primeiro.'); return; }
+
+  // Trava de seguranca: nenhum registro pode sumir na regravacao.
+  const antes  = REPARO_COLECOES.reduce((s, n) => s + (_reparoLidos[n] || []).length, 0);
+  const depois = REPARO_COLECOES.reduce((s, n) => s + _reparoPlano[n].length, 0);
+  if (depois > antes) { showToast('🚫 Reparo cancelado: o plano criaria registros. Me chame.', 9000); return; }
+
   showConfirmModal(
-    'Devolver cada coleção ao seu documento?<br>'
-    + '<small style="color:#888;font-weight:400;">Um arquivo de backup dos quatro documentos será '
-    + 'baixado antes de qualquer gravação.</small>',
+    `Devolver cada registro ao documento do seu tipo?<br>`
+    + `<small style="color:#888;font-weight:400;">${antes} registro(s) hoje → ${depois} depois `
+    + `(a diferença são cópias do mesmo registro gravadas em dois lugares). `
+    + `Um backup dos quatro documentos será baixado antes de qualquer gravação.</small>`,
     async () => {
-      // Backup primeiro: se algo der errado na gravação, o estado anterior
-      // está no arquivo que acabou de ser salvo no computador.
       const carimbo = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
       downloadTxt(JSON.stringify(_reparoLidos, null, 2), `backup-colecoes-${carimbo}.json`);
 
       const plano = _reparoPlano;
       try {
-        await Promise.all(Object.keys(plano).map(nome =>
+        await Promise.all(REPARO_COLECOES.map(nome =>
           FSREF(nome).set({ data: plano[nome] })));
       } catch (e) {
         showToast('❌ Falha ao gravar: ' + e.message, 8000);
@@ -6878,16 +6921,16 @@ function repararColecoes() {
       }
 
       // A memória tem de acompanhar, senão o próximo save() regrava o antigo.
-      Object.keys(plano).forEach(nome => { db[nome] = plano[nome]; });
+      REPARO_COLECOES.forEach(nome => { db[nome] = plano[nome]; });
       LS.set('ps_impressoes',  db.impressoes);
       LS.set('ps_orientacoes', db.orientacoes);
       LS.set('ps_observacoes', db.observacoes);
 
       _reparoPlano = null;
-      showToast('✅ Coleções reparadas. O backup foi salvo no seu computador.', 7000);
+      showToast('✅ Registros reorganizados. O backup foi salvo no seu computador.', 7000);
       logger.audit({ module: 'config', action: 'reparo-colecoes',
-        message: 'Coleções trocadas devolvidas aos seus documentos',
-        after: Object.fromEntries(Object.keys(plano).map(n => [n, plano[n].length])) });
+        message: 'Registros devolvidos aos documentos do seu tipo',
+        after: Object.fromEntries(REPARO_COLECOES.map(n => [n, plano[n].length])) });
       diagnosticarColecoes();
       refreshCurrentView();
     },
