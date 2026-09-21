@@ -4790,7 +4790,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.28.0';
+const APP_VERSION = 'v2.28.1';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -4979,19 +4979,31 @@ async function migrarImagensPlanej() {
 async function loadFromFirestore() {
   const _t = logger.timer('firestore', 'load-initial');
   try {
-    const [rT, rA, rP, rPar, rAv, rU, rCfg, rNot, rHa, rRot, rAtiv, rDSA, rEP, rOc, rFm, rCal, rChat, rOri, rObs, rImp, rMarcos] = await Promise.all([
-      FSREF('turmas').get(), FSREF('alunos').get(),
-      FSREF('planejamentos').get(), FSREF('pareceres').get(),
-      FSREF('avaliacoes').get(), FSREF('usuarios').get(),
-      FSREF('config').get(), FSREF('notificacoes').get(),
-      FSREF('horaAtividade').get(), FSREF('rotinas').get(),
-      FSREF('atividades').get(), FSREF('diasSemAula').get(),
-      FSREF('entregasPareceres').get(), FSREF('ocorrencias').get(),
-      FSREF('agendaFormacao').get(), FSREF('calendarioEscolar').get(),
-      FSREF('observacoes').get(), FSREF('impressoes').get(),
-      FSREF('chatGeral').get(), FSREF('orientacoes').get(),
-      FSREF('marcosDesenvolvimento').get(),
-    ]);
+    // Cada documento e recuperado PELO NOME da colecao, nunca pela posicao na
+    // lista. A versao anterior desempacotava por posicao e as posicoes saiam
+    // do lugar a cada colecao nova: observacoes, orientacoes, chat e
+    // impressoes acabaram lidas umas no lugar das outras.
+    const _COLECOES = [
+      'turmas', 'alunos', 'planejamentos', 'pareceres', 'avaliacoes', 'usuarios',
+      'config', 'notificacoes', 'horaAtividade', 'rotinas', 'atividades', 'diasSemAula',
+      'entregasPareceres', 'ocorrencias', 'agendaFormacao', 'calendarioEscolar',
+      'observacoes', 'impressoes', 'chatGeral', 'orientacoes', 'marcosDesenvolvimento',
+    ];
+    const _lidos = await Promise.all(_COLECOES.map(nome => FSREF(nome).get()));
+    const _doc   = {};
+    _COLECOES.forEach((nome, i) => { _doc[nome] = _lidos[i]; });
+
+    const rT    = _doc.turmas,        rA    = _doc.alunos,
+          rP    = _doc.planejamentos, rPar  = _doc.pareceres,
+          rAv   = _doc.avaliacoes,    rU    = _doc.usuarios,
+          rCfg  = _doc.config,        rNot  = _doc.notificacoes,
+          rHa   = _doc.horaAtividade, rRot  = _doc.rotinas,
+          rAtiv = _doc.atividades,    rDSA  = _doc.diasSemAula,
+          rEP   = _doc.entregasPareceres,   rOc  = _doc.ocorrencias,
+          rFm   = _doc.agendaFormacao,      rCal = _doc.calendarioEscolar,
+          rObs  = _doc.observacoes,   rImp  = _doc.impressoes,
+          rChat = _doc.chatGeral,     rOri  = _doc.orientacoes,
+          rMarcos = _doc.marcosDesenvolvimento;
     if (rT.exists)   db.turmas        = rT.data().data   ?? [];
     if (rA.exists)   db.alunos        = rA.data().data   ?? [];
     if (rP.exists)   db.planejamentos = rP.data().data   ?? [];
