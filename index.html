@@ -2337,6 +2337,26 @@ function _listarPlanejamentos() {
     <div id="cfg-cota-status" style="margin-top:10px;font-size:13px;"></div>
   </div>
 
+  <div class="card" id="card-reparo-colecoes" style="display:none;">
+    <div class="card-title">🔧 Reparo de coleções trocadas</div>
+    <p style="font-size:13px;color:var(--gray-600);margin-bottom:14px;">
+      Até a versão 2.28.0 o sistema lia quatro coleções fora de ordem e, ao salvar, podia gravar
+      uma por cima da outra: <strong>solicitações de cópia ↔ orientações</strong> e
+      <strong>observações em sala ↔ chat interno</strong>. Nada se perdeu — o conteúdo foi parar no
+      documento vizinho. Esta ferramenta confere o que está gravado hoje e devolve cada coisa ao
+      seu lugar.
+    </p>
+    <p style="font-size:12.5px;color:var(--gray-500);margin-bottom:14px;">
+      O diagnóstico apenas lê, não altera nada. O reparo só acontece depois que você confirmar,
+      e um backup dos quatro documentos é baixado antes de qualquer gravação.
+    </p>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="diagnosticarColecoes()">🔍 Diagnosticar</button>
+    </div>
+    <div id="cfg-reparo-resultado" style="margin-top:14px;"></div>
+  </div>
+
   <div class="card" id="card-vinculo-prof" style="display:none;">
     <div class="card-title">🔗 Vincular professoras aos registros</div>
     <p style="font-size:13px;color:var(--gray-600);margin-bottom:14px;">
@@ -4790,7 +4810,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.28.1';
+const APP_VERSION = 'v2.29.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -5646,7 +5666,7 @@ function refreshCurrentView() {
   if (!active) return;
   const id = active.id;
   if (id === 'tab-dashboard')    renderDashboard();
-  if (id === 'tab-config')       { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); renderCardCotas(); renderCardDocsFaltantes(); renderCardBackup(); aplicarTema(temaAtual()); }
+  if (id === 'tab-config')       { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); renderCardCotas(); renderCardReparoColecoes(); renderCardDocsFaltantes(); renderCardBackup(); aplicarTema(temaAtual()); }
   if (id === 'tab-planejamento') { populateSelects(); renderPlanejamentos(); plLigarRascunho(); }
   if (id === 'tab-pareceres')    { populateSelects(); renderPareceres(); }
   if (id === 'tab-avaliacoes')   { populateSelects(); renderTabelaAvaliacoes(); }
@@ -6498,7 +6518,7 @@ function showTab(tab) {
   if (tab === 'hora-atividade') { renderHoraAtividade(); }
   if (tab === 'rotina')         { renderRotina(); }
   if (tab === 'atividades')     { renderAtividades(); }
-  if (tab === 'config')         { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); renderCardCotas(); renderCardDocsFaltantes(); renderCardBackup(); aplicarTema(temaAtual()); }
+  if (tab === 'config')         { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); renderCardCotas(); renderCardReparoColecoes(); renderCardDocsFaltantes(); renderCardBackup(); aplicarTema(temaAtual()); }
   if (tab === 'ocorrencias')    { renderOcorrencias(); }
   if (tab === 'observacoes')    { popularSelectsObservacao(); renderObservacoes(); popularSelectPlano(); renderPlanoAcao(); }
   if (tab === 'orientacoes')    { popularSelectsOrientacao(); renderOrientacoes(); }
@@ -6690,6 +6710,197 @@ function salvarCotasCopias() {
   renderCardCotas();
   copAtualizarCota();
   logger.audit({ module: 'config', action: 'cotas-copias', message: 'Cotas de cópia atualizadas', after: db.cotasCopias });
+}
+
+// =====================================================================
+// REPARO DE COLECOES TROCADAS (aba Configuracoes, so direcao)
+// Ate a v2.28.0 o carregamento lia os documentos por posicao e quatro
+// colecoes eram atribuidas umas no lugar das outras. Com a flag de
+// "carregado" ligada, um save() seguinte gravava o array trocado por cima
+// da colecao certa. O conteudo nao se perde: vai parar no documento
+// vizinho. Esta ferramenta identifica cada array pelo formato dos seus
+// registros e devolve cada um ao documento correto.
+// =====================================================================
+const REPARO_COLECOES = ['impressoes', 'orientacoes', 'observacoes', 'chatGeral'];
+
+const REPARO_ROTULOS = {
+  impressoes:  'Solicitações de cópia',
+  orientacoes: 'Orientações (hora-atividade)',
+  observacoes: 'Observações em sala',
+  chatGeral:   'Chat interno',
+};
+
+// Assinatura de cada tipo: campos que so existem naquele registro.
+// A ordem importa — do mais especifico para o menos.
+function _tipoDoRegistro(r) {
+  if (!r || typeof r !== 'object') return null;
+  if ('autorNome' in r && 'texto' in r)                return 'chatGeral';
+  if ('totalCriterios' in r || 'justificativas' in r)  return 'observacoes';
+  if ('assunto' in r && 'concluido' in r)              return 'orientacoes';
+  if ('paginas' in r && 'copias' in r)                 return 'impressoes';
+  return null;
+}
+
+// Classifica um array inteiro. So devolve um tipo quando TODOS os registros
+// concordam; qualquer duvida vira 'misto' ou 'desconhecido' e o reparo para.
+function _tipoDoArray(arr) {
+  if (!Array.isArray(arr)) return 'invalido';
+  if (!arr.length) return 'vazio';
+  const tipos = new Set(arr.map(_tipoDoRegistro));
+  if (tipos.has(null)) return 'desconhecido';
+  if (tipos.size > 1)  return 'misto';
+  return [...tipos][0];
+}
+
+async function diagnosticarColecoes() {
+  const el = document.getElementById('cfg-reparo-resultado');
+  if (!el) return;
+  el.innerHTML = '<div style="font-size:13px;color:var(--gray-600);">🔄 Lendo os documentos no servidor…</div>';
+
+  let lidos;
+  try {
+    const docs = await Promise.all(REPARO_COLECOES.map(nome => FSREF(nome).get()));
+    lidos = {};
+    REPARO_COLECOES.forEach((nome, i) => {
+      lidos[nome] = docs[i].exists ? (docs[i].data().data ?? []) : [];
+    });
+  } catch (e) {
+    el.innerHTML = `<div class="alert alert-err">Não consegui ler os documentos: ${escapeHtml(e.message)}</div>`;
+    return;
+  }
+
+  _reparoLidos = lidos;
+  const conteudo = {};
+  REPARO_COLECOES.forEach(nome => { conteudo[nome] = _tipoDoArray(lidos[nome]); });
+
+  const foraDoLugar = REPARO_COLECOES.filter(nome =>
+    conteudo[nome] !== 'vazio' && conteudo[nome] !== nome);
+
+  const linhas = REPARO_COLECOES.map(nome => {
+    const tipo = conteudo[nome];
+    const qtd  = Array.isArray(lidos[nome]) ? lidos[nome].length : 0;
+    let situacao, cor;
+    if (tipo === 'vazio')      { situacao = 'vazio';                          cor = 'var(--gray-400)'; }
+    else if (tipo === nome)    { situacao = '✅ no lugar certo';              cor = '#059669'; }
+    else if (REPARO_ROTULOS[tipo]) { situacao = `⚠️ contém ${REPARO_ROTULOS[tipo]}`; cor = '#b45309'; }
+    else                       { situacao = `🚫 conteúdo ${tipo}`;            cor = '#dc2626'; }
+    return `<tr>
+      <td style="padding:7px 12px;border-bottom:1px solid var(--gray-200);font-weight:600;">${REPARO_ROTULOS[nome]}</td>
+      <td style="padding:7px 12px;border-bottom:1px solid var(--gray-200);text-align:center;font-variant-numeric:tabular-nums;">${qtd}</td>
+      <td style="padding:7px 12px;border-bottom:1px solid var(--gray-200);color:${cor};">${situacao}</td>
+    </tr>`;
+  }).join('');
+
+  const tabela = `<div style="overflow-x:auto;margin-bottom:14px;">
+      <table style="border-collapse:collapse;width:100%;border:1px solid var(--gray-200);border-radius:8px;overflow:hidden;">
+        <thead><tr style="background:var(--green-light);">
+          <th style="padding:9px 12px;text-align:left;color:var(--green-dark);font-size:13px;">Documento</th>
+          <th style="padding:9px 12px;text-align:center;color:var(--green-dark);font-size:13px;width:80px;">Registros</th>
+          <th style="padding:9px 12px;text-align:left;color:var(--green-dark);font-size:13px;">O que tem dentro</th>
+        </tr></thead>
+        <tbody>${linhas}</tbody>
+      </table>
+    </div>`;
+
+  if (!foraDoLugar.length) {
+    el.innerHTML = tabela + `<div class="alert alert-info" style="margin-bottom:0;">
+      <strong>Está tudo no lugar certo.</strong> Nenhum reparo é necessário.</div>`;
+    return;
+  }
+
+  // Duas coleções com o mesmo conteúdo, ou conteúdo que não deu para
+  // identificar: parar e pedir análise em vez de arriscar sobrescrever.
+  // A conferência olha TODOS os documentos preenchidos, não só os que estão
+  // fora do lugar: um documento certo e outro trocado podem carregar o mesmo
+  // tipo, e aí um apagaria o outro.
+  const tiposUteis = REPARO_COLECOES
+    .map(n => conteudo[n])
+    .filter(t => t !== 'vazio');
+  const naoIdentificado = tiposUteis.some(t => !REPARO_ROTULOS[t]);
+  const duplicado = new Set(tiposUteis).size !== tiposUteis.length;
+  if (naoIdentificado || duplicado) {
+    el.innerHTML = tabela + `<div class="alert alert-err" style="margin-bottom:0;">
+      <strong>Não vou reparar automaticamente.</strong>
+      ${naoIdentificado ? 'Há conteúdo que não consegui identificar com segurança. ' : ''}
+      ${duplicado ? 'Dois documentos parecem ter o mesmo tipo de registro. ' : ''}
+      Mexer aqui poderia apagar dado bom. Me mostre esta tela para eu analisar caso a caso.</div>`;
+    return;
+  }
+
+  // O plano cobre os QUATRO documentos, não só os que têm conteúdo a receber.
+  // Um documento cujo conteúdo foi embora para outro lugar precisa ficar
+  // vazio, senão o registro acaba duplicado nos dois.
+  const achado = {};
+  REPARO_COLECOES.forEach(nome => {
+    const tipo = conteudo[nome];
+    if (tipo !== 'vazio') achado[tipo] = lidos[nome];
+  });
+  const destino = {};
+  REPARO_COLECOES.forEach(nome => { destino[nome] = achado[nome] || []; });
+  _reparoPlano = destino;
+
+  const movimentos = foraDoLugar.map(nome =>
+    `<li>${lidos[nome].length} registro(s) de <strong>${REPARO_ROTULOS[conteudo[nome]]}</strong>`
+    + ` saem de "${REPARO_ROTULOS[nome]}" e voltam para o seu documento</li>`
+  ).join('');
+
+  el.innerHTML = tabela + `<div class="alert alert-warn">
+      <strong>Encontrei ${foraDoLugar.length} documento(s) fora do lugar.</strong>
+      <ul style="margin:8px 0 0 18px;font-size:13px;">${movimentos}</ul>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="repararColecoes()">💾 Baixar backup e reparar</button>
+    </div>`;
+}
+
+let _reparoLidos = null;
+let _reparoPlano = null;
+
+function repararColecoes() {
+  if (!_reparoPlano || !_reparoLidos) { showToast('⚠️ Rode o diagnóstico primeiro.'); return; }
+  showConfirmModal(
+    'Devolver cada coleção ao seu documento?<br>'
+    + '<small style="color:#888;font-weight:400;">Um arquivo de backup dos quatro documentos será '
+    + 'baixado antes de qualquer gravação.</small>',
+    async () => {
+      // Backup primeiro: se algo der errado na gravação, o estado anterior
+      // está no arquivo que acabou de ser salvo no computador.
+      const carimbo = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      downloadTxt(JSON.stringify(_reparoLidos, null, 2), `backup-colecoes-${carimbo}.json`);
+
+      const plano = _reparoPlano;
+      try {
+        await Promise.all(Object.keys(plano).map(nome =>
+          FSREF(nome).set({ data: plano[nome] })));
+      } catch (e) {
+        showToast('❌ Falha ao gravar: ' + e.message, 8000);
+        return;
+      }
+
+      // A memória tem de acompanhar, senão o próximo save() regrava o antigo.
+      Object.keys(plano).forEach(nome => { db[nome] = plano[nome]; });
+      LS.set('ps_impressoes',  db.impressoes);
+      LS.set('ps_orientacoes', db.orientacoes);
+      LS.set('ps_observacoes', db.observacoes);
+
+      _reparoPlano = null;
+      showToast('✅ Coleções reparadas. O backup foi salvo no seu computador.', 7000);
+      logger.audit({ module: 'config', action: 'reparo-colecoes',
+        message: 'Coleções trocadas devolvidas aos seus documentos',
+        after: Object.fromEntries(Object.keys(plano).map(n => [n, plano[n].length])) });
+      diagnosticarColecoes();
+      refreshCurrentView();
+    },
+    { rotulo: 'Reparar', tipo: 'primary' }
+  );
+}
+
+function renderCardReparoColecoes() {
+  const card = document.getElementById('card-reparo-colecoes');
+  if (!card) return;
+  card.style.display = currentUser?.papel === 'diretor' ? '' : 'none';
+  const el = document.getElementById('cfg-reparo-resultado');
+  if (el) el.innerHTML = '';
 }
 
 // Prepara o cartao de configuracao do regime (aba Configuracoes, so direcao)
