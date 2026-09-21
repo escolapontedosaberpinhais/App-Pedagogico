@@ -2355,6 +2355,23 @@ function _listarPlanejamentos() {
       <button class="btn btn-primary" onclick="diagnosticarColecoes()">🔍 Diagnosticar</button>
     </div>
     <div id="cfg-reparo-resultado" style="margin-top:14px;"></div>
+
+    <div class="divider"></div>
+    <div style="font-size:13px;font-weight:600;color:var(--gray-700);margin-bottom:4px;">
+      ♻️ Restaurar fichas de observação do backup
+    </div>
+    <p style="font-size:12.5px;color:var(--gray-600);margin-bottom:10px;">
+      As fichas apagadas continuam salvas no Drive, em
+      <strong>Escola Ponte do Saber → Backup → Fichas de Observacao</strong>.
+      Abra o arquivo mais recente, selecione tudo (Ctrl+A), copie (Ctrl+C) e cole abaixo.
+      Só entram as fichas que ainda não existem no sistema — nenhuma ficha atual é alterada.
+    </p>
+    <textarea id="cfg-restaura-texto" rows="4" placeholder="Cole aqui o conteúdo do arquivo de backup…"
+              style="width:100%;font-family:monospace;font-size:12px;"></textarea>
+    <div class="btn-row" style="margin-top:8px;">
+      <button class="btn btn-secondary" onclick="conferirRestauroObs()">🔍 Conferir o que será restaurado</button>
+    </div>
+    <div id="cfg-restaura-resultado" style="margin-top:12px;"></div>
   </div>
 
   <div class="card" id="card-vinculo-prof" style="display:none;">
@@ -4810,7 +4827,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.29.1';
+const APP_VERSION = 'v2.30.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -6938,12 +6955,184 @@ function repararColecoes() {
   );
 }
 
+// ── Restauracao das fichas de observacao a partir do backup do Drive ──────
+// O backup e texto legivel, nao JSON, entao a volta e uma leitura do texto.
+// Ele nao guarda id, profId nem turmaId: o id e novo e a professora e a turma
+// sao reencontradas pelo nome. Justificativas por criterio nao existem nesses
+// arquivos porque o recurso e posterior a eles.
+function _obsDoBackup(texto) {
+  const porLabel = {};
+  OBS_CRITERIOS.concat(OBS_CRITERIOS_LEGADO).forEach(c => { porLabel[c.label] = c.key; });
+  const iso = (br) => {
+    const m = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(br || '');
+    return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
+  };
+  const CAMPOS = {
+    'Pontos fortes': 'pontosFortes', 'Pontos a melhorar': 'pontosMelhoria',
+    'Combinados': 'combinados', 'Próximo passo': 'proximo',
+  };
+
+  const fichas = [];
+  let atual = null, campo = null;
+  String(texto || '').split('\n').forEach(linha => {
+    const l = linha.replace(/\r$/, '');
+    const cab = /^(\d{2}\/\d{2}\/\d{4}) — (.+?) · (.+)$/.exec(l);
+    if (cab) {
+      atual = { data: iso(cab[1]), prof: cab[2].trim(), turmaNome: cab[3].trim(), notas: {} };
+      fichas.push(atual); campo = null; return;
+    }
+    if (!atual) return;
+    let m;
+    if ((m = /^Horário: (.*)$/.exec(l)))  { atual.horario = m[1].trim(); campo = null; return; }
+    if ((m = /^Média: ([\d.]+)\/5 \((\d+) de (\d+) critérios/.exec(l))) {
+      atual.media = Number(m[1]); atual.avaliados = Number(m[2]);
+      atual.totalCriterios = Number(m[3]); campo = null; return;
+    }
+    if ((m = /^· (.+?): (não observado|(\d) — .+)$/.exec(l))) {
+      const chave = porLabel[m[1].trim()];
+      if (chave) atual.notas[chave] = m[3] ? Number(m[3]) : OBS_NA;
+      else atual.desconhecido = true;
+      campo = null; return;
+    }
+    if ((m = /^Registrado por (.+?) em (\d{2}\/\d{2}\/\d{4})$/.exec(l))) {
+      atual.criadoPor = m[1].trim();
+      atual.criadoEm = iso(m[2]) + 'T12:00:00.000Z';
+      campo = null; return;
+    }
+    if ((m = /^(Pontos fortes|Pontos a melhorar|Combinados|Próximo passo): ([\s\S]*)$/.exec(l))) {
+      campo = CAMPOS[m[1]]; atual[campo] = m[2]; return;
+    }
+    // Texto longo quebrado em varias linhas continua no mesmo campo
+    if (campo && l.trim() && !/^-{5,}$/.test(l)) { atual[campo] += '\n' + l; return; }
+    if (!l.trim() || /^-{5,}$/.test(l)) campo = null;
+  });
+
+  // Uma ficha so entra se estiver inteira e coerente: a media gravada no
+  // arquivo tem de bater com as notas lidas, senao a leitura errou em algo.
+  const boas = [], recusadas = [];
+  fichas.forEach(f => {
+    const notas = Object.values(f.notas);
+    const avaliadas = notas.filter(n => n !== OBS_NA && n !== '');
+    const media = avaliadas.length
+      ? Math.round(avaliadas.reduce((s, n) => s + n, 0) / avaliadas.length * 100) / 100 : null;
+    const coerente = f.data && f.prof && !f.desconhecido
+      && Object.keys(f.notas).length >= OBS_CRITERIOS.length
+      && avaliadas.length === f.avaliados
+      && (media === null || Math.abs(media - f.media) < 0.011);
+    (coerente ? boas : recusadas).push(f);
+  });
+  return { boas, recusadas, total: fichas.length };
+}
+
+// Monta o registro no formato que o sistema grava, reencontrando as chaves.
+function _obsParaRegistro(f) {
+  const turma = db.turmas.find(t => t.nome === f.turmaNome);
+  const reg = {
+    id: uid(),
+    prof: f.prof,
+    profId: resolverProfId(f.prof),
+    turmaId: turma ? turma.id : '',
+    data: f.data,
+    justificativas: {},
+    media: f.media,
+    avaliados: f.avaliados,
+    totalCriterios: f.totalCriterios || OBS_CRITERIOS.length,
+    pontosFortes:   f.pontosFortes   || '',
+    pontosMelhoria: f.pontosMelhoria || '',
+    combinados:     f.combinados     || '',
+    proximo:        f.proximo        || '',
+    horario:        f.horario        || '',
+    criadoPor: f.criadoPor || '',
+    criadoEm:  f.criadoEm  || new Date().toISOString(),
+    restauradoDeBackup: true,
+  };
+  Object.keys(f.notas).forEach(k => { reg[k] = f.notas[k]; });
+  return reg;
+}
+
+// Mesma ficha = mesma professora no mesmo dia. Serve para nao duplicar o que
+// ja esta no sistema quando o backup for colado duas vezes.
+const _obsChave = (o) => `${o.data}|${normalizarNome(o.prof || '')}`;
+
+let _restauroPlano = null;
+
+function conferirRestauroObs() {
+  const el = document.getElementById('cfg-restaura-resultado');
+  if (!el) return;
+  const texto = document.getElementById('cfg-restaura-texto')?.value || '';
+  if (!texto.trim()) { el.innerHTML = '<div class="alert alert-warn">Cole o conteúdo do arquivo de backup primeiro.</div>'; return; }
+
+  const { boas, recusadas, total } = _obsDoBackup(texto);
+  if (!total) {
+    el.innerHTML = `<div class="alert alert-err">Não reconheci nenhuma ficha nesse texto.
+      Confira se copiou de <strong>Fichas de Observacao</strong> e não de outra pasta do backup.</div>`;
+    return;
+  }
+
+  const existentes = new Set((db.observacoes || []).map(_obsChave));
+  const novas = [], jaTem = [];
+  boas.forEach(f => (existentes.has(_obsChave(f)) ? jaTem : novas).push(f));
+  _restauroPlano = novas;
+
+  const semTurma = novas.filter(f => !db.turmas.some(t => t.nome === f.turmaNome));
+  const semProf  = novas.filter(f => !resolverProfId(f.prof));
+
+  const lista = novas.slice(0, 30).map(f =>
+    `<li>${escapeHtml(_bkData(f.data))} — ${escapeHtml(f.prof)} · ${escapeHtml(f.turmaNome)} (média ${f.media})</li>`).join('');
+
+  el.innerHTML = `
+    <div class="alert ${novas.length ? 'alert-warn' : 'alert-info'}">
+      <strong>${total} ficha(s) no arquivo.</strong>
+      ${novas.length} será(ão) restaurada(s), ${jaTem.length} já existe(m) no sistema
+      ${recusadas.length ? `, <span style="color:#dc2626;">${recusadas.length} não pude ler com segurança e ficam de fora</span>` : ''}.
+      ${semTurma.length ? `<br><span style="color:#b45309;">⚠️ ${semTurma.length} ficha(s) com turma que não existe no cadastro — entram sem turma.</span>` : ''}
+      ${semProf.length ? `<br><span style="color:#b45309;">⚠️ ${semProf.length} ficha(s) cuja professora não achei no cadastro — o nome é mantido como texto.</span>` : ''}
+    </div>
+    ${novas.length ? `<ul style="font-size:12.5px;margin:0 0 12px 18px;">${lista}
+      ${novas.length > 30 ? `<li>… e mais ${novas.length - 30}</li>` : ''}</ul>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="restaurarObsDoBackup()">♻️ Restaurar ${novas.length} ficha(s)</button>
+      </div>` : ''}`;
+}
+
+function restaurarObsDoBackup() {
+  if (!_restauroPlano || !_restauroPlano.length) { showToast('⚠️ Rode a conferência primeiro.'); return; }
+  const quantas = _restauroPlano.length;
+  showConfirmModal(
+    `Restaurar ${quantas} ficha(s) de observação?<br>`
+    + `<small style="color:#888;font-weight:400;">Elas são acrescentadas às que já existem. `
+    + `Nenhuma ficha atual é alterada ou apagada.</small>`,
+    () => {
+      const antes = (db.observacoes || []).length;
+      const novos = _restauroPlano.map(_obsParaRegistro);
+      db.observacoes = novos.concat(db.observacoes || []);
+      db.observacoes.sort((a, b) => String(b.data).localeCompare(String(a.data)));
+      _observacoesCarregadas = true;
+      save();
+      _restauroPlano = null;
+      const campo = document.getElementById('cfg-restaura-texto'); if (campo) campo.value = '';
+      document.getElementById('cfg-restaura-resultado').innerHTML =
+        `<div class="alert alert-info" style="margin-bottom:0;"><strong>${novos.length} ficha(s) restaurada(s).</strong>
+         O sistema tinha ${antes} e agora tem ${db.observacoes.length}.</div>`;
+      showToast(`♻️ ${novos.length} ficha(s) de observação restauradas.`, 7000);
+      logger.audit({ module: 'config', action: 'restauro-observacoes',
+        message: `Restauradas ${novos.length} fichas de observação do backup`,
+        after: { antes, depois: db.observacoes.length } });
+      refreshCurrentView();
+    },
+    { rotulo: 'Restaurar', tipo: 'primary' }
+  );
+}
+
 function renderCardReparoColecoes() {
   const card = document.getElementById('card-reparo-colecoes');
   if (!card) return;
   card.style.display = currentUser?.papel === 'diretor' ? '' : 'none';
   const el = document.getElementById('cfg-reparo-resultado');
   if (el) el.innerHTML = '';
+  const rest = document.getElementById('cfg-restaura-resultado');
+  if (rest) rest.innerHTML = '';
+  _restauroPlano = null;
 }
 
 // Prepara o cartao de configuracao do regime (aba Configuracoes, so direcao)
