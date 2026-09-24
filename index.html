@@ -4834,7 +4834,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.33.0';
+const APP_VERSION = 'v2.33.1';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -8551,7 +8551,7 @@ body{ font-family:Arial,Helvetica,sans-serif; font-size:10.5px; color:#000; back
 .dia-header{ background:#1D9E75; color:#fff; font-size:9.5px; font-weight:800; text-align:center; padding:5px 4px; letter-spacing:.3px; }
 .campo{ padding:5px 6px; border-bottom:1px solid #e5e7eb; font-size:9.5px; line-height:1.5; }
 .campo.desenv{ border-bottom:none; flex:1; }
-.assinatura{ display:flex; justify-content:space-between; margin-top:auto; padding-top:40px; gap:40px; }
+.assinatura{ display:flex; justify-content:space-between; margin-top:auto; padding-top:40px; gap:40px; break-inside:avoid; page-break-inside:avoid; break-before:avoid; page-break-before:avoid; }
 .assinatura-linha{ flex:1; border-top:1.5px solid #000; padding-top:6px; text-align:center; font-size:10px; font-weight:bold; }
 .footer{ margin-top:8px; font-size:8px; color:#999; text-align:right; }
 @media print{ body{background:#fff;padding:0;} .no-print{display:none!important;} }
@@ -12442,12 +12442,12 @@ body{ font-family:Arial,Helvetica,sans-serif; font-size:10.5px; color:#000; back
 .alerta ul{ margin:5px 0 0 16px; }
 .alerta-ok{ background:#f0fdf4; border:1.5px solid #16a34a; border-radius:6px; padding:9px 12px; margin-bottom:12px; font-size:11px; color:#14532d; }
 .dominio{ margin-bottom:12px; break-inside:avoid; }
-.dominio-titulo{ font-size:11.5px; font-weight:800; border-left:4px solid; padding:3px 8px; margin-bottom:4px; }
+.dominio-titulo{ font-size:11.5px; font-weight:800; border-left:4px solid; padding:3px 8px; margin-bottom:4px; break-after:avoid; page-break-after:avoid; }
 table{ width:100%; border-collapse:collapse; }
 th, td{ border:1px solid #ccc; padding:4px 7px; font-size:9.5px; text-align:left; }
 th{ background:#f3f4f6; font-size:8.5px; text-transform:uppercase; color:#555; }
 .col-faixa, .col-data{ white-space:nowrap; width:70px; }
-.assinatura{ display:flex; justify-content:space-between; margin-top:26px; gap:30px; }
+.assinatura{ display:flex; justify-content:space-between; margin-top:26px; gap:30px; break-inside:avoid; page-break-inside:avoid; break-before:avoid; page-break-before:avoid; }
 .assinatura-linha{ flex:1; border-top:1.5px solid #000; padding-top:6px; text-align:center; font-size:10px; font-weight:bold; }
 .footer{ margin-top:8px; font-size:8px; color:#999; text-align:right; }
 @media print{ body{background:#fff;padding:0;} .no-print{display:none!important;} .dominio{page-break-inside:avoid;} }
@@ -13810,7 +13810,8 @@ function montarHtmlParecer(p, __corpo) {
     font-size: 13.5px;
     line-height: 1.75;
     text-align: justify;
-    margin-bottom: 60px;
+    orphans: 3;
+    widows: 3;
   }
   .corpo > div:first-child { margin-top: 0 !important; }
 
@@ -13819,6 +13820,7 @@ function montarHtmlParecer(p, __corpo) {
     justify-content: space-between;
     gap: 40px;
     margin-top: 70px;
+    text-align: center;
   }
   .assina {
     flex: 1;
@@ -13852,7 +13854,9 @@ function montarHtmlParecer(p, __corpo) {
   @media print {
     body { background: #fff; padding: 0; }
     .toolbar { display: none; }
-    .page { box-shadow: none; padding: 18mm 20mm; min-height: auto; max-width: 100%; }
+    /* sem folga embaixo: a margem do @page ja basta, e o respiro extra
+       empurrava uma folha em branco quando o texto enchia a pagina */
+    .page { box-shadow: none; padding: 18mm 20mm 0; min-height: auto; max-width: 100%; }
     @page { size: A4; margin: 12mm; }
   }
 </style>
@@ -13885,8 +13889,7 @@ function montarHtmlParecer(p, __corpo) {
 
   <h1 class="titulo">PARECER DESCRITIVO — ${(p.periodo || '').toUpperCase()}</h1>
 
-  <div class="corpo">${formatarParecerHtml(__corpo != null ? __corpo : (p.texto || ''))}</div>
-
+  <div class="corpo">${formatarParecerHtml(__corpo != null ? __corpo : (p.texto || ''), `
   <div class="assinaturas">
     <div class="assina">
       <div class="linha"></div>
@@ -13896,7 +13899,7 @@ function montarHtmlParecer(p, __corpo) {
       <div class="linha"></div>
       Coordenador(a)
     </div>
-  </div>
+  </div>`)}</div>
 
 </div>
 </body>
@@ -13927,22 +13930,54 @@ const PARECER_SECOES = [
 // Converte o texto do parecer em HTML, destacando os títulos das seções (negrito)
 // e o conteúdo logo abaixo como parágrafo. Pareceres antigos (bloco único) são
 // exibidos como um parágrafo só — degrada de forma segura.
-function formatarParecerHtml(texto) {
-  if (!texto) return '';
+// Quebra de pagina na impressao: o titulo de uma secao nunca fica sozinho no
+// pe da pagina — ele vai junto com o primeiro paragrafo. E `fimHtml` (as
+// assinaturas) vai junto com o ultimo paragrafo, para nao sobrar uma folha
+// so com as linhas de assinatura. Os blocos "juntos" usam break-inside:avoid,
+// que todo navegador respeita; break-after:avoid sozinho o Chrome ignorava.
+function formatarParecerHtml(texto, fimHtml) {
+  if (!texto && !fimHtml) return '';
   const norm = s => s.toLowerCase().normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')   // remove acentos
     .replace(/[:\s]+$/, '').trim();    // remove ": " final
   const titulos = new Set(PARECER_SECOES.map(norm));
-  let html = '';
-  texto.split('\n').forEach(linha => {
+  const JUNTOS = 'break-inside:avoid;page-break-inside:avoid;';
+
+  // Blocos: um titulo abre bloco novo; paragrafo sem titulo antes abre bloco sem titulo
+  const blocos = [];
+  String(texto || '').split('\n').forEach(linha => {
     const t = linha.trim();
     if (!t) return;
-    if (titulos.has(norm(t))) {
-      html += `<div style="font-weight:bold;margin:14px 0 3px;">${escapeHtml(t.replace(/[:\s]+$/, ''))}</div>`;
-    } else {
-      html += `<div style="margin-bottom:3px;text-align:justify;">${escapeHtml(t)}</div>`;
+    if (titulos.has(norm(t))) blocos.push({ titulo: t.replace(/[:\s]+$/, ''), paras: [] });
+    else {
+      if (!blocos.length) blocos.push({ titulo: '', paras: [] });
+      blocos[blocos.length - 1].paras.push(t);
     }
   });
+
+  const tituloHtml = t => `<div class="par-titulo" style="font-weight:bold;margin:14px 0 3px;break-after:avoid;page-break-after:avoid;">${escapeHtml(t)}</div>`;
+  const paraHtml   = t => `<div class="par-para" style="margin-bottom:3px;text-align:justify;">${escapeHtml(t)}</div>`;
+
+  let html = '';
+  blocos.forEach((b, bi) => {
+    const ultimo = bi === blocos.length - 1;
+    const partes = b.paras.map(paraHtml);
+    // Titulo + primeiro paragrafo, juntos
+    let inicio = (b.titulo ? tituloHtml(b.titulo) : '') + (partes.shift() || '');
+    let meio = partes;
+    let fim = '';
+    if (ultimo && fimHtml) {
+      if (meio.length) fim = meio.pop();   // ultimo paragrafo + assinaturas
+      else { inicio += fimHtml; fimHtml = ''; }
+      if (fimHtml) fim += fimHtml;
+    }
+    html += `<div class="par-secao">`
+      + (inicio ? `<div style="${JUNTOS}">${inicio}</div>` : '')
+      + meio.join('')
+      + (fim ? `<div style="${JUNTOS}">${fim}</div>` : '')
+      + `</div>`;
+  });
+  if (!blocos.length && fimHtml) html += fimHtml;
   return html;
 }
 
