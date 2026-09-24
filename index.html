@@ -1955,6 +1955,13 @@
         .setMimeType(ContentService.MimeType.JSON);
     }
 
+    // Documento substituido por outro (ex.: parecer que mudou de bimestre)
+    if (data.action === 'lixeira') {
+      DriveApp.getFileById(data.docId).setTrashed(true);
+      return ContentService.createTextOutput(JSON.stringify({ok:true}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
     var folder = getFolder(data.path);
     var emails = data.shareWith || [];
 
@@ -4827,7 +4834,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.32.0';
+const APP_VERSION = 'v2.33.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -6074,6 +6081,7 @@ function aplicarPapel() {
   renderOcorrencias();
   setTimeout(autoSyncFinanceDesk, 3000);
   agendarBackupAutomatico();
+  agendarDrivePareceresCorrigidos();
 }
 
 // turmas visíveis para o usuário atual
@@ -7012,6 +7020,154 @@ async function restaurarObservacoesAutomatico() {
   showToast(`♻️ ${faltando.length} fichas de observação foram recuperadas do backup.`, 9000);
 }
 
+// ── Bimestre dos pareceres, corrigido uma vez so ────────────────────────
+// Antes da trava de data x periodo, uma professora preencheu a data e deixou
+// o bimestre no padrao (1o): os pareceres de setembro ficaram como 1o
+// Bimestre. A data gravada diz o periodo certo, entao a correcao e automatica.
+// So mexe no caso desse erro — periodo igual ao PRIMEIRO do regime e data
+// caindo em outro periodo. Fica de fora:
+//   - parecer escrito depois do fim do 1o mas dentro do prazo de entrega dele
+//     (e o atraso legitimo, nao o esquecimento);
+//   - aluno que ja tem parecer no periodo certo, ou dois pareceres indo para o
+//     mesmo periodo: juntar os dois nao e coisa para decidir sozinho.
+const PERIODO_PARECER_VERSAO = 'pareceres-periodo-v1';
+
+function _planoPeriodoPareceres(lista) {
+  const vivos = lista.filter(p => p && typeof p === 'object' && !_parecerDeletedIds.has(String(p.id)));
+  const chave = (p, per) => `${p.alunoId}|${p.turmaId}|${per}`;
+  const candidatas = [];
+  for (const p of vivos) {
+    const data  = String(p.data || '').slice(0, 10);
+    const certo = periodoDaData(data);
+    if (!certo || certo === p.periodo) continue;
+    if (p.periodo !== periodosDoRegime(Number(data.slice(0, 4)))[0]) continue;
+    const prazo = db.entregasPareceres?.[chaveEntrega(p.periodo)] || '';
+    if (prazo && data <= prazo) continue;
+    candidatas.push({ id: String(p.id), de: p.periodo, para: certo, k: chave(p, certo) });
+  }
+  const ocupadas = new Set(vivos.map(p => chave(p, p.periodo)));
+  const quantas  = {};
+  candidatas.forEach(c => { quantas[c.k] = (quantas[c.k] || 0) + 1; });
+  const mudancas = [], ambiguos = [];
+  candidatas.forEach(c => {
+    if (ocupadas.has(c.k) || quantas[c.k] > 1) ambiguos.push(c.id);
+    else mudancas.push({ id: c.id, de: c.de, para: c.para });
+  });
+  return { mudancas, ambiguos };
+}
+
+function _aplicarPeriodoCorrigido(p, m, em) {
+  const q = Object.assign({}, p, { periodo: m.para, periodoAnterior: m.de });
+  q.historico = (p.historico || []).concat([{ acao: 'periodo-corrigido', por: 'Sistema', em, de: m.de, para: m.para }]);
+  if (p.docUrl) q.driveDesatualizado = true;   // o documento no Drive ainda diz o periodo antigo
+  return q;
+}
+
+async function corrigirPeriodoPareceresAutomatico() {
+  if (!_firestoreOk) return;
+  if (db.manutencao?.[PERIODO_PARECER_VERSAO]) return;
+
+  const em = new Date().toISOString();
+  let res;
+  try {
+    // Transacao: le e grava o documento do servidor, sem arriscar apagar um
+    // parecer que outra pessoa acabou de salvar.
+    res = await fstore.runTransaction(async (tx) => {
+      const ref  = FSREF('pareceres');
+      const snap = await tx.get(ref);
+      const d    = snap.exists ? (snap.data().data ?? []) : [];
+      const lista = Array.isArray(d) ? d : [];
+      const plano = _planoPeriodoPareceres(lista);
+      if (plano.mudancas.length) {
+        const porId = new Map(plano.mudancas.map(m => [m.id, m]));
+        tx.set(ref, { data: lista.map(p => porId.has(String(p?.id)) ? _aplicarPeriodoCorrigido(p, porId.get(String(p.id)), em) : p) });
+      }
+      return plano;
+    });
+  } catch (e) {
+    logger.warn({ module: 'parecer', action: 'corrigir-periodo', message: 'Não consegui corrigir o período dos pareceres', error: e });
+    return;   // sem marcar: tenta de novo na proxima abertura
+  }
+
+  // A memoria acompanha registro a registro, sem descartar o que so existe aqui
+  const porId = new Map(res.mudancas.map(m => [m.id, m]));
+  db.pareceres = (db.pareceres || []).map(p => porId.has(String(p?.id)) && p.periodo === porId.get(String(p.id)).de
+    ? _aplicarPeriodoCorrigido(p, porId.get(String(p.id)), em) : p);
+  LS.set('ps_pareceres', db.pareceres);
+
+  await _marcarManutencao(PERIODO_PARECER_VERSAO, {
+    corrigidos: res.mudancas.length, ambiguos: res.ambiguos.length,
+    ids: res.mudancas.map(m => m.id), idsAmbiguos: res.ambiguos,
+  });
+  if (!res.mudancas.length) return;
+  logger.audit({ module: 'parecer', action: 'corrigir-periodo',
+    message: `${res.mudancas.length} parecer(es) com o período corrigido pela data`,
+    after: { corrigidos: res.mudancas.length, ambiguos: res.ambiguos.length } });
+  showToast(`🗓️ ${res.mudancas.length} parecer(es) estavam no bimestre errado e foram corrigidos pela data.`, 9000);
+}
+
+// Reenvia ao Drive os pareceres corrigidos: documento com o nome e a pasta do
+// periodo certo. Roda na gestao, como o backup. Cada parecer so sai da fila
+// quando o Drive devolve o link novo, entao uma falha tenta de novo depois.
+// O documento antigo (na pasta do 1o) vai para a lixeira quando o Apps
+// Script ja tem a acao 'lixeira'; com o script antigo o pedido falha sem
+// efeito e o endereco fica guardado para a proxima tentativa.
+let _driveCorrecaoEmCurso = false;
+
+function _docIdDaUrl(url) {
+  const m = String(url || '').match(/\/d\/([\w-]{20,})/);
+  return m ? m[1] : '';
+}
+
+async function _driveLixeira(docId) {
+  if (!appsScriptUrl || !docId) return false;
+  try {
+    const res  = await fetch(appsScriptUrl, { method: 'POST', body: JSON.stringify({ action: 'lixeira', docId }), redirect: 'follow' });
+    const json = JSON.parse(await res.text());
+    return json.ok === true;
+  } catch (e) { return false; }
+}
+
+async function atualizarDrivePareceresCorrigidos() {
+  if (_driveCorrecaoEmCurso || !appsScriptUrl || !_gestaoPodeDrive()) return;
+  const fila = (db.pareceres || []).filter(p => p.driveDesatualizado || p.docAntigoLixeira);
+  if (!fila.length) return;
+  _driveCorrecaoEmCurso = true;
+  let mudou = false, enviados = 0;
+  try {
+    for (const p of fila) {
+      const atual = () => db.pareceres.find(x => String(x.id) === String(p.id));
+      if (p.driveDesatualizado) {
+        const turmaNome = sanitizeName(db.turmas.find(t => t.id === p.turmaId)?.nome || 'Turma');
+        let url = null;
+        try {
+          url = await uploadToDrive(sanitizeName(`${p.alunoNome} - ${p.periodo}`) + '.txt',
+            buildParecerTxt(p), emailsDaTurma(p.turmaId, p.profEmail),
+            'Escola Ponte do Saber', turmaNome, p.periodo, 'Pareceres');
+        } catch (e) { url = null; }
+        const a = atual();
+        if (!url || !a) continue;
+        if (a.docUrl && a.docUrl !== url) a.docAntigoLixeira = a.docUrl;
+        a.docUrl = url;
+        delete a.driveDesatualizado;
+        mudou = true; enviados++;
+      }
+      const a = atual();
+      if (a?.docAntigoLixeira && await _driveLixeira(_docIdDaUrl(a.docAntigoLixeira))) {
+        delete a.docAntigoLixeira;
+        mudou = true;
+      }
+    }
+  } finally {
+    _driveCorrecaoEmCurso = false;
+    if (mudou) { save(); if (typeof renderPareceres === 'function') renderPareceres(); }
+  }
+  if (enviados) {
+    logger.audit({ module: 'drive', action: 'pareceres-periodo', message: `${enviados} parecer(es) reenviados ao Drive no bimestre certo` });
+    showToast(`📤 ${enviados} parecer(es) reenviados ao Drive na pasta do bimestre certo.`, 7000);
+  }
+}
+
 // ── Reparo automatico, uma vez so na escola inteira ──────────────────────
 // A troca de colecoes (corrigida na v2.28.1) deixou registros gravados no
 // documento errado. Em vez de depender de alguem lembrar de abrir
@@ -7029,6 +7185,7 @@ function manutencaoAutomatica() {
   _manutencaoEmCurso = (async () => {
     await repararColecoesAutomatico();       // primeiro devolve cada registro ao seu lugar
     await restaurarObservacoesAutomatico();  // depois traz de volta as fichas apagadas
+    await corrigirPeriodoPareceresAutomatico(); // e acerta o bimestre dos pareceres
   })();
   return _manutencaoEmCurso;
 }
@@ -9296,8 +9453,8 @@ function renderDashboardProfessora() {
     .sort((a,b) => new Date(b.em) - new Date(a.em))
     .slice(0, 6);
 
-  const acaoIcon = { criado:'📝', devolvido:'↩️', revisado:'📤', aprovado:'✅', liberado:'🖨️' };
-  const acaoLabel = { criado:'Criado', devolvido:'Devolvido p/ correção', revisado:'Correção enviada', aprovado:'Aprovado', liberado:'Liberado p/ impressão' };
+  const acaoIcon = { criado:'📝', devolvido:'↩️', revisado:'📤', aprovado:'✅', liberado:'🖨️', 'periodo-corrigido':'🗓️' };
+  const acaoLabel = { criado:'Criado', devolvido:'Devolvido p/ correção', revisado:'Correção enviada', aprovado:'Aprovado', liberado:'Liberado p/ impressão', 'periodo-corrigido':'Período corrigido pela data' };
   const acaoCor = { criado:'#6b7280', devolvido:'#f59e0b', revisado:'#7c3aed', aprovado:'#059669', liberado:'#2563eb' };
 
   const ultimasHtml = ultimas.length === 0
@@ -9403,6 +9560,7 @@ function htmlHistorico(item) {
     revisado:  { icon: '📤', cor: '#7c3aed', label: 'Correção enviada' },
     aprovado:  { icon: '✅', cor: '#059669', label: 'Aprovado' },
     liberado:  { icon: '🖨️', cor: '#2563eb', label: 'Liberado p/ impressão' },
+    'periodo-corrigido': { icon: '🗓️', cor: '#0891b2', label: 'Período corrigido pela data' },
   };
   const id = item.id;
   const linhas = hist.map(h => {
@@ -16806,6 +16964,12 @@ function agendarBackupAutomatico() {
   const ultimo = db.cfgBackup?.ultimo;
   if (ultimo && String(ultimo).slice(0, 10) === new Date().toISOString().slice(0, 10)) return;
   setTimeout(() => backupParaDrive(true), 20000);
+}
+
+// Pareceres com bimestre corrigido esperando o documento novo no Drive
+function agendarDrivePareceresCorrigidos() {
+  if (!appsScriptUrl || !_gestaoPodeDrive()) return;
+  setTimeout(() => atualizarDrivePareceresCorrigidos(), 35000);
 }
 
 function alternarBackupAutomatico(ligado) {
