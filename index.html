@@ -4834,7 +4834,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.33.2';
+const APP_VERSION = 'v2.33.3';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -7030,20 +7030,44 @@ async function restaurarObservacoesAutomatico() {
 //     (e o atraso legitimo, nao o esquecimento);
 //   - aluno que ja tem parecer no periodo certo, ou dois pareceres indo para o
 //     mesmo periodo: juntar os dois nao e coisa para decidir sozinho.
-const PERIODO_PARECER_VERSAO = 'pareceres-periodo-v1';
+// v2: a v1 rodou na escola e nao corrigiu nenhum. Dois furos:
+//  - parecer salvo sem data (o campo era opcional antes da trava) ficava de
+//    fora; agora vale o dia em que foi salvo ("Salvo em");
+//  - o prazo de entrega do 1o periodo era comparado sem olhar o ano: com os
+//    prazos ja lancados para 2027, toda data de 2026 parecia "dentro do prazo".
+// O marcador agora guarda quantos ficaram de fora e por que.
+const PERIODO_PARECER_VERSAO = 'pareceres-periodo-v2';
+
+// Dia local (AAAA-MM-DD) de um carimbo ISO: "Salvo em 14/09 22:24" no Brasil
+// e 15/09 em UTC, e o que conta e o dia que a professora viu.
+function _diaLocal(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const z = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
+}
+
+// "1º Bimestre", "1° bimestre", "1 Bimestre" — todos sao o primeiro periodo
+function _ehPrimeiroPeriodo(periodo, ano) {
+  const rot = regimeInfo(ano).rotulo.toLowerCase();
+  return new RegExp(`^\\s*1\\s*[º°o.]?\\s*${rot}\\s*$`, 'i').test(String(periodo || ''));
+}
 
 function _planoPeriodoPareceres(lista) {
   const vivos = lista.filter(p => p && typeof p === 'object' && !_parecerDeletedIds.has(String(p.id)));
   const chave = (p, per) => `${p.alunoId}|${p.turmaId}|${per}`;
+  const motivos = { semData: 0, jaCerto: 0, naoPrimeiro: 0, noPrazo: 0 };
   const candidatas = [];
   for (const p of vivos) {
-    const data  = String(p.data || '').slice(0, 10);
+    const temData = /^\d{4}-\d{2}-\d{2}/.test(String(p.data || ''));
+    const data  = temData ? String(p.data).slice(0, 10) : _diaLocal(p.criadoEm);
     const certo = periodoDaData(data);
-    if (!certo || certo === p.periodo) continue;
-    if (p.periodo !== periodosDoRegime(Number(data.slice(0, 4)))[0]) continue;
+    if (!certo) { motivos.semData++; continue; }
+    if (certo === p.periodo) { motivos.jaCerto++; continue; }
+    if (!_ehPrimeiroPeriodo(p.periodo, Number(data.slice(0, 4)))) { motivos.naoPrimeiro++; continue; }
     const prazo = db.entregasPareceres?.[chaveEntrega(p.periodo)] || '';
-    if (prazo && data <= prazo) continue;
-    candidatas.push({ id: String(p.id), de: p.periodo, para: certo, k: chave(p, certo) });
+    if (prazo && prazo.slice(0, 4) === data.slice(0, 4) && data <= prazo) { motivos.noPrazo++; continue; }
+    candidatas.push({ id: String(p.id), de: p.periodo, para: certo, k: chave(p, certo), pela: temData ? 'data' : 'salvoEm' });
   }
   const ocupadas = new Set(vivos.map(p => chave(p, p.periodo)));
   const quantas  = {};
@@ -7051,14 +7075,14 @@ function _planoPeriodoPareceres(lista) {
   const mudancas = [], ambiguos = [];
   candidatas.forEach(c => {
     if (ocupadas.has(c.k) || quantas[c.k] > 1) ambiguos.push(c.id);
-    else mudancas.push({ id: c.id, de: c.de, para: c.para });
+    else mudancas.push({ id: c.id, de: c.de, para: c.para, pela: c.pela });
   });
-  return { mudancas, ambiguos };
+  return { mudancas, ambiguos, motivos };
 }
 
 function _aplicarPeriodoCorrigido(p, m, em) {
   const q = Object.assign({}, p, { periodo: m.para, periodoAnterior: m.de });
-  q.historico = (p.historico || []).concat([{ acao: 'periodo-corrigido', por: 'Sistema', em, de: m.de, para: m.para }]);
+  q.historico = (p.historico || []).concat([{ acao: 'periodo-corrigido', por: 'Sistema', em, de: m.de, para: m.para, pela: m.pela || 'data' }]);
   if (p.docUrl) q.driveDesatualizado = true;   // o documento no Drive ainda diz o periodo antigo
   return q;
 }
@@ -7098,6 +7122,7 @@ async function corrigirPeriodoPareceresAutomatico() {
   await _marcarManutencao(PERIODO_PARECER_VERSAO, {
     corrigidos: res.mudancas.length, ambiguos: res.ambiguos.length,
     ids: res.mudancas.map(m => m.id), idsAmbiguos: res.ambiguos,
+    motivos: res.motivos || {},
   });
   if (!res.mudancas.length) return;
   logger.audit({ module: 'parecer', action: 'corrigir-periodo',
