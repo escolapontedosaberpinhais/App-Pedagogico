@@ -4834,7 +4834,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.33.1';
+const APP_VERSION = 'v2.33.2';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -13930,54 +13930,31 @@ const PARECER_SECOES = [
 // Converte o texto do parecer em HTML, destacando os títulos das seções (negrito)
 // e o conteúdo logo abaixo como parágrafo. Pareceres antigos (bloco único) são
 // exibidos como um parágrafo só — degrada de forma segura.
-// Quebra de pagina na impressao: o titulo de uma secao nunca fica sozinho no
-// pe da pagina — ele vai junto com o primeiro paragrafo. E `fimHtml` (as
-// assinaturas) vai junto com o ultimo paragrafo, para nao sobrar uma folha
-// so com as linhas de assinatura. Os blocos "juntos" usam break-inside:avoid,
-// que todo navegador respeita; break-after:avoid sozinho o Chrome ignorava.
+// Quebra de pagina na impressao. Duas regras:
+//  - o titulo de uma secao nunca fica sozinho no pe da pagina: break-after:
+//    avoid o prende as primeiras linhas do paragrafo seguinte;
+//  - as assinaturas nunca vao sozinhas para uma folha: break-before:avoid as
+//    prende as ultimas linhas do texto (widows garante que desce mais de uma).
+// A versao anterior embrulhava titulo + paragrafo INTEIRO num bloco
+// inquebravel; quando o paragrafo era longo o bloco nao cabia sob o
+// cabecalho e o navegador empurrava tudo, deixando a primeira pagina vazia.
 function formatarParecerHtml(texto, fimHtml) {
   if (!texto && !fimHtml) return '';
   const norm = s => s.toLowerCase().normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')   // remove acentos
+    .replace(/[̀-ͯ]/g, '')   // remove acentos
     .replace(/[:\s]+$/, '').trim();    // remove ": " final
   const titulos = new Set(PARECER_SECOES.map(norm));
-  const JUNTOS = 'break-inside:avoid;page-break-inside:avoid;';
-
-  // Blocos: um titulo abre bloco novo; paragrafo sem titulo antes abre bloco sem titulo
-  const blocos = [];
+  let html = '';
   String(texto || '').split('\n').forEach(linha => {
     const t = linha.trim();
     if (!t) return;
-    if (titulos.has(norm(t))) blocos.push({ titulo: t.replace(/[:\s]+$/, ''), paras: [] });
-    else {
-      if (!blocos.length) blocos.push({ titulo: '', paras: [] });
-      blocos[blocos.length - 1].paras.push(t);
+    if (titulos.has(norm(t))) {
+      html += `<div class="par-titulo" style="font-weight:bold;margin:14px 0 3px;break-after:avoid;page-break-after:avoid;break-inside:avoid;">${escapeHtml(t.replace(/[:\s]+$/, ''))}</div>`;
+    } else {
+      html += `<div class="par-para" style="margin-bottom:3px;text-align:justify;orphans:3;widows:3;">${escapeHtml(t)}</div>`;
     }
   });
-
-  const tituloHtml = t => `<div class="par-titulo" style="font-weight:bold;margin:14px 0 3px;break-after:avoid;page-break-after:avoid;">${escapeHtml(t)}</div>`;
-  const paraHtml   = t => `<div class="par-para" style="margin-bottom:3px;text-align:justify;">${escapeHtml(t)}</div>`;
-
-  let html = '';
-  blocos.forEach((b, bi) => {
-    const ultimo = bi === blocos.length - 1;
-    const partes = b.paras.map(paraHtml);
-    // Titulo + primeiro paragrafo, juntos
-    let inicio = (b.titulo ? tituloHtml(b.titulo) : '') + (partes.shift() || '');
-    let meio = partes;
-    let fim = '';
-    if (ultimo && fimHtml) {
-      if (meio.length) fim = meio.pop();   // ultimo paragrafo + assinaturas
-      else { inicio += fimHtml; fimHtml = ''; }
-      if (fimHtml) fim += fimHtml;
-    }
-    html += `<div class="par-secao">`
-      + (inicio ? `<div style="${JUNTOS}">${inicio}</div>` : '')
-      + meio.join('')
-      + (fim ? `<div style="${JUNTOS}">${fim}</div>` : '')
-      + `</div>`;
-  });
-  if (!blocos.length && fimHtml) html += fimHtml;
+  if (fimHtml) html += `<div class="par-fim" style="break-before:avoid;page-break-before:avoid;break-inside:avoid;page-break-inside:avoid;">${fimHtml}</div>`;
   return html;
 }
 
