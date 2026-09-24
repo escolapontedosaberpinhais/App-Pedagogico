@@ -4834,7 +4834,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.33.3';
+const APP_VERSION = 'v2.33.4';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -13952,6 +13952,18 @@ const PARECER_SECOES = [
   'Considerações Finais',
 ];
 
+// Titulos que a professora escreve por conta propria (nao entram no modelo do
+// "Escrever manualmente", mas precisam sair em negrito na impressao). A
+// comparacao ignora acentos, maiusculas, barra, "e" e pontuacao, entao
+// "Pontos de atencao e sugestoes para a familia:" tambem vale.
+const PARECER_TITULOS_EXTRAS = [
+  'Pontos de Atenção / Sugestões para a Família',
+  'Pontos de Atenção',
+  'Sugestões para a Família',
+  'Sugestões à Família',
+  'Orientações para a Família',
+];
+
 // Converte o texto do parecer em HTML, destacando os títulos das seções (negrito)
 // e o conteúdo logo abaixo como parágrafo. Pareceres antigos (bloco único) são
 // exibidos como um parágrafo só — degrada de forma segura.
@@ -13967,8 +13979,9 @@ function formatarParecerHtml(texto, fimHtml) {
   if (!texto && !fimHtml) return '';
   const norm = s => s.toLowerCase().normalize('NFD')
     .replace(/[̀-ͯ]/g, '')   // remove acentos
-    .replace(/[:\s]+$/, '').trim();    // remove ": " final
-  const titulos = new Set(PARECER_SECOES.map(norm));
+    .replace(/\s+e\s+/g, ' ')         // "atencao e sugestoes" = "atencao / sugestoes"
+    .replace(/[^a-z]/g, '');           // so letras: barra, pontuacao e espacos nao contam
+  const titulos = new Set(PARECER_SECOES.concat(PARECER_TITULOS_EXTRAS).map(norm));
   let html = '';
   String(texto || '').split('\n').forEach(linha => {
     const t = linha.trim();
