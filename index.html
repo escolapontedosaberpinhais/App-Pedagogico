@@ -1617,7 +1617,7 @@
       <span class="di">&#x1F4CB;</span> Planejamentos
     </button>
     <button class="dnav-btn" id="dnav-pareceres" onclick="drawerNav('pareceres')">
-      <span class="di">&#x2728;</span> Pareceres IA
+      <span class="di">&#x2728;</span> Pareceres
     </button>
     <button class="dnav-btn" id="dnav-atividades" onclick="drawerNav('atividades')" style="display:none;">
       <span class="di">&#x1F3AF;</span> Atividades
@@ -1649,7 +1649,7 @@
   <button id="nav-impressao" onclick="showTab('impressao')" data-tab="impressao" style="display:none;">🖨️ Impressão</button>
   <button id="nav-copias" onclick="showTab('copias')" data-tab="copias" style="display:none;">📄 Solicitações de cópia</button>
   <button id="nav-planejamento" onclick="showTab('planejamento')" data-tab="planejamento">📋 Planejamentos</button>
-  <button id="nav-pareceres" onclick="showTab('pareceres')" data-tab="pareceres">✨ Pareceres IA</button>
+  <button id="nav-pareceres" onclick="showTab('pareceres')" data-tab="pareceres">✨ Pareceres</button>
   <button id="nav-avaliacoes" onclick="showTab('avaliacoes')" data-tab="avaliacoes">📊 Avaliações</button>
   <button id="nav-correcao" onclick="showTab('correcao')" data-tab="correcao" style="display:none;">✅ Correção</button>
   <button id="nav-hora-atividade" onclick="showTab('hora-atividade')" data-tab="hora-atividade" style="display:none;">⏰ Hora-Atividade</button>
@@ -1709,7 +1709,7 @@
     <div class="nav-grp-drop" id="navdrop-docentes">
       <button data-tab="hora-atividade" onclick="showTab('hora-atividade');closeNavGrp()">⏰ Hora-Atividade</button>
       <button data-tab="planejamento" onclick="showTab('planejamento');closeNavGrp()">📋 Planejamentos</button>
-      <button data-tab="pareceres" onclick="showTab('pareceres');closeNavGrp()">✨ Pareceres IA</button>
+      <button data-tab="pareceres" onclick="showTab('pareceres');closeNavGrp()">✨ Pareceres</button>
       <button data-tab="atividades" onclick="showTab('atividades');closeNavGrp()">🎯 Atividades</button>
     </div>
   </div>
@@ -2879,7 +2879,7 @@ function _listarPlanejamentos() {
 <div id="tab-pareceres" class="section">
 
   <div class="section-header">
-    <h2>✨ Pareceres Descritivos com IA</h2>
+    <h2>✨ Pareceres</h2>
     <button class="btn btn-secondary" onclick="exportarPareceres()">⬇️ Exportar .txt</button>
   </div>
 
@@ -2901,7 +2901,7 @@ function _listarPlanejamentos() {
       </div>
       <div class="form-group">
         <label>Data</label>
-        <input type="date" id="par-data" />
+        <input type="date" id="par-data" onchange="parDataMudou()" />
       </div>
     </div>
     <div style="margin-top:14px;">
@@ -4827,7 +4827,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.31.1';
+const APP_VERSION = 'v2.32.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -5941,7 +5941,7 @@ function aplicarPapel() {
   nav('nav-planejamento',   isDiretor || isPedagoga || isProfessora);
   nav('dnav-planejamento',  isDiretor || isPedagoga || isProfessora);
 
-  // Pareceres IA
+  // Pareceres
   nav('nav-pareceres',      isDiretor || isPedagoga || isProfessora);
   nav('dnav-pareceres',     isDiretor || isPedagoga || isProfessora);
 
@@ -6532,7 +6532,7 @@ function showTab(tab) {
 
   if (tab === 'dashboard')    { renderDashboard(); }
   if (tab === 'planejamento') { populateSelects(); renderPlanejamentos(); plLigarRascunho(); }
-  if (tab === 'pareceres')    { populateSelects(); renderPareceres(); }
+  if (tab === 'pareceres')    { populateSelects(); parPrepararDataPeriodo(); renderPareceres(); }
   if (tab === 'avaliacoes')   { populateSelects(); renderTabelaAvaliacoes(); }
   if (tab === 'correcao')       { renderCorrecoes(); }
   if (tab === 'cadastro')       { populateSelects(); populateFiltroTurmas(); renderTurmas(); renderAlunos(); renderEntregasPareceres(); }
@@ -8521,10 +8521,16 @@ function toggleCheckStyle(cb) {
 // ano letivo pelo padrao do regime; e devolve '' quando hoje esta fora do ano
 // letivo (ferias), em vez de chutar um periodo.
 function periodoCorrente() {
-  const agora = new Date();
-  const ano   = agora.getFullYear();
-  const hoje  = agora.toISOString().slice(0, 10);
-  const cal   = db.calendarioEscolar;
+  return periodoDaData(new Date().toISOString().slice(0, 10));
+}
+
+// Periodo em que cai uma data qualquer (AAAA-MM-DD). Mesma regra de
+// periodoCorrente, que e so o caso particular "hoje".
+function periodoDaData(dataISO) {
+  const hoje = String(dataISO || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(hoje)) return '';
+  const ano  = Number(hoje.slice(0, 4));
+  const cal  = db.calendarioEscolar;
 
   if (cal && Number(cal.ano) === ano && Array.isArray(cal.bimestres)) {
     const dentro = cal.bimestres.find(b => hoje >= b.inicio && hoje <= b.fim);
@@ -8536,8 +8542,8 @@ function periodoCorrente() {
   }
 
   // Sem calendario do ano corrente: divisao padrao do regime
-  const faixas = (CAL_DIVISAO_PADRAO[regimeAtual()] || CAL_DIVISAO_PADRAO.bimestral);
-  const rot = regimeInfo().rotulo;
+  const faixas = (CAL_DIVISAO_PADRAO[regimeDoAno(ano)] || CAL_DIVISAO_PADRAO.bimestral);
+  const rot = regimeInfo(ano).rotulo;
   const mmdd = hoje.slice(5);
   for (let i = faixas.length - 1; i >= 0; i--) {
     if (mmdd >= faixas[i][0]) return `${i + 1}º ${rot}`;
@@ -10408,6 +10414,40 @@ function escreverManualParecer() {
   setTimeout(() => output.focus(), 300);
 }
 
+// ── Trava data x periodo do parecer ─────────────────────────────────────
+// Uma professora preencheu a data e esqueceu o bimestre no 1o: todos os
+// pareceres sairam como 1o Bimestre. Agora a data manda: ao escolher a data
+// o periodo acompanha sozinho, e salvar/gerar fica bloqueado enquanto os
+// dois nao baterem.
+function parDataMudou() {
+  const data = document.getElementById('par-data')?.value || '';
+  const sel  = document.getElementById('par-periodo');
+  const per  = periodoDaData(data);
+  if (sel && per && [...sel.options].some(o => o.value === per)) sel.value = per;
+}
+
+// Abre a aba com a data de hoje e o periodo em curso, sem pisar no que a
+// professora ja tiver escolhido.
+function parPrepararDataPeriodo() {
+  const inp = document.getElementById('par-data');
+  if (!inp || inp.value) return;
+  inp.value = new Date().toISOString().slice(0, 10);
+  parDataMudou();
+}
+
+// Devolve a mensagem de erro, ou '' quando data e periodo estao coerentes.
+function parChecarDataPeriodo() {
+  const data    = document.getElementById('par-data')?.value || '';
+  const periodo = document.getElementById('par-periodo')?.value || '';
+  if (!data) return 'Informe a data do parecer.';
+  const certo = periodoDaData(data);
+  if (certo && certo !== periodo) {
+    const [a, m, d] = data.split('-');
+    return `A data ${d}/${m}/${a} cai no ${certo}, mas o parecer está marcado como ${periodo}.\n\nCorrija o campo "${rotuloPeriodo()}" ou a data antes de continuar.`;
+  }
+  return '';
+}
+
 async function gerarParecer() {
   if (!db.apiKey) {
     alert('Configure sua chave API Groq na aba Configuração.');
@@ -10424,6 +10464,9 @@ async function gerarParecer() {
   const emocional  = document.getElementById('par-emocional').value.trim();
   const atencao    = document.getElementById('par-atencao').value.trim();
   const periodo    = document.getElementById('par-periodo').value;
+
+  const erroPeriodo = parChecarDataPeriodo();
+  if (erroPeriodo) { alert(erroPeriodo); return; }
 
   if (!cognitivo && !linguagem && !motor && !social && !emocional) {
     alert('Preencha ao menos um campo de desenvolvimento antes de gerar o parecer.');
@@ -10518,6 +10561,9 @@ function salvarParecer() {
   if (!aluno) { alert('Selecione um aluno.'); return; }
   const texto = document.getElementById('parecer-output').innerText.trim();
   if (!texto) { alert('Nenhum texto para salvar.'); return; }
+
+  const erroPeriodo = parChecarDataPeriodo();
+  if (erroPeriodo) { alert(erroPeriodo); return; }
 
   const turmaId = document.getElementById('par-turma').value;
   const periodo = document.getElementById('par-periodo').value;
