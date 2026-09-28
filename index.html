@@ -1865,6 +1865,8 @@
     <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
       <span>📋 Filtros</span>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input type="text" id="imp-busca-nome" placeholder="🔍 Buscar aluno pelo nome…" oninput="renderImpressao()" autocomplete="off"
+          aria-label="Buscar aluno pelo nome" style="font-size:13px;padding:5px 10px;border:1px solid var(--gray-200);border-radius:6px;min-width:220px;">
         <select id="imp-filtro-bimestre" onchange="renderImpressao()" style="font-size:13px;padding:5px 10px;border:1px solid var(--gray-200);border-radius:6px;">
           <option value="">Todos os bimestres</option>
           <option>1º Bimestre</option>
@@ -4834,7 +4836,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.33.5';
+const APP_VERSION = 'v2.34.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -13340,9 +13342,21 @@ function renderImpressao() {
   if (statusFiltro === 'impressos') list = list.filter(p => p.impresso);
   // 'todos' = sem filtro adicional
 
+  // Busca pelo nome do aluno: sem diferenciar maiuscula nem acento, ignorando
+  // "de/da/do", e a ordem das palavras nao importa ("maria ferreira" acha
+  // "Maria Alice Janke Lorenzato Ferreira").
+  const buscaRaw = (document.getElementById('imp-busca-nome')?.value || '').trim();
+  const palavras = normalizarNome(buscaRaw).split(' ').filter(Boolean);
+  if (palavras.length) {
+    list = list.filter(p => {
+      const nome = normalizarNome(p.alunoNome);
+      return palavras.every(w => nome.includes(w));
+    });
+  }
+
   if (list.length === 0) {
     el.innerHTML = `<div class="empty"><div class="icon">🖨️</div>
-      <p>${statusFiltro === 'prontos' ? 'Nenhum parecer liberado para impressão ainda.<br><small>A pedagoga/diretor libera clicando em "🖨️ Liberar" no parecer.</small>' :
+      <p>${palavras.length ? `Nenhum parecer encontrado para "${escapeHtml(buscaRaw)}" com os filtros escolhidos.` : statusFiltro === 'prontos' ? 'Nenhum parecer liberado para impressão ainda.<br><small>A pedagoga/diretor libera clicando em "🖨️ Liberar" no parecer.</small>' :
           statusFiltro === 'impressos' ? 'Nenhum parecer marcado como impresso.' :
           'Nenhum parecer encontrado.'}</p></div>`;
     return;
