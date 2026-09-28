@@ -4834,7 +4834,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.33.4';
+const APP_VERSION = 'v2.33.5';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -13982,18 +13982,41 @@ function formatarParecerHtml(texto, fimHtml) {
     .replace(/\s+e\s+/g, ' ')         // "atencao e sugestoes" = "atencao / sugestoes"
     .replace(/[^a-z]/g, '');           // so letras: barra, pontuacao e espacos nao contam
   const titulos = new Set(PARECER_SECOES.concat(PARECER_TITULOS_EXTRAS).map(norm));
-  let html = '';
-  String(texto || '').split('\n').forEach(linha => {
-    const t = linha.trim();
-    if (!t) return;
-    if (titulos.has(norm(t))) {
-      html += `<div class="par-titulo" style="font-weight:bold;margin:14px 0 3px;break-after:avoid;page-break-after:avoid;break-inside:avoid;">${escapeHtml(t.replace(/[:\s]+$/, ''))}</div>`;
-    } else {
-      html += `<div class="par-para" style="margin-bottom:3px;text-align:justify;orphans:3;widows:3;">${escapeHtml(t)}</div>`;
-    }
-  });
-  if (fimHtml) html += `<div class="par-fim" style="break-before:avoid;page-break-before:avoid;break-inside:avoid;page-break-inside:avoid;">${fimHtml}</div>`;
-  return html;
+
+  // Texto colado de outro editor (Word, PDF, WhatsApp) costuma chegar com uma
+  // quebra de linha no fim de CADA linha visual. Cada linha virava um paragrafo
+  // de uma linha so, e a ultima linha de um paragrafo nunca e justificada: o
+  // parecer inteiro saia com a margem direita irregular. Aqui a linha que nao
+  // termina a frase e e seguida de outra que comeca em minuscula e uma quebra
+  // no meio do paragrafo, e as duas viram uma. Quebra depois de ponto final
+  // (ou de ! ? : ;) continua sendo fim de paragrafo, e titulo nunca se junta.
+  const FIM_DE_FRASE = /[.!?…:;)"”'’»]$/;
+  const COMECA_MINUSCULA = /^[a-zà-öø-ÿ]/;
+
+  // Blocos: um titulo abre bloco novo; paragrafo sem titulo antes abre bloco sem titulo
+  const blocos = [];
+  String(texto || '')
+    // quebras "moles" (Shift+Enter, separadores Unicode) valem como linha
+    .split(/\r\n|[\n\r\u2028\u2029\u000b\u000c\u0085]/)
+    .forEach(linha => {
+      const t = linha
+        .replace(/[\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000]/g, ' ')   // espacos "especiais" viram espaco
+        .replace(/[\u200b-\u200d\u2060\ufeff\u00ad]/g, '')                  // caracteres invisiveis somem
+        .replace(/[ \t]+/g, ' ').trim();
+      if (!t) return;
+      if (titulos.has(norm(t))) { blocos.push({ titulo: t.replace(/[:\s]+$/, ''), paras: [] }); return; }
+      if (!blocos.length) blocos.push({ titulo: '', paras: [] });
+      const paras = blocos[blocos.length - 1].paras;
+      const ultimo = paras.length - 1;
+      if (ultimo >= 0 && !FIM_DE_FRASE.test(paras[ultimo]) && COMECA_MINUSCULA.test(t)) paras[ultimo] += ' ' + t;
+      else paras.push(t);
+    });
+
+  const tituloHtml = t => `<div class="par-titulo" style="font-weight:bold;margin:14px 0 3px;break-after:avoid;page-break-after:avoid;break-inside:avoid;">${escapeHtml(t)}</div>`;
+  const paraHtml   = t => `<div class="par-para" style="margin-bottom:3px;text-align:justify;orphans:3;widows:3;">${escapeHtml(t)}</div>`;
+
+  const html = blocos.map(b => (b.titulo ? tituloHtml(b.titulo) : '') + b.paras.map(paraHtml).join('')).join('');
+  return html + (fimHtml ? `<div class="par-fim" style="break-before:avoid;page-break-before:avoid;break-inside:avoid;page-break-inside:avoid;">${fimHtml}</div>` : '');
 }
 
 function exportarPareceres() {
