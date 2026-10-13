@@ -2310,6 +2310,22 @@ function _listarPlanejamentos() {
     <div id="cfg-regime-status" style="margin-top:10px;font-size:13px;"></div>
   </div>
 
+  <div class="card" id="card-setores" style="display:none;">
+    <div class="card-title">🏢 Setores da escola</div>
+    <p style="font-size:13px;color:var(--gray-600);margin-bottom:14px;">
+      Setores que também mandam imprimir (secretaria, biblioteca…). Eles aparecem como solicitante em
+      <strong>Solicitações de cópia</strong>, com consumo próprio no mês. Renomear muda o nome em todo o
+      histórico; remover não apaga os lançamentos já feitos.
+    </p>
+    <div id="cfg-setores-lista"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+      <input type="text" id="cfg-setor-novo" placeholder="Nome do novo setor" maxlength="60" style="flex:1;min-width:200px;"
+             onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarSetor();}" />
+      <button class="btn btn-primary" onclick="adicionarSetor()">➕ Adicionar setor</button>
+    </div>
+    <div id="cfg-setores-status" style="margin-top:10px;font-size:13px;"></div>
+  </div>
+
   <div class="card" id="card-cotas" style="display:none;">
     <div class="card-title">🖨️ Cota de cópias</div>
     <p style="font-size:13px;color:var(--gray-600);margin-bottom:14px;">
@@ -4836,7 +4852,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.34.0';
+const APP_VERSION = 'v2.35.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -5141,6 +5157,10 @@ async function loadFromFirestore() {
       if (rCfg.data().cotasCopias) {
         db.cotasCopias = rCfg.data().cotasCopias;
         LS.set('ps_cotas_copias', db.cotasCopias);
+      }
+      if (Array.isArray(rCfg.data().setores)) {
+        db.setores = rCfg.data().setores;
+        LS.set('ps_setores', db.setores);
       }
       if (rCfg.data().cfgBackup) {
         db.cfgBackup = rCfg.data().cfgBackup;
@@ -5695,7 +5715,7 @@ function refreshCurrentView() {
   if (!active) return;
   const id = active.id;
   if (id === 'tab-dashboard')    renderDashboard();
-  if (id === 'tab-config')       { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); renderCardCotas(); renderCardReparoColecoes(); renderCardDocsFaltantes(); renderCardBackup(); aplicarTema(temaAtual()); }
+  if (id === 'tab-config')       { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); renderCardSetores(); renderCardCotas(); renderCardReparoColecoes(); renderCardDocsFaltantes(); renderCardBackup(); aplicarTema(temaAtual()); }
   if (id === 'tab-planejamento') { populateSelects(); renderPlanejamentos(); plLigarRascunho(); }
   if (id === 'tab-pareceres')    { populateSelects(); renderPareceres(); }
   if (id === 'tab-avaliacoes')   { populateSelects(); renderTabelaAvaliacoes(); }
@@ -5734,6 +5754,7 @@ let db = {
   regimePeriodos: LS.get('ps_regime_periodos', 'bimestral'),   // legado: regime antes do controle por ano
   regimesPorAno:  LS.get('ps_regimes_por_ano', {}),            // { 2026: 'bimestral', 2027: 'trimestral' }
   cotasCopias: LS.get('ps_cotas_copias', { padrao: 0, porUsuario: {}, bloquear: false }),
+  setores:     LS.get('ps_setores', null),   // null = usa a lista sugerida (SETORES_PADRAO) ate a direcao editar
   cfgBackup:   LS.get('ps_cfg_backup', { automatico: true, ultimo: '' }),
   manutencao:  {},
   ocorrencias: [],
@@ -6549,7 +6570,7 @@ function showTab(tab) {
   if (tab === 'hora-atividade') { renderHoraAtividade(); }
   if (tab === 'rotina')         { renderRotina(); }
   if (tab === 'atividades')     { renderAtividades(); }
-  if (tab === 'config')         { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); renderCardCotas(); renderCardReparoColecoes(); renderCardDocsFaltantes(); renderCardBackup(); aplicarTema(temaAtual()); }
+  if (tab === 'config')         { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); renderCardSetores(); renderCardCotas(); renderCardReparoColecoes(); renderCardDocsFaltantes(); renderCardBackup(); aplicarTema(temaAtual()); }
   if (tab === 'ocorrencias')    { renderOcorrencias(); }
   if (tab === 'observacoes')    { popularSelectsObservacao(); renderObservacoes(); popularSelectPlano(); renderPlanoAcao(); }
   if (tab === 'orientacoes')    { popularSelectsOrientacao(); renderOrientacoes(); }
@@ -6682,28 +6703,111 @@ function renderCardCotas() {
   const lista = document.getElementById('cfg-cota-lista');
   if (!lista) return;
   const pessoas = copSolicitantes();
-  if (!pessoas.length) {
+  const setores = setoresEscola();
+  if (!pessoas.length && !setores.length) {
     lista.innerHTML = '<div class="empty"><div class="icon">👥</div><p>Cadastre as professoras primeiro.</p></div>';
     return;
   }
 
   const mes = new Date().toISOString().slice(0, 7);
-  lista.innerHTML = pessoas.map(u => {
-    const usado = copUsadoNoMes(u.id, mes);
-    const esp   = c.porUsuario ? c.porUsuario[u.id] : '';
+  const linha = (id, nome, ehSetor) => {
+    const usado = copUsadoNoMes(id, mes);
+    const esp   = c.porUsuario ? c.porUsuario[id] : '';
     return `<div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--gray-100);flex-wrap:wrap;">
         <span style="flex:1;min-width:170px;font-size:13.5px;font-weight:500;">
-          ${escapeHtml(copNomeComPapel(u))}
+          ${ehSetor ? '🏢 ' : ''}${escapeHtml(nome)}
           <span style="display:block;font-size:12px;color:var(--gray-500);font-weight:400;">
             ${usado.toLocaleString('pt-BR')} página(s) neste mês
           </span>
         </span>
-        <input type="number" min="0" step="10" id="cfg-cota-u-${u.id}"
+        <input type="number" min="0" step="10" id="cfg-cota-u-${escapeHtml(id)}"
                value="${esp === undefined || esp === null ? '' : escapeHtml(String(esp))}"
-               placeholder="padrão"
+               placeholder="${ehSetor ? 'sem limite' : 'padrão'}"
                style="width:110px;padding:6px 9px;border:1.5px solid var(--gray-200);border-radius:6px;font-size:13px;" />
       </div>`;
-  }).join('');
+  };
+  lista.innerHTML = pessoas.map(u => linha(u.id, copNomeComPapel(u), false)).join('')
+    + (setores.length
+        ? `<div style="font-size:12.5px;font-weight:600;color:var(--gray-600);margin:14px 0 2px;">Setores da escola
+             <span style="font-weight:400;color:var(--gray-500);">— sem limite, a menos que você defina uma cota própria (a padrão não vale para setor)</span></div>`
+          + setores.map(x => linha(x.id, x.nome, true)).join('')
+        : '');
+}
+
+// ── Setores da escola: cadastro (so a direcao) ─────────────────────────────
+function renderCardSetores() {
+  const card = document.getElementById('card-setores');
+  if (!card) return;
+  if (currentUser?.papel !== 'diretor') { card.style.display = 'none'; return; }
+  card.style.display = '';
+  const lista = document.getElementById('cfg-setores-lista');
+  if (!lista) return;
+  const mes = new Date().toISOString().slice(0, 7);
+  const setores = setoresEscola();
+  lista.innerHTML = setores.length ? setores.map(x => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--gray-100);flex-wrap:wrap;">
+      <input type="text" id="cfg-setor-${escapeHtml(x.id)}" value="${escapeHtml(x.nome)}" maxlength="60"
+             onchange="renomearSetor('${escapeHtml(x.id)}', this.value)" style="flex:1;min-width:180px;" aria-label="Nome do setor" />
+      <span style="font-size:12px;color:var(--gray-500);min-width:110px;">${copUsadoNoMes(x.id, mes).toLocaleString('pt-BR')} pág. no mês</span>
+      <button class="btn btn-danger btn-sm" onclick="removerSetor('${escapeHtml(x.id)}')" title="Remover setor">🗑️</button>
+    </div>`).join('')
+    : '<div class="empty"><div class="icon">🏢</div><p>Nenhum setor cadastrado.</p></div>';
+}
+
+function _setoresAviso(msg, cor) {
+  const st = document.getElementById('cfg-setores-status');
+  if (st) { st.textContent = msg; st.style.color = cor || 'var(--gray-600)'; }
+}
+
+// Grava a lista inteira, igual as cotas: este aparelho e o servidor
+function _salvarSetores(lista, mensagem) {
+  db.setores = lista;
+  LS.set('ps_setores', db.setores);
+  FSREF('config').set({ setores: db.setores, apiKey: db.apiKey }, { merge: true })
+    .then(() => _setoresAviso(mensagem, '#059669'))
+    .catch(e => _setoresAviso('⚠️ Salvo neste aparelho, mas não enviado ao servidor: ' + e.message, '#b45309'));
+  renderCardSetores();
+  renderCardCotas();
+  popularSelectsCopias();
+  if (document.getElementById('tab-copias')?.classList.contains('active')) renderCopias();
+}
+
+function adicionarSetor() {
+  if (currentUser?.papel !== 'diretor') return;
+  const campo = document.getElementById('cfg-setor-novo');
+  const nome = (campo?.value || '').replace(/\s+/g, ' ').trim();
+  if (!nome) { _setoresAviso('⚠️ Escreva o nome do setor.', '#b45309'); return; }
+  if (setoresEscola().some(x => normalizarNome(x.nome) === normalizarNome(nome))) {
+    _setoresAviso('⚠️ Já existe um setor com esse nome.', '#b45309'); return;
+  }
+  _salvarSetores(setoresEscola().concat([{ id: 'setor-' + uid(), nome }]), `✅ Setor "${nome}" adicionado.`);
+  if (campo) campo.value = '';
+}
+
+function renomearSetor(id, novoNome) {
+  if (currentUser?.papel !== 'diretor') return;
+  const nome = String(novoNome || '').replace(/\s+/g, ' ').trim();
+  const atual = setoresEscola().find(x => x.id === id);
+  if (!atual) return;
+  if (!nome) { _setoresAviso('⚠️ O nome do setor não pode ficar em branco.', '#b45309'); renderCardSetores(); return; }
+  if (nome === atual.nome) return;
+  if (setoresEscola().some(x => x.id !== id && normalizarNome(x.nome) === normalizarNome(nome))) {
+    _setoresAviso('⚠️ Já existe um setor com esse nome.', '#b45309'); renderCardSetores(); return;
+  }
+  _salvarSetores(setoresEscola().map(x => x.id === id ? { ...x, nome } : x), `✅ Setor renomeado para "${nome}".`);
+}
+
+function removerSetor(id) {
+  if (currentUser?.papel !== 'diretor') return;
+  const setor = setoresEscola().find(x => x.id === id);
+  if (!setor) return;
+  const usados = (db.impressoes || []).filter(r => r.profId === id).length;
+  showConfirmModal(
+    `Remover o setor "${escapeHtml(setor.nome)}"?<br><small style="color:#888;font-weight:400;">`
+    + (usados ? `Os ${usados} lançamento(s) já feitos continuam no histórico.` : 'Nenhum lançamento foi feito para ele.') + '</small>',
+    () => _salvarSetores(setoresEscola().filter(x => x.id !== id), `🗑️ Setor "${setor.nome}" removido.`),
+    { rotulo: 'Remover', tipo: 'danger' }
+  );
 }
 
 function salvarCotasCopias() {
@@ -6714,10 +6818,11 @@ function salvarCotasCopias() {
   const bloquear = document.getElementById('cfg-cota-acao')?.value === 'bloquear';
 
   const porUsuario = {};
-  copSolicitantes().forEach(u => {
-    const v = document.getElementById('cfg-cota-u-' + u.id)?.value;
+  const donos = copSolicitantes().map(u => u.id).concat(setoresEscola().map(x => x.id));
+  donos.forEach(id => {
+    const v = document.getElementById('cfg-cota-u-' + id)?.value;
     // String vazia = "usa a padrão"; não guardamos a chave nesse caso
-    if (v !== undefined && String(v).trim() !== '') porUsuario[u.id] = Math.max(0, Number(v) || 0);
+    if (v !== undefined && String(v).trim() !== '') porUsuario[id] = Math.max(0, Number(v) || 0);
   });
 
   if (bloquear && !padrao && !Object.keys(porUsuario).length) {
@@ -11305,6 +11410,38 @@ function copSolicitantes() {
   return db.usuarios.filter(u => u.papel === 'professora' || u.papel === 'pedagoga');
 }
 
+// ── Setores da escola ─────────────────────────────────────────────────────
+// Secretaria, direcao, biblioteca etc. tambem mandam imprimir, e sem eles na
+// conta esse consumo ficava misturado ou de fora. O setor entra como mais um
+// solicitante: o lancamento guarda o id do setor em profId, entao consumo,
+// historico e cota funcionam do mesmo jeito que para uma professora.
+// A direcao edita a lista em Configuracoes; ate la vale esta sugestao.
+const SETORES_PADRAO = [
+  { id: 'setor-secretaria',  nome: 'Secretaria' },
+  { id: 'setor-direcao',     nome: 'Direção' },
+  { id: 'setor-coordenacao', nome: 'Coordenação pedagógica' },
+  { id: 'setor-biblioteca',  nome: 'Biblioteca' },
+];
+
+function setoresEscola() {
+  return Array.isArray(db.setores) ? db.setores : SETORES_PADRAO.map(x => ({ ...x }));
+}
+
+// ids de usuario nascem de uid() (base 36), nunca com este prefixo
+function copEhSetor(id) { return String(id || '').startsWith('setor-'); }
+
+function copSetorPorId(id) {
+  return copEhSetor(id) ? setoresEscola().find(x => x.id === id) || null : null;
+}
+
+// Nome para exibir. Setor renomeado aparece com o nome novo em todo o historico.
+function copNomeSolicitante(id, nomeGravado) {
+  const setor = copSetorPorId(id);
+  if (setor) return setor.nome;
+  const u = db.usuarios.find(x => x.id === id);
+  return u ? copNomeComPapel(u) : (nomeGravado || '');
+}
+
 // ── Cotas de cópia (configuradas pela direção) ────────────────────────────
 // padrao: teto mensal em páginas, valendo para todo mundo. 0 = sem limite.
 // porUsuario: teto individual por id de usuário; vazio = usa o padrão.
@@ -11321,7 +11458,7 @@ function cotasCopias() {
 function cotaDoUsuario(profId) {
   const c   = cotasCopias();
   const esp = c.porUsuario ? c.porUsuario[profId] : undefined;
-  if (esp === undefined || esp === null || esp === '') return c.padrao;
+  if (esp === undefined || esp === null || esp === '') return copEhSetor(profId) ? 0 : c.padrao;   // a cota padrao e das pessoas; setor so tem limite se tiver cota propria
   return Math.max(0, Number(esp) || 0);
 }
 
@@ -11366,7 +11503,7 @@ function copAtualizarCota() {
   const cor   = estoura ? '#dc2626' : (apertado ? '#d97706' : 'var(--green)');
   const fundo = estoura ? '#fef2f2' : (apertado ? '#fffbeb' : 'var(--green-light)');
   const borda = estoura ? '#fca5a5' : (apertado ? '#fbbf24' : 'var(--green-mid)');
-  const nome  = db.usuarios.find(u => u.id === profId)?.nome || '';
+  const nome  = copNomeSolicitante(profId);
 
   let recado;
   if (estoura) {
@@ -11426,8 +11563,18 @@ function copProfMudou() {
   if (u) {
     const ids = getUsrTurmaIds(u);
     if (ids.length) selT.value = ids[0];
+  } else if (copEhSetor(sel.value)) {
+    selT.value = '';   // setor nao tem turma
   }
   copAtualizarCota();
+}
+
+// Opcoes agrupadas: pessoas primeiro, depois os setores
+function copOpcoesSolicitantes() {
+  const pessoas = copSolicitantes().map(u => `<option value="${u.id}">${escapeHtml(copNomeComPapel(u))}</option>`).join('');
+  const setores = setoresEscola().map(x => `<option value="${escapeHtml(x.id)}">${escapeHtml(x.nome)}</option>`).join('');
+  return (pessoas ? `<optgroup label="Professoras e pedagoga">${pessoas}</optgroup>` : '')
+       + (setores ? `<optgroup label="Setores da escola">${setores}</optgroup>` : '');
 }
 
 function popularSelectsCopias() {
@@ -11436,8 +11583,7 @@ function popularSelectsCopias() {
   const sel = document.getElementById('cop-prof');
   if (sel) {
     const prev = sel.value;
-    sel.innerHTML = '<option value="">— Selecione —</option>'
-      + profs.map(u => `<option value="${u.id}">${escapeHtml(copNomeComPapel(u))}</option>`).join('');
+    sel.innerHTML = '<option value="">— Selecione —</option>' + copOpcoesSolicitantes();
     if (prev) sel.value = prev;
   }
 
@@ -11453,7 +11599,9 @@ function popularSelectsCopias() {
   if (selF) {
     const prev = selF.value;
     selF.innerHTML = '<option value="">Todos os solicitantes</option>'
-      + profs.map(u => `<option value="${u.id}">${escapeHtml(copNomeComPapel(u))}</option>`).join('');
+      + '<option value="__professoras">Só professoras e pedagoga</option>'
+      + '<option value="__setores">Só setores da escola</option>'
+      + copOpcoesSolicitantes();
     if (prev) selF.value = prev;
   }
 
@@ -11486,6 +11634,10 @@ function editarCopia(id) {
   _copEditando = String(id);
 
   const set = (campo, valor) => { const el = document.getElementById(campo); if (el) el.value = valor ?? ''; };
+  const selProf = document.getElementById('cop-prof');
+  if (selProf && r.profId && ![...selProf.options].some(o => o.value === r.profId)) {
+    selProf.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(r.profId)}">${escapeHtml(r.prof || '—')}</option>`);   // solicitante que saiu da lista
+  }
   set('cop-prof',   r.profId);
   set('cop-turma',  r.turmaId);
   set('cop-data',   r.data);
@@ -11526,10 +11678,11 @@ function salvarCopia() {
 
   const profId = document.getElementById('cop-prof')?.value || '';
   const desc   = document.getElementById('cop-desc')?.value.trim() || '';
-  if (!profId) { aviso('⚠️ Selecione a professora.', '#b45309'); return; }
+  if (!profId) { aviso('⚠️ Selecione quem solicitou (professora ou setor).', '#b45309'); return; }
   if (!desc)   { aviso('⚠️ Escreva o que foi impresso.', '#b45309'); return; }
 
   const u = db.usuarios.find(x => x.id === profId);
+  const setor = copSetorPorId(profId);
   const paginas = Math.max(1, Number(document.getElementById('cop-paginas')?.value || 1));
   const copias  = Math.max(1, Number(document.getElementById('cop-copias')?.value || 1));
 
@@ -11541,7 +11694,7 @@ function salvarCopia() {
     const depois  = usado + paginas * copias;
     if (depois > cota) {
       const excesso = depois - cota;
-      const quem    = u ? u.nome : 'esta pessoa';
+      const quem    = setor ? setor.nome : (u ? u.nome : 'esta pessoa');
       if (cotasCopias().bloquear) {
         aviso(`🚫 Cota mensal de ${quem} é ${cota.toLocaleString('pt-BR')} páginas. `
             + `Já foram ${usado.toLocaleString('pt-BR')} e este lançamento passaria em ${excesso.toLocaleString('pt-BR')}. `
@@ -11557,7 +11710,8 @@ function salvarCopia() {
   const reg = {
     id: uid(),
     profId,
-    prof: u ? u.nome : '',
+    prof: setor ? setor.nome : (u ? u.nome : ''),
+    ...(setor ? { tipoSolicitante: 'setor' } : {}),
     turmaId: document.getElementById('cop-turma')?.value || '',
     data: dataReg,
     descricao: desc,
@@ -11630,16 +11784,19 @@ function exportarCopias() {
   if (!lista.length) { showToast('Nenhum lançamento neste mês.'); return; }
   const porProf = {};
   lista.forEach(r => {
-    const k = r.prof || '—';
+    const k = (copNomeSolicitante(r.profId, r.prof) || '—') + (copEhSetor(r.profId) ? ' (setor)' : '');
     porProf[k] = porProf[k] || { total: 0, id: r.profId || '' };
     porProf[k].total += Number(r.total) || 0;
   });
   const totalGeral = lista.reduce((s, r) => s + (Number(r.total) || 0), 0);
+  const totalSetores = lista.filter(r => copEhSetor(r.profId)).reduce((s, r) => s + (Number(r.total) || 0), 0);
   const linhas = [
     `RELATÓRIO DE CÓPIAS — ESCOLA PONTE DO SABER`,
     `Mês de referência: ${mes}`,
     ``,
     `TOTAL DO MÊS: ${totalGeral} páginas em ${lista.length} solicitações`,
+    `  Professoras e pedagoga: ${totalGeral - totalSetores} páginas`,
+    `  Setores da escola: ${totalSetores} páginas`,
     ``,
     `POR SOLICITANTE`,
     ...Object.entries(porProf).sort((a, b) => b[1].total - a[1].total).map(([n, p]) => {
@@ -11654,7 +11811,7 @@ function exportarCopias() {
     ...lista.slice().sort((a, b) => String(a.data).localeCompare(String(b.data))).map(r => {
       const t = db.turmas.find(x => x.id === r.turmaId);
       const d = r.data ? new Date(r.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
-      return `${d} · ${r.prof} · ${t ? t.nome : '—'} · ${r.descricao} · ${r.paginas}p × ${r.copias} = ${r.total}`;
+      return `${d} · ${copNomeSolicitante(r.profId, r.prof)}${copEhSetor(r.profId) ? ' (setor)' : ''} · ${t ? t.nome : '—'} · ${r.descricao} · ${r.paginas}p × ${r.copias} = ${r.total}`;
     }),
   ];
   downloadTxt(linhas.join('\n'), `copias_${mes}.txt`);
@@ -11671,12 +11828,13 @@ function renderCopias() {
     const porProf = {};
     doMes.forEach(r => {
       const k = r.profId || ('nome:' + normalizarNome(r.prof));
-      porProf[k] = porProf[k] || { nome: r.prof || '—', id: r.profId || '', total: 0, itens: 0 };
+      porProf[k] = porProf[k] || { nome: copNomeSolicitante(r.profId, r.prof) || '—', id: r.profId || '', setor: copEhSetor(r.profId), total: 0, itens: 0 };
       porProf[k].total += Number(r.total) || 0;
       porProf[k].itens++;
     });
     const chaves = Object.keys(porProf).sort((a, b) => porProf[b].total - porProf[a].total);
     const totalGeral = doMes.reduce((s, r) => s + (Number(r.total) || 0), 0);
+    const totalSetores = doMes.filter(r => copEhSetor(r.profId)).reduce((s, r) => s + (Number(r.total) || 0), 0);
 
     if (!chaves.length) {
       cons.innerHTML = '<div class="empty"><div class="icon">📊</div><p>Nenhuma cópia registrada neste mês. Lance a primeira acima e o consumo aparece aqui.</p></div>';
@@ -11686,6 +11844,7 @@ function renderCopias() {
       cons.innerHTML = `<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--gray-200);">
           <span style="font-size:30px;font-weight:700;color:var(--green-dark);font-variant-numeric:tabular-nums;">${totalGeral.toLocaleString('pt-BR')}</span>
           <span style="font-size:13px;color:var(--gray-500);">páginas no mês · ${doMes.length} solicitaç${doMes.length > 1 ? 'ões' : 'ão'}</span>
+          ${totalSetores ? `<span style="font-size:12.5px;color:var(--gray-500);margin-left:auto;">setores: <strong>${totalSetores.toLocaleString('pt-BR')}</strong> · professoras: <strong>${(totalGeral - totalSetores).toLocaleString('pt-BR')}</strong></span>` : ''}
         </div>`
         + chaves.map(k => {
           const p = porProf[k];
@@ -11703,7 +11862,7 @@ function renderCopias() {
               : `<span style="color:var(--gray-400);">de ${cota.toLocaleString('pt-BR')}</span>`;
           return `<div style="margin-bottom:12px;">
             <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:4px;flex-wrap:wrap;">
-              <span style="font-size:13.5px;font-weight:600;">${escapeHtml(p.nome)}</span>
+              <span style="font-size:13.5px;font-weight:600;">${p.setor ? '🏢 ' : ''}${escapeHtml(p.nome)}${p.setor ? ' <span class="badge badge-blue" style="font-size:10.5px;">setor</span>' : ''}</span>
               <span style="font-size:13px;color:var(--gray-500);font-variant-numeric:tabular-nums;">
                 <strong style="color:${cor};font-size:15px;">${p.total.toLocaleString('pt-BR')}</strong> ${selo} págs · ${p.itens} pedido(s)</span>
             </div>
@@ -11720,7 +11879,9 @@ function renderCopias() {
   if (!el) return;
   const filtro = document.getElementById('cop-filtro-prof')?.value || '';
   let lista = doMes.slice();
-  if (filtro) lista = lista.filter(r => r.profId === filtro);
+  if (filtro === '__setores')          lista = lista.filter(r => copEhSetor(r.profId));
+  else if (filtro === '__professoras') lista = lista.filter(r => !copEhSetor(r.profId));
+  else if (filtro)                     lista = lista.filter(r => r.profId === filtro);
   lista.sort((a, b) => String(b.data).localeCompare(String(a.data)) || String(b.criadoEm).localeCompare(String(a.criadoEm)));
 
   if (!lista.length) {
@@ -11735,7 +11896,9 @@ function renderCopias() {
       <div class="info">
         <strong>${escapeHtml(r.descricao || '—')}</strong>
         <span>
-          <span class="badge badge-green">${escapeHtml(r.prof || '—')}</span>
+          ${copEhSetor(r.profId)
+            ? `<span class="badge badge-blue">🏢 ${escapeHtml(copNomeSolicitante(r.profId, r.prof) || '—')}</span>`
+            : `<span class="badge badge-green">${escapeHtml(r.prof || '—')}</span>`}
           ${t ? `<span class="badge badge-gray">${escapeHtml(t.nome)}</span>` : ''}
           &nbsp;📅 ${d}
         </span>
@@ -16987,7 +17150,7 @@ function dadosParaBackup() {
     avaliacoes: db.avaliacoes, diasSemAula: db.diasSemAula,
     agendaFormacao: db.agendaFormacao, calendarioEscolar: db.calendarioEscolar,
     entregasPareceres: db.entregasPareceres, impressoes: db.impressoes,
-    regimesPorAno: db.regimesPorAno, cotasCopias: db.cotasCopias,
+    regimesPorAno: db.regimesPorAno, cotasCopias: db.cotasCopias, setores: db.setores,
     usuarios: db.usuarios.map(u => ({ id: u.id, nome: u.nome, usuario: u.usuario, email: u.email, papel: u.papel, turmaIds: u.turmaIds })),
   };
 }
