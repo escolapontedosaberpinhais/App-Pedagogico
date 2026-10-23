@@ -1273,6 +1273,17 @@
   /* Manuais: leitura confortavel (os titulos nao ficam colados no texto) */
   .manual-leitura .manual-sec-titulo { margin: 20px 0 6px; font-size: 16px; color: var(--green-dark); }
   .manual-leitura .manual-sec-texto { font-size: 14.5px; line-height: 1.65; }
+  /* Lembretes: pop-up de datas importantes */
+  #lembretes-conteudo .item-card { margin-bottom: 10px; }
+  .lem-box { max-width: 520px; }
+  .lem-cab { font-size: 18px; font-weight: 700; margin-bottom: 12px; color: var(--green-dark); }
+  .lem-lista { display: flex; flex-direction: column; gap: 10px; max-height: 60vh; overflow-y: auto; }
+  .lem-card { border: 1px solid var(--gray-200, #e5e7eb); border-left: 4px solid var(--green-dark); border-radius: 8px; padding: 10px 12px; background: var(--gray-100); }
+  .lem-quando { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--green-dark); }
+  .lem-quando.lem-urgente { color: #b45309; }
+  .lem-titulo { font-size: 16px; font-weight: 700; margin: 2px 0; }
+  .lem-desc { font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+  .lem-acoes { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
   .manual-leitura .manual-sec-texto p { margin: 0 0 8px; }
   .manual-leitura .manual-sec-texto ul { margin: 0 0 8px 22px; padding: 0; }
   .manual-leitura .manual-sec-texto li { margin-bottom: 3px; }
@@ -1593,6 +1604,9 @@
     <button class="dnav-btn" id="dnav-copias" onclick="drawerNav('copias')" style="display:none;">
       <span class="di">&#x1F4C4;</span> Solicita&ccedil;&otilde;es de c&oacute;pia
     </button>
+    <button class="dnav-btn" id="dnav-lembretes" onclick="drawerNav('lembretes')" style="display:none;">
+      <span class="di">&#x1F514;</span> Lembretes
+    </button>
 
     <!-- 📚 Pedagógico -->
     <div class="dnav-group-label">📚 Pedag&oacute;gico</div>
@@ -1696,6 +1710,7 @@
       <button data-tab="cadastro" onclick="showTab('cadastro');closeNavGrp()">📝 Cadastro</button>
       <button data-tab="impressao" onclick="showTab('impressao');closeNavGrp()">🖨️ Impressão</button>
       <button data-tab="copias" onclick="showTab('copias');closeNavGrp()">📄 Solicitações de cópia</button>
+      <button data-tab="lembretes" id="navdir-lembretes" onclick="showTab('lembretes');closeNavGrp()" style="display:none;">🔔 Lembretes</button>
     </div>
   </div>
   <!-- 📚 Pedagógico -->
@@ -4185,6 +4200,15 @@ function _listarPlanejamentos() {
   <div id="manuais-conteudo"></div>
 </div>
 
+<!-- ===================== LEMBRETES ===================== -->
+<div id="tab-lembretes" class="section">
+  <div class="section-header">
+    <h2>🔔 Lembretes</h2>
+    <p>Datas importantes avisadas em pop-up, com antecedência, para os cargos escolhidos.</p>
+  </div>
+  <div id="lembretes-conteudo"></div>
+</div>
+
 <div id="tab-calendario" class="section">
   <!-- Cabeçalho de impressão (oculto na tela) -->
   <div id="cal-print-header">
@@ -4873,7 +4897,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.36.0';
+const APP_VERSION = 'v2.37.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -5071,7 +5095,7 @@ async function loadFromFirestore() {
       'config', 'notificacoes', 'horaAtividade', 'rotinas', 'atividades', 'diasSemAula',
       'entregasPareceres', 'ocorrencias', 'agendaFormacao', 'calendarioEscolar',
       'observacoes', 'impressoes', 'chatGeral', 'orientacoes', 'marcosDesenvolvimento',
-      'manuais',
+      'manuais', 'lembretes',
     ];
     const _lidos = await Promise.all(_COLECOES.map(nome => FSREF(nome).get()));
     const _doc   = {};
@@ -5138,6 +5162,8 @@ async function loadFromFirestore() {
     _impressoesCarregadas = true;
     if (_doc.manuais && _doc.manuais.exists) { db.manuais = _doc.manuais.data().data ?? []; LS.set('ps_manuais', db.manuais); }
     _manuaisCarregados = true;
+    if (_doc.lembretes && _doc.lembretes.exists) { db.lembretes = _doc.lembretes.data().data ?? []; LS.set('ps_lembretes', db.lembretes); }
+    _lembretesCarregados = true;
     if (rFm.exists) {
       db.agendaFormacao = rFm.data().data ?? [];
     } else {
@@ -5522,6 +5548,8 @@ function saveToFirestore() {
   if (_impressoesCarregadas)    batch.set(FSREF('impressoes'),     { data: db.impressoes });
   // Manuais: so a direcao grava, para uma copia desatualizada de outro perfil nunca apagar a edicao dela
   if (_manuaisCarregados && currentUser?.papel === 'diretor') batch.set(FSREF('manuais'), { data: db.manuais });
+  // Lembretes: mesma regra, so a direcao grava
+  if (_lembretesCarregados && currentUser?.papel === 'diretor') batch.set(FSREF('lembretes'), { data: db.lembretes });
   if (_agendaFormacaoCarregada) batch.set(FSREF('agendaFormacao'), { data: db.agendaFormacao });
   if (_calendarioEscolarCarregado && db.calendarioEscolar) batch.set(FSREF('calendarioEscolar'), { data: db.calendarioEscolar });
   batch.set(FSREF('diasSemAula'), { data: db.diasSemAula });
@@ -5671,6 +5699,15 @@ function setupSync() {
       refreshCurrentView();
     }
   });
+  FSREF('lembretes').onSnapshot((doc) => {
+    if (doc.exists && !doc.metadata.hasPendingWrites) {
+      db.lembretes = doc.data().data ?? [];
+      _lembretesCarregados = true;
+      LS.set('ps_lembretes', db.lembretes);
+      refreshCurrentView();
+      lembretesVerificar();
+    }
+  });
   FSREF('observacoes').onSnapshot((doc) => {
     if (doc.exists && !doc.metadata.hasPendingWrites) {
       db.observacoes = doc.data().data ?? [];
@@ -5767,6 +5804,7 @@ function refreshCurrentView() {
   if (id === 'tab-formacao')        { renderFormacao(); }
   if (id === 'tab-calendario')      { renderCalendario(); }
   if (id === 'tab-manuais')         { renderManuais(); }
+  if (id === 'tab-lembretes')       { renderLembretes(); }
 }
 
 // =====================================================================
@@ -5801,6 +5839,7 @@ let db = {
   chatGeral: [],
   marcosDesenvolvimento: [],
   manuais: LS.get('ps_manuais', []),
+  lembretes: LS.get('ps_lembretes', []),
 };
 // Guardas: evita sobrescrever dados no Firestore antes de carregá-los
 let _firestoreOk                  = false;  // trava global: só grava após load bem-sucedido
@@ -5816,6 +5855,7 @@ let _calendarioEscolarCarregado   = false;
 let _chatGeralCarregado           = false;
 let _marcosCarregados              = false;
 let _manuaisCarregados            = false;
+let _lembretesCarregados          = false;
 let _chatDMAtivo                  = null;
 let _chatDMUnsub                  = null;
 let _chatDMMsgs                   = [];
@@ -5845,6 +5885,7 @@ function save() {
   LS.set('ps_orientacoes', db.orientacoes);
   LS.set('ps_impressoes', db.impressoes);
   LS.set('ps_manuais', db.manuais);
+  LS.set('ps_lembretes', db.lembretes);
   LS.set('ps_agenda_formacao', db.agendaFormacao);
   if (db.calendarioEscolar) LS.set('ps_calendario_escolar', db.calendarioEscolar);
   // Firestore
@@ -5923,6 +5964,7 @@ function trocarSenha() {
 function fazerLogout() {
   logger.audit({ module: 'auth', action: 'logout', message: `Logout: ${currentUser?.nome || 'desconhecido'} (${currentUser?.papel || ''})` });
   chatEncerrarSessao();     // conversas privadas nao podem sobreviver a troca de usuario
+  document.getElementById('lembretes-popup')?.remove();
   currentUser = null;
   sessionStorage.removeItem('ps_sess');
   document.getElementById('login-overlay').style.display = 'flex';
@@ -6064,6 +6106,10 @@ function aplicarPapel() {
   nav('dnav-manuais',   true);
   nav('navdir-manuais', isDiretor);
 
+  // Lembretes: so a direcao cadastra; os pop-ups aparecem para os perfis escolhidos
+  nav('dnav-lembretes',   isDiretor);
+  nav('navdir-lembretes', isDiretor);
+
   // Diagnóstico de sincronização: apenas diretor
   nav('btn-diagnostico-sync', isDiretor);
 
@@ -6149,6 +6195,7 @@ function aplicarPapel() {
   setTimeout(autoSyncFinanceDesk, 3000);
   agendarBackupAutomatico();
   agendarDrivePareceresCorrigidos();
+  lembretesIniciar();
 }
 
 // turmas visíveis para o usuário atual
@@ -6554,7 +6601,7 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 // =====================================================================
 const _TAB_GRUPOS = {
   orientacoes: 'pedagogico',
-  dashboard: 'inicio', manuais: 'inicio',
+  dashboard: 'inicio', manuais: 'inicio', lembretes: 'gestao',
   cadastro: 'gestao', impressao: 'gestao', copias: 'gestao',
   rotina: 'pedagogico', avaliacoes: 'pedagogico', correcao: 'pedagogico', formacao: 'pedagogico',
   observacoes: 'pedagogico', marcos: 'pedagogico',
@@ -6622,6 +6669,7 @@ function showTab(tab) {
   if (tab === 'copias')         { popularSelectsCopias(); renderCopias(); }
   if (tab === 'calendario')     { renderCalendario(); }
   if (tab === 'manuais')        { _manualLendoId = null; renderManuais(); }
+  if (tab === 'lembretes')      { _lembreteEditando = null; renderLembretes(); }
 }
 
 // --- DRAWER functions ---
@@ -11960,6 +12008,376 @@ function renderCopias() {
       </div>
     </div>`;
   }).join('');
+}
+
+// =====================================================================
+// LEMBRETES — avisos em pop-up para datas importantes, por perfil
+// =====================================================================
+// =====================================================================
+// LEMBRETES — datas importantes com aviso em pop-up (so a direcao cadastra)
+// =====================================================================
+// Ex.: a Semana da Crianca, todo ano em 12/10. A coordenacao precisa de tempo
+// para preparar o evento, entao o sistema avisa com antecedencia, em pop-up,
+// para os perfis que a direcao escolher.
+//  - cada lembrete tem a data, se repete todo ano ou vale uma vez so, quantos
+//    dias antes comeca a avisar e quais perfis recebem;
+//  - o pop-up aparece no dia em que a data entra na janela de antecedencia e
+//    de novo faltando 7, 3 e 1 dia e no proprio dia. O mesmo aviso nunca
+//    aparece duas vezes, para nao virar um incomodo diario;
+//  - cada pessoa pode marcar "Ja resolvi" para parar os avisos daquela data.
+// O que cada pessoa ja viu fica guardado neste aparelho (localStorage).
+const LEMBRETE_PERFIS = [
+  { id: 'diretor',    rotulo: 'Direção' },
+  { id: 'pedagoga',   rotulo: 'Pedagoga' },
+  { id: 'secretaria', rotulo: 'Secretaria' },
+  { id: 'professora', rotulo: 'Professoras' },
+];
+const LEMBRETE_MARCOS = [7, 3, 1, 0];   // alem do dia em que a data entra na janela
+const LEMBRETE_MSG_SEM_PERMISSAO = '🔒 Só a direção cadastra lembretes.';
+let _lembreteEditando = null;   // id do lembrete no formulario ('' = novo)
+let _lembretesRelogio = null;
+
+function lembretePodeEditar() { return currentUser?.papel === 'diretor'; }
+
+// Hoje no fuso do aparelho (AAAA-MM-DD). toISOString() usa UTC e, no Brasil,
+// vira o dia seguinte a partir das 21h.
+function lembreteHoje() {
+  const d = new Date(), z = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
+}
+function _lemMs(iso) { const p = String(iso).split('-').map(Number); return Date.UTC(p[0], p[1] - 1, p[2]); }
+function _lemDias(deISO, ateISO) { return Math.round((_lemMs(ateISO) - _lemMs(deISO)) / 86400000); }
+// 29/02 num ano comum cai em 28/02
+function _lemData(ano, mes, dia) {
+  const ultimo = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
+  const z = n => String(n).padStart(2, '0');
+  return `${ano}-${z(mes)}-${z(Math.min(dia, ultimo))}`;
+}
+function _lemFmt(iso, comAno) {
+  const p = String(iso).split('-');
+  return comAno ? `${p[2]}/${p[1]}/${p[0]}` : `${p[2]}/${p[1]}`;
+}
+
+// Proxima ocorrencia que ainda nao passou (hoje conta); null se ja passou de vez
+function lembreteOcorrencia(l, hoje) {
+  hoje = hoje || lembreteHoje();
+  const mes = Number(l.mes), dia = Number(l.dia);
+  if (!(mes >= 1 && mes <= 12 && dia >= 1 && dia <= 31)) return null;
+  if (l.recorrencia === 'unica') {
+    const ano = Number(l.ano);
+    if (!ano) return null;
+    const d = _lemData(ano, mes, dia);
+    return d >= hoje ? d : null;
+  }
+  const ano = Number(hoje.slice(0, 4));
+  const esteAno = _lemData(ano, mes, dia);
+  return esteAno >= hoje ? esteAno : _lemData(ano + 1, mes, dia);
+}
+
+// Marcos de aviso: [N, 7, 3, 1, 0], sem repetir e sem passar de N dias
+function lembreteMarcos(l) {
+  const n = Math.max(0, Math.floor(Number(l.antecedencia) || 0));
+  return Array.from(new Set([n].concat(LEMBRETE_MARCOS.filter(m => m <= n)))).sort((a, b) => b - a);
+}
+
+// Estagio atual: o menor marco que ainda nao foi vencido. null = fora da janela.
+function lembreteEstagio(l, faltam) {
+  const m = lembreteMarcos(l).filter(t => t >= faltam);
+  return m.length ? Math.min.apply(null, m) : null;
+}
+
+// ── O que cada pessoa ja viu (so neste aparelho) ────────────────────────
+function _lemChaveAck() { return 'ps_lembretes_ack_' + (currentUser?.id || ''); }
+function _lemAcks() { return LS.get(_lemChaveAck(), {}); }
+function _lemGravarAck(l, ocorrencia, estagio) {
+  try {
+    const acks = _lemAcks();
+    acks[l.id + '|' + ocorrencia] = estagio;
+    // limpa o que ja passou ha mais de um ano, para o registro nao crescer sem fim
+    const limite = _lemData(Number(lembreteHoje().slice(0, 4)) - 1, 1, 1);
+    Object.keys(acks).forEach(k => { const oc = k.split('|')[1]; if (oc && oc < limite) delete acks[k]; });
+    LS.set(_lemChaveAck(), acks);
+  } catch (e) { /* sem armazenamento: o aviso volta na proxima abertura */ }
+}
+
+// Lembretes que devem aparecer agora para a pessoa logada
+function lembretesPendentes(hoje) {
+  hoje = hoje || lembreteHoje();
+  const papel = currentUser?.papel;
+  if (!papel) return [];
+  const acks = _lemAcks();
+  const itens = [];
+  (db.lembretes || []).forEach(l => {
+    if (!l.ativo || !(l.perfis || []).includes(papel)) return;
+    const oc = lembreteOcorrencia(l, hoje);
+    if (!oc) return;
+    const faltam = _lemDias(hoje, oc);
+    const est = lembreteEstagio(l, faltam);
+    if (est === null) return;
+    const ack = acks[l.id + '|' + oc];
+    if (ack !== undefined && !(est < ack)) return;   // ja visto neste estagio (ou resolvido: -1)
+    itens.push({ l, oc, faltam, est });
+  });
+  return itens.sort((a, b) => a.faltam - b.faltam);
+}
+
+function _lemQuando(faltam) {
+  if (faltam <= 0) return 'É hoje!';
+  if (faltam === 1) return 'É amanhã!';
+  return `Faltam ${faltam} dias`;
+}
+
+// ── Pop-up ──────────────────────────────────────────────────────────────
+// itens: [{ l, oc, faltam, est }]. modoTeste: so mostra, nao registra nada.
+function lembretesMostrar(itens, modoTeste) {
+  document.getElementById('lembretes-popup')?.remove();
+  if (!itens.length) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'lembretes-popup';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-label', 'Lembretes de datas importantes');
+  const cartao = (it, i) => `<div class="lem-card" data-i="${i}">
+      <div class="lem-quando${it.faltam <= 1 ? ' lem-urgente' : ''}">${escapeHtml(_lemQuando(it.faltam))} · ${escapeHtml(_lemFmt(it.oc, true))}</div>
+      <div class="lem-titulo">${escapeHtml(it.l.titulo || '')}</div>
+      ${it.l.descricao ? `<div class="lem-desc">${escapeHtml(it.l.descricao)}</div>` : ''}
+      ${modoTeste ? '' : `<div class="lem-acoes">
+        <button class="btn btn-secondary btn-sm" data-acao="entendi">✔ Entendi</button>
+        <button class="btn btn-ghost btn-sm" data-acao="resolvido" title="Não avisar mais sobre esta data">🔕 Já resolvi</button>
+      </div>`}
+    </div>`;
+  overlay.innerHTML = `<div class="modal-box lem-box">
+      <div class="lem-cab">🔔 ${modoTeste ? 'Pré-visualização do lembrete' : (itens.length > 1 ? 'Lembretes de datas importantes' : 'Lembrete de data importante')}</div>
+      <div class="lem-lista">${itens.map(cartao).join('')}</div>
+      <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+        <button class="btn btn-primary" data-acao="fechar">${modoTeste ? 'Fechar' : 'Fechar (vejo de novo no próximo aviso)'}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const restantes = new Set(itens.map((_, i) => i));
+  const encerrar = () => overlay.remove();
+  const registrar = (i, estagio) => { if (!modoTeste) _lemGravarAck(itens[i].l, itens[i].oc, estagio); };
+  const sair = () => { restantes.forEach(i => registrar(i, itens[i].est)); encerrar(); };
+
+  overlay.querySelectorAll('.lem-card').forEach(card => {
+    const i = Number(card.dataset.i);
+    card.querySelectorAll('[data-acao]').forEach(b => {
+      b.onclick = () => {
+        registrar(i, b.dataset.acao === 'resolvido' ? -1 : itens[i].est);
+        restantes.delete(i); card.remove();
+        if (!restantes.size) encerrar();
+      };
+    });
+  });
+  overlay.querySelector('[data-acao="fechar"]').onclick = sair;
+  overlay.onclick = (e) => { if (e.target === overlay) sair(); };
+}
+
+// Confere se ha algo a mostrar agora (no login, a cada 30 min e quando os dados mudam)
+function lembretesVerificar() {
+  if (!currentUser) return;
+  if (document.getElementById('lembretes-popup')) return;   // nao empilha pop-ups
+  const itens = lembretesPendentes();
+  if (itens.length) lembretesMostrar(itens, false);
+}
+
+function lembretesIniciar() {
+  setTimeout(lembretesVerificar, 1200);   // deixa a tela inicial aparecer primeiro
+  if (!_lembretesRelogio) _lembretesRelogio = setInterval(lembretesVerificar, 30 * 60 * 1000);
+}
+
+// ── Cadastro (direcao) ──────────────────────────────────────────────────
+function _lemNomesPerfis(l) {
+  const nomes = LEMBRETE_PERFIS.filter(p => (l.perfis || []).includes(p.id)).map(p => p.rotulo);
+  return nomes.length ? nomes.join(', ') : 'ninguém';
+}
+
+function lembreteNovo() {
+  if (!lembretePodeEditar()) { showToast(LEMBRETE_MSG_SEM_PERMISSAO); return; }
+  _lembreteEditando = '';
+  renderLembretes();
+}
+
+function lembreteEditar(id) {
+  if (!lembretePodeEditar()) { showToast(LEMBRETE_MSG_SEM_PERMISSAO); return; }
+  if (!(db.lembretes || []).some(x => x.id === id)) return;
+  _lembreteEditando = id;
+  renderLembretes();
+}
+
+function lembreteCancelar() { _lembreteEditando = null; renderLembretes(); }
+
+function lembreteSalvar() {
+  if (!lembretePodeEditar()) { showToast(LEMBRETE_MSG_SEM_PERMISSAO); return; }
+  const val = id => document.getElementById(id)?.value ?? '';
+  const titulo = val('lem-titulo').replace(/\s+/g, ' ').trim();
+  const descricao = val('lem-descricao').trim();
+  const data = val('lem-data');
+  const recorrencia = val('lem-recorrencia') === 'unica' ? 'unica' : 'anual';
+  const antecedencia = Number(val('lem-antecedencia'));
+  const perfis = LEMBRETE_PERFIS.map(p => p.id).filter(p => document.getElementById('lem-perfil-' + p)?.checked);
+
+  if (!titulo) { showToast('❗ Dê um nome ao lembrete.'); return; }
+  if (titulo.length > 120) { showToast('❗ O nome do lembrete passou de 120 letras.'); return; }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data) || isNaN(_lemMs(data))) { showToast('❗ Escolha a data.'); return; }
+  if (!Number.isInteger(antecedencia) || antecedencia < 0 || antecedencia > 365) {
+    showToast('❗ A antecedência deve ser um número de dias entre 0 e 365.'); return;
+  }
+  if (!perfis.length) { showToast('❗ Marque quem deve receber o lembrete.'); return; }
+  if (recorrencia === 'unica' && data < lembreteHoje()) { showToast('❗ Essa data já passou. Para repetir todo ano, escolha "Todo ano".'); return; }
+  if (descricao.length > 1000) { showToast('❗ A descrição passou de 1000 letras.'); return; }
+
+  const p = data.split('-').map(Number);
+  const agora = new Date().toISOString();
+  const quem = currentUser?.nome || currentUser?.usuario || '';
+  const campos = {
+    titulo, descricao, recorrencia, mes: p[1], dia: p[2], ano: recorrencia === 'unica' ? p[0] : null,
+    antecedencia, perfis,
+  };
+  const lista = (db.lembretes || []).slice();
+  if (_lembreteEditando) {
+    const i = lista.findIndex(x => x.id === _lembreteEditando);
+    if (i < 0) { showToast('⚠️ Este lembrete não existe mais.'); _lembreteEditando = null; renderLembretes(); return; }
+    lista[i] = { ...lista[i], ...campos, atualizadoEm: agora, atualizadoPor: quem };
+  } else {
+    lista.push({ id: uid(), ...campos, ativo: true, criadoEm: agora, criadoPor: quem, atualizadoEm: agora, atualizadoPor: quem });
+  }
+  db.lembretes = lista;
+  _lembretesCarregados = true;
+  _lembreteEditando = null;
+  save();
+  logger.audit({ module: 'lembrete', action: 'salvar', message: `Lembrete salvo: ${titulo}`, after: campos });
+  renderLembretes();
+  showToast('🔔 Lembrete salvo.');
+  lembretesVerificar();
+}
+
+function lembreteAlternar(id) {
+  if (!lembretePodeEditar()) { showToast(LEMBRETE_MSG_SEM_PERMISSAO); return; }
+  const i = (db.lembretes || []).findIndex(x => x.id === id);
+  if (i < 0) return;
+  const lista = db.lembretes.slice();
+  lista[i] = { ...lista[i], ativo: !lista[i].ativo, atualizadoEm: new Date().toISOString() };
+  db.lembretes = lista;
+  save(); renderLembretes();
+  showToast(lista[i].ativo ? '▶️ Lembrete ativado.' : '⏸️ Lembrete pausado.');
+}
+
+function lembreteExcluir(id) {
+  if (!lembretePodeEditar()) { showToast(LEMBRETE_MSG_SEM_PERMISSAO); return; }
+  const l = (db.lembretes || []).find(x => x.id === id);
+  if (!l) return;
+  showConfirmModal(`Excluir o lembrete "${escapeHtml(l.titulo)}"?`, () => {
+    db.lembretes = db.lembretes.filter(x => x.id !== id);
+    if (_lembreteEditando === id) _lembreteEditando = null;
+    save(); renderLembretes();
+    logger.audit({ module: 'lembrete', action: 'excluir', message: `Lembrete excluído: ${l.titulo}` });
+    showToast('🗑️ Lembrete excluído.');
+  }, { rotulo: 'Excluir', tipo: 'danger' });
+}
+
+// Mostra como o pop-up vai aparecer, sem registrar que foi visto
+function lembreteTestar(id) {
+  if (!lembretePodeEditar()) { showToast(LEMBRETE_MSG_SEM_PERMISSAO); return; }
+  const l = (db.lembretes || []).find(x => x.id === id);
+  if (!l) return;
+  const hoje = lembreteHoje();
+  const oc = lembreteOcorrencia(l, hoje) || hoje;
+  const faltam = Math.max(0, _lemDias(hoje, oc));
+  lembretesMostrar([{ l, oc, faltam, est: faltam }], true);
+}
+
+// ── Tela ────────────────────────────────────────────────────────────────
+function _lemFormulario() {
+  const l = _lembreteEditando ? (db.lembretes || []).find(x => x.id === _lembreteEditando) : null;
+  const ano = Number(lembreteHoje().slice(0, 4));
+  const dataVal = l ? _lemData(l.recorrencia === 'unica' ? Number(l.ano) : ano, Number(l.mes), Number(l.dia)) : '';
+  const perfis = new Set(l ? (l.perfis || []) : ['diretor', 'pedagoga']);
+  return `<div class="card">
+    <div class="card-title">${l ? '✏️ Editar lembrete' : '➕ Novo lembrete'}</div>
+    <div class="form-group">
+      <label for="lem-titulo">O que é *</label>
+      <input type="text" id="lem-titulo" maxlength="120" value="${escapeHtml(l ? l.titulo : '')}" placeholder="Ex.: Semana da Criança">
+    </div>
+    <div class="form-group">
+      <label for="lem-descricao">O que precisa ser preparado</label>
+      <textarea id="lem-descricao" rows="3" maxlength="1000" placeholder="Ex.: definir programação, comprar lembrancinhas, avisar as famílias">${escapeHtml(l ? (l.descricao || '') : '')}</textarea>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label for="lem-data">Data *</label>
+        <input type="date" id="lem-data" value="${escapeHtml(dataVal)}">
+      </div>
+      <div class="form-group">
+        <label for="lem-recorrencia">Repetição</label>
+        <select id="lem-recorrencia">
+          <option value="anual" ${!l || l.recorrencia !== 'unica' ? 'selected' : ''}>Todo ano (vale o dia e o mês)</option>
+          <option value="unica" ${l && l.recorrencia === 'unica' ? 'selected' : ''}>Só nesta data</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="lem-antecedencia">Começar a avisar quantos dias antes *</label>
+        <input type="number" id="lem-antecedencia" min="0" max="365" step="1" value="${l ? Number(l.antecedencia) : 30}">
+      </div>
+    </div>
+    <div style="font-size:12.5px;color:var(--gray-500);margin:-4px 0 12px;">
+      O pop-up aparece nesse dia e de novo faltando 7, 3 e 1 dia e no próprio dia. Cada pessoa pode marcar "Já resolvi" para parar os avisos.
+    </div>
+    <div class="form-group">
+      <label>Quem recebe o lembrete *</label>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;">
+        ${LEMBRETE_PERFIS.map(p => `<label style="display:flex;gap:6px;align-items:center;font-weight:500;cursor:pointer;">
+          <input type="checkbox" style="width:auto;" id="lem-perfil-${p.id}" ${perfis.has(p.id) ? 'checked' : ''}> ${p.rotulo}</label>`).join('')}
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="lembreteSalvar()">💾 Salvar lembrete</button>
+      <button class="btn btn-ghost" onclick="lembreteCancelar()">Cancelar</button>
+    </div>
+  </div>`;
+}
+
+function _lemLinha(l) {
+  const hoje = lembreteHoje();
+  const oc = lembreteOcorrencia(l, hoje);
+  const faltam = oc ? _lemDias(hoje, oc) : null;
+  const quando = !oc ? '<span class="badge badge-gray">Já passou</span>'
+    : `<span class="badge ${faltam <= 7 ? 'badge-amber' : 'badge-blue'}">${escapeHtml(_lemQuando(faltam))}</span>`;
+  return `<div class="item-card" style="align-items:center;${l.ativo ? '' : 'opacity:.65;'}">
+    <div class="info">
+      <strong>${escapeHtml(l.titulo)}</strong>
+      <span>📅 ${oc ? escapeHtml(_lemFmt(oc, l.recorrencia === 'unica')) : escapeHtml(_lemFmt(_lemData(Number(l.ano) || 2000, Number(l.mes), Number(l.dia)), true))}
+        · ${l.recorrencia === 'unica' ? 'só nesta data' : 'todo ano'} &nbsp;${quando}
+        ${l.ativo ? '' : '&nbsp;<span class="badge badge-gray">Pausado</span>'}</span>
+      <span style="font-size:12px;color:var(--gray-500);">avisa ${Number(l.antecedencia)} dia(s) antes · para: ${escapeHtml(_lemNomesPerfis(l))}</span>
+    </div>
+    <div class="actions" style="flex-wrap:wrap;">
+      <button class="btn btn-secondary btn-sm" onclick="lembreteTestar('${l.id}')" title="Ver como o pop-up aparece">👁️ Testar</button>
+      <button class="btn btn-secondary btn-sm" onclick="lembreteEditar('${l.id}')">✏️ Editar</button>
+      <button class="btn btn-secondary btn-sm" onclick="lembreteAlternar('${l.id}')">${l.ativo ? '⏸️ Pausar' : '▶️ Ativar'}</button>
+      <button class="btn btn-danger btn-sm" onclick="lembreteExcluir('${l.id}')" title="Excluir">🗑️</button>
+    </div>
+  </div>`;
+}
+
+function renderLembretes() {
+  const el = document.getElementById('lembretes-conteudo');
+  if (!el) return;
+  if (!lembretePodeEditar()) { el.innerHTML = ''; return; }
+  const lista = (db.lembretes || []).slice().sort((a, b) => {
+    const hoje = lembreteHoje();
+    const oa = lembreteOcorrencia(a, hoje), ob = lembreteOcorrencia(b, hoje);
+    if (!oa && !ob) return 0; if (!oa) return 1; if (!ob) return -1;
+    return oa.localeCompare(ob);
+  });
+  el.innerHTML = (_lembreteEditando !== null ? _lemFormulario()
+      : `<div style="margin-bottom:14px;"><button class="btn btn-primary" onclick="lembreteNovo()">➕ Novo lembrete</button></div>`)
+    + `<div class="card">
+        <div class="card-title">🔔 Datas importantes cadastradas</div>
+        ${lista.length ? lista.map(_lemLinha).join('')
+          : '<div class="empty"><div class="icon">🔔</div><p>Nenhum lembrete ainda.<br><small>Cadastre datas como a Semana da Criança para a equipe se preparar com tempo.</small></p></div>'}
+      </div>`;
 }
 
 // =====================================================================
@@ -17715,7 +18133,7 @@ function dadosParaBackup() {
     avaliacoes: db.avaliacoes, diasSemAula: db.diasSemAula,
     agendaFormacao: db.agendaFormacao, calendarioEscolar: db.calendarioEscolar,
     entregasPareceres: db.entregasPareceres, impressoes: db.impressoes,
-    regimesPorAno: db.regimesPorAno, cotasCopias: db.cotasCopias, setores: db.setores, manuais: db.manuais,
+    regimesPorAno: db.regimesPorAno, cotasCopias: db.cotasCopias, setores: db.setores, manuais: db.manuais, lembretes: db.lembretes,
     usuarios: db.usuarios.map(u => ({ id: u.id, nome: u.nome, usuario: u.usuario, email: u.email, papel: u.papel, turmaIds: u.turmaIds })),
   };
 }
@@ -18979,6 +19397,7 @@ const DIAG_COLECOES = [
   { id:'planejamentos', label:'Planejamentos',        lsKey:'ps_planejamentos',   tipo:'array' },
   { id:'pareceres',     label:'Pareceres',            lsKey:'ps_pareceres',       tipo:'array' },
   { id:'manuais',       label:'Manuais',              lsKey:'ps_manuais',         tipo:'array' },
+  { id:'lembretes',     label:'Lembretes',            lsKey:'ps_lembretes',       tipo:'array' },
   { id:'avaliacoes',    label:'Avaliações',           lsKey:'ps_avaliacoes',      tipo:'objeto' },
   { id:'horaAtividade', label:'Hora-Atividade',       lsKey:'ps_hora_atividade',  tipo:'array' },
   { id:'rotinas',       label:'Rotinas',              lsKey:'ps_rotinas',         tipo:'array' },
