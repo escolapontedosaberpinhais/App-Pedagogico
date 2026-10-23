@@ -4227,7 +4227,7 @@ function _listarPlanejamentos() {
           <input type="checkbox" id="cal-ev-interno" style="width:auto;margin-top:2px;">
           <span>Somente uso interno da equipe
             <span style="display:block;font-weight:400;font-size:12.5px;color:var(--gray-600);margin-top:2px;">
-              Aparece aqui no sistema para direção e pedagoga — para orientar planejamento e eventos —
+              Aparece aqui no sistema para direção, pedagoga e secretaria — para orientar planejamento e eventos —
               mas <strong>não sai no calendário impresso das famílias</strong>.
               Ex.: Dia da Bandeira, Dia do Soldado, Dia da Água.
             </span>
@@ -4852,7 +4852,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.35.2';
+const APP_VERSION = 'v2.35.3';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -6015,8 +6015,8 @@ function aplicarPapel() {
   nav('nav-marcos',  isGestao);
   nav('dnav-marcos', isGestao);
 
-  // Calendário: gestão (diretor + pedagoga) e secretaria editam; os eventos de
-  // uso interno da equipe ficam só com a gestão
+  // Calendário: gestão (diretor + pedagoga) e secretaria editam, inclusive os
+  // eventos de uso interno da equipe
   nav('nav-calendario',    isGestao || isSecretaria);
   nav('dnav-calendario',   isGestao || isSecretaria);
   nav('navdir-calendario', isGestao);
@@ -18723,22 +18723,14 @@ function calPodeEditar() {
   return papel === 'diretor' || papel === 'pedagoga' || papel === 'secretaria';
 }
 
-// Quem ve (e pode marcar) os eventos de uso interno da equipe: so direcao e
-// pedagoga. A secretaria edita o calendario, mas trabalha com o que sai para as
-// familias; ela nao enxerga nem cria evento interno.
+// Quem ve, cria e edita os eventos de uso interno da equipe ("nao sai no
+// calendario das familias"): direcao, pedagoga e secretaria. Fica separado de
+// calPodeEditar() para que, se um dia um perfil editar o calendario sem
+// participar da equipe interna, baste tirar o perfil daqui.
 function calVeInternos() {
   const papel = currentUser?.papel;
-  return papel === 'diretor' || papel === 'pedagoga';
+  return papel === 'diretor' || papel === 'pedagoga' || papel === 'secretaria';
 }
-
-// Evento interno que o perfil nao enxerga tambem nao pode ser aberto, alterado
-// nem apagado por ele, nem chamando a funcao direto.
-function _calEventoBloqueado(id) {
-  if (!id || calVeInternos() || !db.calendarioEscolar) return false;
-  const ev = db.calendarioEscolar.eventos.find(e => e.id === id);
-  return !!(ev && ev.interno);
-}
-const _CAL_MSG_INTERNO = '🔒 Este evento é de uso interno da direção e da pedagoga.';
 
 function _calEventosDaData(dataStr, incluirInternos = true) {
   if (!db.calendarioEscolar) return [];
@@ -19011,7 +19003,6 @@ function calToggleRange() {
 
 function calAbrirFormEvento(id) {
   if (!calPodeEditar()) { showToast('🔒 Seu perfil não pode editar o calendário.'); return; }
-  if (_calEventoBloqueado(id)) { showToast(_CAL_MSG_INTERNO); return; }
   const form = document.getElementById('cal-form-evento');
   const titulo = document.getElementById('cal-form-titulo');
   if (!form) return;
@@ -19069,7 +19060,6 @@ function calSalvarEvento() {
   const inicio    = document.getElementById('cal-ev-inicio').value;
   const fim       = document.getElementById('cal-ev-fim').value;
   const evId      = document.getElementById('cal-ev-id').value;
-  if (_calEventoBloqueado(evId)) { showToast(_CAL_MSG_INTERNO); return; }
 
   if (!descricao) { showToast('❗ Informe a descrição do evento.'); return; }
   if (!isRange && !data) { showToast('❗ Informe a data do evento.'); return; }
@@ -19198,7 +19188,6 @@ function calExcluirRecorrente(id) {
 
 function calExcluirEvento(id) {
   if (!calPodeEditar()) { showToast('🔒 Seu perfil não pode editar o calendário.'); return; }
-  if (_calEventoBloqueado(id)) { showToast(_CAL_MSG_INTERNO); return; }
   if (!confirm('Excluir este evento?')) return;
   if (!db.calendarioEscolar) return;
   db.calendarioEscolar.eventos = db.calendarioEscolar.eventos.filter(e => e.id !== id);
