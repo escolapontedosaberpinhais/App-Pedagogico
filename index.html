@@ -4852,7 +4852,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.35.1';
+const APP_VERSION = 'v2.35.2';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -6015,8 +6015,8 @@ function aplicarPapel() {
   nav('nav-marcos',  isGestao);
   nav('dnav-marcos', isGestao);
 
-  // Calendário: gestão (diretor + pedagoga) edita; a secretaria entra só para
-  // consultar e imprimir (sem os eventos de uso interno da equipe)
+  // Calendário: gestão (diretor + pedagoga) e secretaria editam; os eventos de
+  // uso interno da equipe ficam só com a gestão
   nav('nav-calendario',    isGestao || isSecretaria);
   nav('dnav-calendario',   isGestao || isSecretaria);
   nav('navdir-calendario', isGestao);
@@ -18598,7 +18598,7 @@ function _calDefaultData(ano) {
 // Redivide o calendario existente quando o regime muda, preservando os eventos
 // que nao sao de inicio/fim de periodo.
 function calRedividirPorRegime() {
-  if (!calPodeEditar()) { showToast('🔒 Só a direção e a pedagoga editam o calendário.'); return; }
+  if (!calPodeEditar()) { showToast('🔒 Seu perfil não pode editar o calendário.'); return; }
   const cal = db.calendarioEscolar;
   if (!cal) { showToast('❗ Crie o calendário primeiro.'); return; }
   const r = regimeInfo(cal.ano);
@@ -18671,7 +18671,7 @@ function _calInicializarSeLazio(ano) {
 }
 
 function calCriarParaAno(ano) {
-  if (!calPodeEditar()) { showToast('🔒 Só a direção e a pedagoga editam o calendário.'); return; }
+  if (!calPodeEditar()) { showToast('🔒 Seu perfil não pode editar o calendário.'); return; }
   const anual = ano || parseInt(document.getElementById('cal-ano')?.value || 2026);
   if (db.calendarioEscolar && db.calendarioEscolar.ano !== anual) {
     if (!confirm(`Isso vai substituir o calendário atual (${db.calendarioEscolar.ano}) pelo padrão de ${anual}. Continuar?`)) return;
@@ -18717,16 +18717,32 @@ function _calDatasDoEvento(ev) {
 
 // incluirInternos=false deixa de fora o que a equipe marcou como uso interno.
 // A impressao das familias passa false; a tela da gestao usa o padrao.
-// Quem edita o calendario (e ve o que e de uso interno da equipe): direcao e
-// pedagoga. A secretaria consulta e imprime, so o que sai para as familias.
+// Quem edita o calendario: direcao, pedagoga e secretaria.
 function calPodeEditar() {
+  const papel = currentUser?.papel;
+  return papel === 'diretor' || papel === 'pedagoga' || papel === 'secretaria';
+}
+
+// Quem ve (e pode marcar) os eventos de uso interno da equipe: so direcao e
+// pedagoga. A secretaria edita o calendario, mas trabalha com o que sai para as
+// familias; ela nao enxerga nem cria evento interno.
+function calVeInternos() {
   const papel = currentUser?.papel;
   return papel === 'diretor' || papel === 'pedagoga';
 }
 
+// Evento interno que o perfil nao enxerga tambem nao pode ser aberto, alterado
+// nem apagado por ele, nem chamando a funcao direto.
+function _calEventoBloqueado(id) {
+  if (!id || calVeInternos() || !db.calendarioEscolar) return false;
+  const ev = db.calendarioEscolar.eventos.find(e => e.id === id);
+  return !!(ev && ev.interno);
+}
+const _CAL_MSG_INTERNO = '🔒 Este evento é de uso interno da direção e da pedagoga.';
+
 function _calEventosDaData(dataStr, incluirInternos = true) {
   if (!db.calendarioEscolar) return [];
-  const mostrarInternos = incluirInternos && calPodeEditar();
+  const mostrarInternos = incluirInternos && calVeInternos();
   return db.calendarioEscolar.eventos.filter(ev =>
     (mostrarInternos || !ev.interno) && _calDatasDoEvento(ev).includes(dataStr));
 }
@@ -18956,7 +18972,7 @@ function renderCalEventosList() {
   const isGestao = calPodeEditar();
 
   const evs = [...db.calendarioEscolar.eventos]
-    .filter(ev => isGestao || !ev.interno)
+    .filter(ev => calVeInternos() || !ev.interno)
     .filter(ev => !busca || ev.descricao.toLowerCase().includes(busca))
     .sort((a, b) => {
       const da = a.data || a.dataInicio || '';
@@ -18994,7 +19010,8 @@ function calToggleRange() {
 }
 
 function calAbrirFormEvento(id) {
-  if (!calPodeEditar()) { showToast('🔒 Só a direção e a pedagoga editam o calendário.'); return; }
+  if (!calPodeEditar()) { showToast('🔒 Seu perfil não pode editar o calendário.'); return; }
+  if (_calEventoBloqueado(id)) { showToast(_CAL_MSG_INTERNO); return; }
   const form = document.getElementById('cal-form-evento');
   const titulo = document.getElementById('cal-form-titulo');
   if (!form) return;
@@ -19007,6 +19024,8 @@ function calAbrirFormEvento(id) {
   document.getElementById('cal-ev-fim').value = '';
   document.getElementById('cal-ev-range').checked = false;
   document.getElementById('cal-ev-interno').checked = false;
+  const grupoInterno = document.getElementById('cal-ev-interno').closest('.form-group');
+  if (grupoInterno) grupoInterno.style.display = calVeInternos() ? '' : 'none';
   document.getElementById('cal-ev-id').value = '';
   calToggleRange();
 
@@ -19042,7 +19061,7 @@ function calFecharFormEvento() {
 }
 
 function calSalvarEvento() {
-  if (!calPodeEditar()) { showToast('🔒 Só a direção e a pedagoga editam o calendário.'); return; }
+  if (!calPodeEditar()) { showToast('🔒 Seu perfil não pode editar o calendário.'); return; }
   const tipo      = document.getElementById('cal-ev-tipo').value;
   const descricao = document.getElementById('cal-ev-descricao').value.trim();
   const isRange   = document.getElementById('cal-ev-range').checked;
@@ -19050,6 +19069,7 @@ function calSalvarEvento() {
   const inicio    = document.getElementById('cal-ev-inicio').value;
   const fim       = document.getElementById('cal-ev-fim').value;
   const evId      = document.getElementById('cal-ev-id').value;
+  if (_calEventoBloqueado(evId)) { showToast(_CAL_MSG_INTERNO); return; }
 
   if (!descricao) { showToast('❗ Informe a descrição do evento.'); return; }
   if (!isRange && !data) { showToast('❗ Informe a data do evento.'); return; }
@@ -19058,7 +19078,7 @@ function calSalvarEvento() {
 
   if (!db.calendarioEscolar) { showToast('❗ Crie o calendário primeiro.'); return; }
 
-  const ev = { tipo, descricao, interno: !!document.getElementById('cal-ev-interno')?.checked };
+  const ev = { tipo, descricao, interno: calVeInternos() && !!document.getElementById('cal-ev-interno')?.checked };
   if (isRange) { ev.dataInicio = inicio; ev.dataFim = fim; }
   else         { ev.data = data; }
 
@@ -19087,7 +19107,7 @@ function calSalvarEvento() {
 
 // ── Marcacoes semanais recorrentes (ex.: Vox Dei toda quarta) ─────────────
 function calAbrirRecorrentes() {
-  if (!calPodeEditar()) { showToast('🔒 Só a direção e a pedagoga editam o calendário.'); return; }
+  if (!calPodeEditar()) { showToast('🔒 Seu perfil não pode editar o calendário.'); return; }
   const form = document.getElementById('cal-form-recorrentes');
   if (!form) return;
   if (!db.calendarioEscolar) { showToast('❗ Crie o calendário primeiro.'); return; }
@@ -19129,7 +19149,7 @@ function renderCalRecorrentes() {
 }
 
 function calSalvarRecorrente() {
-  if (!calPodeEditar()) { showToast('🔒 Só a direção e a pedagoga editam o calendário.'); return; }
+  if (!calPodeEditar()) { showToast('🔒 Seu perfil não pode editar o calendário.'); return; }
   if (!db.calendarioEscolar) { showToast('❗ Crie o calendário primeiro.'); return; }
   const descricao = document.getElementById('cal-rec-descricao').value.trim();
   if (!descricao) { showToast('❗ Informe a descrição (ex.: Vox Dei).'); return; }
@@ -19158,7 +19178,7 @@ function calSalvarRecorrente() {
 }
 
 function calExcluirRecorrente(id) {
-  if (!calPodeEditar()) { showToast('🔒 Só a direção e a pedagoga editam o calendário.'); return; }
+  if (!calPodeEditar()) { showToast('🔒 Seu perfil não pode editar o calendário.'); return; }
   if (!db.calendarioEscolar) return;
   const rec = (db.calendarioEscolar.recorrentes || []).find(r => String(r.id) === String(id));
   if (!rec) return;
@@ -19177,7 +19197,8 @@ function calExcluirRecorrente(id) {
 }
 
 function calExcluirEvento(id) {
-  if (!calPodeEditar()) { showToast('🔒 Só a direção e a pedagoga editam o calendário.'); return; }
+  if (!calPodeEditar()) { showToast('🔒 Seu perfil não pode editar o calendário.'); return; }
+  if (_calEventoBloqueado(id)) { showToast(_CAL_MSG_INTERNO); return; }
   if (!confirm('Excluir este evento?')) return;
   if (!db.calendarioEscolar) return;
   db.calendarioEscolar.eventos = db.calendarioEscolar.eventos.filter(e => e.id !== id);
@@ -19188,7 +19209,7 @@ function calExcluirEvento(id) {
 }
 
 function calAbrirBimestres() {
-  if (!calPodeEditar()) { showToast('🔒 Só a direção e a pedagoga editam o calendário.'); return; }
+  if (!calPodeEditar()) { showToast('🔒 Seu perfil não pode editar o calendário.'); return; }
   const form = document.getElementById('cal-form-bimestres');
   if (!form) return;
   if (!db.calendarioEscolar) { showToast('❗ Crie o calendário primeiro.'); return; }
@@ -19237,7 +19258,7 @@ function calFecharBimestres() {
 }
 
 function calSalvarBimestres() {
-  if (!calPodeEditar()) { showToast('🔒 Só a direção e a pedagoga editam o calendário.'); return; }
+  if (!calPodeEditar()) { showToast('🔒 Seu perfil não pode editar o calendário.'); return; }
   if (!db.calendarioEscolar) return;
 
   const bims = db.calendarioEscolar.bimestres;
