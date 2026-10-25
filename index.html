@@ -1273,6 +1273,12 @@
   /* Manuais: leitura confortavel (os titulos nao ficam colados no texto) */
   .manual-leitura .manual-sec-titulo { margin: 20px 0 6px; font-size: 16px; color: var(--green-dark); }
   .manual-leitura .manual-sec-texto { font-size: 14.5px; line-height: 1.65; }
+  .manual-anexos { display: flex; flex-direction: column; gap: 6px; }
+  .manual-anexo { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--gray-200); border-radius: 8px; background: var(--gray-100); }
+  .manual-anexo-ic { font-size: 20px; }
+  .manual-anexo a.btn { text-decoration: none; }
+  .manual-anexo-nome { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+  .manual-anexo-nome small { display: block; font-weight: 400; font-size: 11.5px; color: var(--gray-500); }
   /* Lembretes: pop-up de datas importantes */
   #lembretes-conteudo .item-card { margin-bottom: 10px; }
   .lem-box { max-width: 520px; }
@@ -1991,6 +1997,17 @@
         .setMimeType(ContentService.MimeType.JSON);
     }
 
+    // Arquivo modelo anexado a um manual (PDF, Word...): guarda o arquivo
+    // como veio, na pasta do manual, e quem tem o link so visualiza
+    if (data.action === 'anexo') {
+      var pastaAnexo = getFolder(data.pasta);
+      var blob = Utilities.newBlob(Utilities.base64Decode(data.base64), data.mime, data.nome);
+      var anexo = pastaAnexo.createFile(blob);
+      try { anexo.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) {}
+      return ContentService.createTextOutput(JSON.stringify({ok:true, id: anexo.getId(), url: anexo.getUrl()}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
     var folder = getFolder(data.path);
     var emails = data.shareWith || [];
 
@@ -2148,6 +2165,12 @@ function _listarPlanejamentos() {
       feito com uma conta pessoal, reimplante o script logado com a conta certa antes de colar a URL abaixo —
       os documentos antigos continuam na conta anterior e precisam ser movidos ou recriados à parte.
       </span>
+    </div>
+
+    <div class="alert alert-info" style="margin:0 0 16px;font-size:13px;">
+      <strong>📎 Anexos dos Manuais (v2.38):</strong> para a direção anexar arquivos modelo (PDF, Word...) aos manuais,
+      o script precisa da versão nova. Copie o código acima e atualize a implantação como explicado logo abaixo
+      (<strong>Gerenciar implantações → Nova versão</strong>). O endereço do script não muda.
     </div>
 
     <div class="alert" style="background:#fef3c7;border-left:4px solid #f59e0b;border-radius:6px;padding:12px 14px;margin:0 0 16px;font-size:13px;color:#92400e;">
@@ -4897,7 +4920,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.37.0';
+const APP_VERSION = 'v2.38.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -12606,6 +12629,155 @@ function manualMoverSecao(i, delta) {
   _manualSujo = true; renderManuais();
 }
 
+// ── Anexos: arquivos modelo guardados no Google Drive da escola ─────────
+// O arquivo sobe para o Drive da conta da escola pelo mesmo Apps Script dos
+// pareceres (pasta Escola Ponte do Saber/Manuais/<setor ou sala>). No sistema
+// fica so o nome e o link. O anexo entra no manual na hora do envio, sem
+// depender do "Salvar": assim um arquivo que ja subiu nunca fica solto no Drive.
+const MANUAL_ANEXO_MAX_BYTES = 10 * 1024 * 1024;
+const MANUAL_ANEXO_MAX_QTD   = 30;
+const MANUAL_ANEXO_TIPOS = {
+  pdf:  'application/pdf',
+  doc:  'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  odt:  'application/vnd.oasis.opendocument.text',
+  xls:  'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ods:  'application/vnd.oasis.opendocument.spreadsheet',
+  ppt:  'application/vnd.ms-powerpoint',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  jpg:  'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+};
+let _manualEnviando = false;   // um envio por vez
+
+function _manualExt(nome) { const m = String(nome || '').toLowerCase().match(/\.([a-z0-9]+)$/); return m ? m[1] : ''; }
+function _manualTamanho(b) {
+  b = Number(b) || 0;
+  return b >= 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
+}
+// So link do proprio Google Drive vira botao
+function _manualUrlDrive(url) { return /^https:\/\/(drive|docs)\.google\.com\//.test(String(url || '')) ? String(url) : ''; }
+
+function _manualLerBase64(arquivo) {
+  return new Promise((ok, falha) => {
+    const r = new FileReader();
+    r.onload = () => { const s = String(r.result || ''); ok(s.slice(s.indexOf(',') + 1)); };
+    r.onerror = () => falha(r.error || new Error('não consegui ler o arquivo'));
+    r.readAsDataURL(arquivo);
+  });
+}
+
+// Sem o reenvio "no-cors" dos documentos: aqui um reenvio as cegas
+// duplicaria o arquivo no Drive.
+async function _manualEnviarAoDrive(payload) {
+  const res = await fetch(appsScriptUrl, { method: 'POST', body: JSON.stringify(payload), redirect: 'follow' });
+  if (res.url && (res.url.includes('accounts.google.com') || res.url.includes('google.com/ServiceLogin'))) {
+    _alertarAutorizacao();
+    throw new Error('o Apps Script precisa ser autorizado de novo');
+  }
+  let json = null;
+  try { json = JSON.parse(await res.text()); } catch (e) { throw new Error('resposta inesperada do Drive'); }
+  // O script antigo nao conhece a acao 'anexo' e responde com erro
+  if (!json || json.ok !== true || !json.id) throw new Error('o Apps Script da escola precisa ser atualizado (Configurações → Google Drive)');
+  return json;
+}
+
+async function manualAnexarArquivo(input) {
+  const arquivo = input?.files?.[0];
+  if (input) input.value = '';
+  if (!arquivo) return;
+  if (!manualPodeEditar()) { showToast(MANUAL_MSG_SEM_PERMISSAO); return; }
+  const w = _manualEditando;
+  if (!w) return;
+  if (_manualEnviando) { showToast('⏳ Espere o envio anterior terminar.'); return; }
+  if (!appsScriptUrl) { showToast('⚠️ Conecte o Google Drive da escola em Configurações antes de anexar.', 7000); return; }
+  const ext = _manualExt(arquivo.name);
+  if (!MANUAL_ANEXO_TIPOS[ext]) { showToast('❗ Envie PDF, Word, Excel, PowerPoint ou imagem (JPG/PNG).', 6000); return; }
+  if (!arquivo.size) { showToast('❗ O arquivo está vazio.'); return; }
+  if (arquivo.size > MANUAL_ANEXO_MAX_BYTES) { showToast('❗ O arquivo passou de 10 MB.'); return; }
+  if ((w.anexos || []).length >= MANUAL_ANEXO_MAX_QTD) { showToast(`❗ Este manual já tem ${MANUAL_ANEXO_MAX_QTD} anexos.`); return; }
+
+  _manualEnviando = true; renderManuais();
+  try {
+    const nome = String(arquivo.name).slice(0, 150);
+    const r = await _manualEnviarAoDrive({
+      action: 'anexo', nome, mime: MANUAL_ANEXO_TIPOS[ext], base64: await _manualLerBase64(arquivo),
+      pasta: ['Escola Ponte do Saber', 'Manuais', sanitizeName(manualNomeAlvo(w))],
+    });
+    const anexo = {
+      id: uid(), driveId: String(r.id), nome, tipo: ext, tamanho: arquivo.size,
+      url: _manualUrlDrive(r.url) || `https://drive.google.com/file/d/${encodeURIComponent(r.id)}/view`,
+      enviadoEm: new Date().toISOString(), enviadoPor: currentUser?.nome || currentUser?.usuario || '',
+    };
+    const i = (db.manuais || []).findIndex(x => x.id === w.id);
+    if (i < 0) { _driveLixeira(anexo.driveId); showToast('⚠️ Este manual não existe mais.'); return; }
+    const copia = db.manuais.slice();
+    copia[i] = { ...copia[i], anexos: (copia[i].anexos || []).concat([anexo]) };
+    db.manuais = copia;
+    _manuaisCarregados = true;
+    if (_manualEditando?.id === w.id) _manualEditando.anexos = (_manualEditando.anexos || []).concat([anexo]);
+    save();
+    logger.audit({ module: 'manual', action: 'anexar', message: `Anexo no manual ${copia[i].titulo}: ${nome}` });
+    showToast('📎 Arquivo guardado no Drive da escola.');
+  } catch (e) {
+    showToast('⚠️ Não foi possível anexar: ' + (e?.message || e), 8000);
+  } finally {
+    _manualEnviando = false; renderManuais();
+  }
+}
+
+function manualRemoverAnexo(anexoId) {
+  if (!manualPodeEditar()) { showToast(MANUAL_MSG_SEM_PERMISSAO); return; }
+  const w = _manualEditando;
+  const a = (w?.anexos || []).find(x => x.id === anexoId);
+  if (!a) return;
+  showConfirmModal(
+    `Remover o anexo "${escapeHtml(a.nome)}"?<br><small style="color:#888;font-weight:400;">O arquivo vai para a lixeira do Drive da escola.</small>`,
+    () => {
+      const i = (db.manuais || []).findIndex(x => x.id === w.id);
+      if (i >= 0) {
+        const copia = db.manuais.slice();
+        copia[i] = { ...copia[i], anexos: (copia[i].anexos || []).filter(x => x.id !== anexoId) };
+        db.manuais = copia;
+        save();
+      }
+      if (_manualEditando) _manualEditando.anexos = (_manualEditando.anexos || []).filter(x => x.id !== anexoId);
+      _driveLixeira(a.driveId);
+      logger.audit({ module: 'manual', action: 'remover-anexo', message: `Anexo removido: ${a.nome}` });
+      renderManuais();
+      showToast('🗑️ Anexo removido.');
+    },
+    { rotulo: 'Remover', tipo: 'danger' }
+  );
+}
+
+function _manualIconeAnexo(tipo) {
+  if (tipo === 'pdf') return '📕';
+  if (/^(doc|docx|odt)$/.test(tipo)) return '📘';
+  if (/^(xls|xlsx|ods)$/.test(tipo)) return '📗';
+  if (/^(ppt|pptx)$/.test(tipo)) return '📙';
+  return '🖼️';
+}
+
+function manualAnexosHtml(m, editar) {
+  const lista = m.anexos || [];
+  if (!lista.length) return editar ? '<div style="font-size:12.5px;color:var(--gray-500);">Nenhum arquivo anexado.</div>' : '';
+  return `<div class="manual-anexos">${lista.map(a => {
+    const url = _manualUrlDrive(a.url);
+    return `<div class="manual-anexo">
+      <span class="manual-anexo-ic">${_manualIconeAnexo(a.tipo)}</span>
+      <span class="manual-anexo-nome">${escapeHtml(a.nome)}<small>${escapeHtml(String(a.tipo || '').toUpperCase())} · ${_manualTamanho(a.tamanho)}</small></span>
+      ${url ? `<a class="btn btn-secondary btn-sm" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">⬇️ Abrir</a>` : ''}
+      ${editar ? `<button class="btn btn-danger btn-sm" onclick="manualRemoverAnexo('${escapeHtml(a.id)}')" title="Remover anexo">🗑️</button>` : ''}
+    </div>`;
+  }).join('')}</div>`;
+}
+
+// Manual so com arquivos (sem texto) tambem pode ser publicado
+function _manualTemConteudo(secoes, anexos) {
+  return (secoes || []).some(s => String(s.texto || '').trim()) || (anexos || []).length > 0;
+}
+
 // acao: 'salvar' (mantem a situacao), 'publicar' ou 'rascunho'
 function manualSalvarEditor(acao) {
   if (!manualPodeEditar()) { showToast(MANUAL_MSG_SEM_PERMISSAO); return; }
@@ -12616,11 +12788,11 @@ function manualSalvarEditor(acao) {
   const secoes = w.secoes
     .map(s => ({ id: s.id, titulo: String(s.titulo || '').trim(), dica: s.dica || '', texto: String(s.texto || '') }))
     .filter(s => s.titulo || s.texto.trim());
-  if (acao === 'publicar' && !secoes.some(s => s.texto.trim())) {
-    showToast('❗ Escreva ao menos uma seção antes de publicar.'); return;
-  }
   const i = (db.manuais || []).findIndex(x => x.id === w.id);
   if (i < 0) { showToast('⚠️ Este manual não existe mais.'); _manualEditando = null; renderManuais(); return; }
+  if (acao === 'publicar' && !_manualTemConteudo(secoes, db.manuais[i].anexos)) {
+    showToast('❗ Escreva ao menos uma seção ou anexe um arquivo antes de publicar.'); return;
+  }
 
   const antigo = db.manuais[i];
   const agora  = new Date().toISOString();
@@ -12659,8 +12831,8 @@ function manualAlternarPublicacao(id) {
   if (i < 0) return;
   const m = db.manuais[i];
   const publicar = m.status !== 'publicado';
-  if (publicar && !(m.secoes || []).some(s => String(s.texto || '').trim())) {
-    showToast('❗ Escreva ao menos uma seção antes de publicar.'); return;
+  if (publicar && !_manualTemConteudo(m.secoes, m.anexos)) {
+    showToast('❗ Escreva ao menos uma seção ou anexe um arquivo antes de publicar.'); return;
   }
   const agora = new Date().toISOString();
   const novo = { ...m, status: publicar ? 'publicado' : 'rascunho', versao: (m.versao || 1) + 1,
@@ -12677,9 +12849,10 @@ function manualExcluir(id) {
   const m = (db.manuais || []).find(x => x.id === id);
   if (!m) return;
   showConfirmModal(
-    `Excluir o manual "${escapeHtml(m.titulo)}"?<br><small style="color:#888;font-weight:400;">Não dá para desfazer.</small>`,
+    `Excluir o manual "${escapeHtml(m.titulo)}"?<br><small style="color:#888;font-weight:400;">Não dá para desfazer.${(m.anexos || []).length ? ' Os arquivos anexados vão para a lixeira do Drive da escola.' : ''}</small>`,
     () => {
       db.manuais = db.manuais.filter(x => x.id !== id);
+      (m.anexos || []).forEach(a => _driveLixeira(a.driveId));
       if (_manualEditando?.id === id) { _manualEditando = null; _manualSujo = false; }
       if (_manualLendoId === id) _manualLendoId = null;
       save(); renderManuais();
@@ -12703,8 +12876,10 @@ function manualFecharLeitura() { _manualLendoId = null; renderManuais(); }
 
 function manualConteudoHtml(m) {
   const secs = (m.secoes || []).filter(s => String(s.texto || '').trim());
-  if (!secs.length) return '<p style="color:var(--gray-500);">Este manual ainda não tem texto.</p>';
-  return secs.map(s => `<h3 class="manual-sec-titulo">${escapeHtml(s.titulo || '')}</h3><div class="manual-sec-texto">${manualTextoHtml(s.texto)}</div>`).join('');
+  const anexos = (m.anexos || []).length
+    ? `<h3 class="manual-sec-titulo">📎 Arquivos modelo</h3>${manualAnexosHtml(m, false)}` : '';
+  if (!secs.length) return anexos || '<p style="color:var(--gray-500);">Este manual ainda não tem texto.</p>';
+  return secs.map(s => `<h3 class="manual-sec-titulo">${escapeHtml(s.titulo || '')}</h3><div class="manual-sec-texto">${manualTextoHtml(s.texto)}</div>`).join('') + anexos;
 }
 
 function manualRenderLeitura(m) {
@@ -12731,8 +12906,11 @@ function imprimirManual(id) {
   const m = (db.manuais || []).find(x => x.id === id);
   if (!manualPodeLer(m)) { showToast('🔒 Você não tem acesso a este manual.'); return; }
   const secs = (m.secoes || []).filter(s => String(s.texto || '').trim())
-    .map(s => `<h2>${escapeHtml(s.titulo || '')}</h2>${manualTextoHtml(s.texto)}`).join('');
-  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>${escapeHtml(m.titulo)}</title>
+    .map(s => `<h2>${escapeHtml(s.titulo || '')}</h2>${manualTextoHtml(s.texto)}`).join('')
+    + ((m.anexos || []).length
+      ? `<h2>Arquivos modelo</h2><ul>${m.anexos.map(a => `<li>${escapeHtml(a.nome)}</li>`).join('')}</ul><p style="font-size:12px;color:#666;">Os arquivos ficam no sistema, em Manuais, para abrir e imprimir.</p>`
+      : '');
+  const html =`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>${escapeHtml(m.titulo)}</title>
 <style>
 @page { size: A4; margin: 16mm; }
 * { box-sizing: border-box; }
@@ -12800,6 +12978,18 @@ function manualRenderEditor(w) {
     </div>
     ${secoes}
     <button class="btn btn-secondary btn-sm" onclick="manualAddSecao()">➕ Adicionar seção</button>
+    <div class="form-group" style="margin-top:18px;">
+      <label>📎 Arquivos modelo <span style="font-weight:400;color:var(--gray-500);">(guardados no Google Drive da escola)</span></label>
+      ${manualAnexosHtml(w, true)}
+      <div style="margin-top:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer;${_manualEnviando ? 'opacity:.6;pointer-events:none;' : ''}">
+          ${_manualEnviando ? '⏳ Enviando ao Drive…' : '📎 Anexar arquivo'}
+          <input type="file" id="manual-anexo-input" style="display:none;" ${_manualEnviando ? 'disabled' : ''}
+                 accept="${Object.keys(MANUAL_ANEXO_TIPOS).map(e => '.' + e).join(',')}" onchange="manualAnexarArquivo(this)">
+        </label>
+        <span style="font-size:12px;color:var(--gray-500);">PDF, Word, Excel, PowerPoint ou imagem, até 10 MB. O arquivo entra no manual na hora; quem lê pode abrir e baixar, sem alterar.</span>
+      </div>
+    </div>
     <div class="btn-row" style="margin-top:16px;">
       <button class="btn btn-primary" onclick="manualSalvarEditor('salvar')">💾 Salvar</button>
       ${publicado
@@ -12874,7 +13064,7 @@ function manualRenderLista() {
       <div class="info">
         <strong>${escapeHtml(m.titulo)}</strong>
         <span><span class="badge badge-gray">${escapeHtml(manualRotuloAlvo(m))}</span>
-          &nbsp;<span style="font-size:12px;color:var(--gray-500);">atualizado em ${_manualData(m.atualizadoEm)}</span></span>
+          &nbsp;<span style="font-size:12px;color:var(--gray-500);">atualizado em ${_manualData(m.atualizadoEm)}${(m.anexos || []).length ? ` · 📎 ${m.anexos.length} arquivo(s)` : ''}</span></span>
       </div>
       <div class="actions">
         <button class="btn btn-primary btn-sm" onclick="manualAbrirLeitura('${m.id}')">📖 Abrir</button>
