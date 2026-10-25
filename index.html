@@ -4920,7 +4920,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.39.0';
+const APP_VERSION = 'v2.39.1';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -12492,20 +12492,25 @@ function _manualEdOk() { return !!_manualEditando && manualPodeEditarManual(_man
 // Para quem um manual pode ser feito: cada setor da escola e cada sala
 // Direcao, Coordenacao pedagogica e Secretaria tem modelo proprio e sempre
 // aparecem, mesmo quando a lista de setores (Configuracoes) foi editada sem elas.
+// O reconhecimento e pelo NOME, nunca pelo id: renomear um setor em
+// Configuracoes mantem o id antigo (ex.: a "Coordenacao pedagogica" virou
+// "Cozinha/Nutricionista" e continuou com o id setor-coordenacao).
 const MANUAL_SETORES_FIXOS = [
-  { id: 'setor-direcao',     nome: 'Direção',                chave: 'dire' },
-  { id: 'setor-coordenacao', nome: 'Coordenação pedagógica', chave: 'coordena' },
-  { id: 'setor-secretaria',  nome: 'Secretaria',             chave: 'secretar' },
+  { id: 'setor-direcao',     nome: 'Direção',                chaves: ['direcao', 'diretor'] },
+  { id: 'setor-coordenacao', nome: 'Coordenação pedagógica', chaves: ['coordena'] },
+  { id: 'setor-secretaria',  nome: 'Secretaria',             chaves: ['secretar'] },
 ];
-// Setor da lista cujo nome e de um setor com modelo (ex.: "Coordenacao" com outro id)
 function _manualSetorFixo(setor) {
-  return MANUAL_SETORES_FIXOS.find(f => f.id === setor.id)
-    || MANUAL_SETORES_FIXOS.find(f => normalizarNome(setor.nome || '').includes(f.chave)) || null;
+  const nome = normalizarNome(setor?.nome || '');
+  return MANUAL_SETORES_FIXOS.find(f => f.chaves.some(c => nome.includes(c))) || null;
 }
 function manualAlvos() {
   const setores = setoresEscola().map(s => ({ tipo: 'setor', id: s.id, nome: s.nome }));
   MANUAL_SETORES_FIXOS.forEach(f => {
-    if (!setores.some(s => _manualSetorFixo(s)?.id === f.id)) setores.push({ tipo: 'setor', id: f.id, nome: f.nome });
+    if (setores.some(s => _manualSetorFixo(s)?.id === f.id)) return;
+    // O id do modelo pode estar em uso por um setor renomeado: usa outro
+    const id = setores.some(s => s.id === f.id) ? f.id + '-manual' : f.id;
+    setores.push({ tipo: 'setor', id, nome: f.nome });
   });
   return setores.concat((db.turmas || []).map(t => ({ tipo: 'turma', id: t.id, nome: t.nome })));
 }

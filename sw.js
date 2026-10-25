@@ -1,4 +1,4 @@
-const CACHE = 'ponte-saber-v75';
+const CACHE = 'ponte-saber-v76';
 const STATIC = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', e => {
