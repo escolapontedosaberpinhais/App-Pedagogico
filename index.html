@@ -4920,7 +4920,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.38.0';
+const APP_VERSION = 'v2.39.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -5569,8 +5569,9 @@ function saveToFirestore() {
   if (_orientacoesCarregadas)   batch.set(FSREF('orientacoes'),    { data: db.orientacoes });
   if (_marcosCarregados)        batch.set(FSREF('marcosDesenvolvimento'), { data: db.marcosDesenvolvimento });
   if (_impressoesCarregadas)    batch.set(FSREF('impressoes'),     { data: db.impressoes });
-  // Manuais: so a direcao grava, para uma copia desatualizada de outro perfil nunca apagar a edicao dela
-  if (_manuaisCarregados && currentUser?.papel === 'diretor') batch.set(FSREF('manuais'), { data: db.manuais });
+  // Manuais: so quem edita grava (direcao e pedagoga), para uma copia desatualizada
+  // de professora ou secretaria nunca apagar a edicao
+  if (_manuaisCarregados && (currentUser?.papel === 'diretor' || currentUser?.papel === 'pedagoga')) batch.set(FSREF('manuais'), { data: db.manuais });
   // Lembretes: mesma regra, so a direcao grava
   if (_lembretesCarregados && currentUser?.papel === 'diretor') batch.set(FSREF('lembretes'), { data: db.lembretes });
   if (_agendaFormacaoCarregada) batch.set(FSREF('agendaFormacao'), { data: db.agendaFormacao });
@@ -12406,16 +12407,19 @@ function renderLembretes() {
 // =====================================================================
 // MANUAIS — gerador de manuais por setor e por sala de aula
 // =====================================================================
-// So a direcao cria e edita. Ela escolhe para quem e o manual (um setor da
-// escola ou uma sala de aula), o sistema monta a estrutura a partir de um
-// modelo e a direcao escreve. Os demais perfis so leem, e so o que foi
-// publicado e e do seu perfil:
+// Quem cria, edita e exclui:
+//   - direcao: qualquer manual, de qualquer setor ou sala;
+//   - pedagoga: so os manuais das salas de aula (os das professoras);
+//   - professoras e secretaria: so leem.
+// Quem edita escolhe para quem e o manual (um setor da escola ou uma sala
+// de aula), o sistema monta a estrutura a partir de um modelo e a pessoa
+// escreve. Quem so le ve apenas o que foi publicado e e do seu perfil:
 //   - cada manual tem a lista de perfis que podem le-lo, alem da direcao;
 //   - professora so le manual de sala da propria turma;
 //   - rascunho nunca aparece para ninguem alem da direcao.
 // Os setores sao os mesmos de Solicitacoes de copia (editaveis em
 // Configuracoes) e as salas sao as turmas cadastradas.
-const MANUAL_MSG_SEM_PERMISSAO = '🔒 Só a direção cria e edita manuais.';
+const MANUAL_MSG_SEM_PERMISSAO = '🔒 Você não tem permissão para mexer neste manual.';
 const MANUAL_LIMITE_BYTES = 800000;   // o documento do Firestore aceita ~1 MB
 
 const MANUAL_PERFIS = [
@@ -12476,12 +12480,34 @@ let _manualEditando = null;   // copia de trabalho do manual aberto no editor
 let _manualSujo     = false;  // ha alteracao ainda nao salva no editor
 let _manualLendoId  = null;   // manual aberto para leitura
 
-function manualPodeEditar() { return currentUser?.papel === 'diretor'; }
+// A direcao mexe em tudo; a pedagoga, so nos manuais das salas de aula
+function manualPodeEditarAlvo(tipo) {
+  const papel = currentUser?.papel;
+  return papel === 'diretor' || (papel === 'pedagoga' && tipo === 'turma');
+}
+function manualPodeEditarManual(m) { return !!m && manualPodeEditarAlvo(m.alvoTipo); }
+// Editor aberto e de um manual que a pessoa pode editar
+function _manualEdOk() { return !!_manualEditando && manualPodeEditarManual(_manualEditando); }
 
 // Para quem um manual pode ser feito: cada setor da escola e cada sala
+// Direcao, Coordenacao pedagogica e Secretaria tem modelo proprio e sempre
+// aparecem, mesmo quando a lista de setores (Configuracoes) foi editada sem elas.
+const MANUAL_SETORES_FIXOS = [
+  { id: 'setor-direcao',     nome: 'Direção',                chave: 'dire' },
+  { id: 'setor-coordenacao', nome: 'Coordenação pedagógica', chave: 'coordena' },
+  { id: 'setor-secretaria',  nome: 'Secretaria',             chave: 'secretar' },
+];
+// Setor da lista cujo nome e de um setor com modelo (ex.: "Coordenacao" com outro id)
+function _manualSetorFixo(setor) {
+  return MANUAL_SETORES_FIXOS.find(f => f.id === setor.id)
+    || MANUAL_SETORES_FIXOS.find(f => normalizarNome(setor.nome || '').includes(f.chave)) || null;
+}
 function manualAlvos() {
-  return setoresEscola().map(s => ({ tipo: 'setor', id: s.id, nome: s.nome }))
-    .concat((db.turmas || []).map(t => ({ tipo: 'turma', id: t.id, nome: t.nome })));
+  const setores = setoresEscola().map(s => ({ tipo: 'setor', id: s.id, nome: s.nome }));
+  MANUAL_SETORES_FIXOS.forEach(f => {
+    if (!setores.some(s => _manualSetorFixo(s)?.id === f.id)) setores.push({ tipo: 'setor', id: f.id, nome: f.nome });
+  });
+  return setores.concat((db.turmas || []).map(t => ({ tipo: 'turma', id: t.id, nome: t.nome })));
 }
 
 function manualDoAlvo(tipo, id) {
@@ -12500,10 +12526,11 @@ function manualRotuloAlvo(m) {
 
 // Quem le por padrao: o setor correspondente a cada perfil, e as salas para
 // as professoras da turma e a pedagoga. A direcao ajusta no editor.
-function manualPerfisPadrao(tipo, id) {
+function manualPerfisPadrao(tipo, id, nome) {
   if (tipo === 'turma') return ['professora', 'pedagoga'];
-  if (id === 'setor-coordenacao') return ['pedagoga'];
-  if (id === 'setor-secretaria')  return ['secretaria'];
+  const fixo = _manualSetorFixo({ id, nome })?.id;
+  if (fixo === 'setor-coordenacao') return ['pedagoga'];
+  if (fixo === 'setor-secretaria')  return ['secretaria'];
   return [];
 }
 
@@ -12511,6 +12538,7 @@ function manualPodeLer(m) {
   const papel = currentUser?.papel;
   if (!m || !papel) return false;
   if (papel === 'diretor') return true;
+  if (papel === 'pedagoga' && m.alvoTipo === 'turma') return true;
   if (m.status !== 'publicado') return false;
   if (!(m.perfis || []).includes(papel)) return false;
   if (papel === 'professora' && m.alvoTipo === 'turma') return getUsrTurmaIds(currentUser).includes(m.alvoId);
@@ -12542,23 +12570,24 @@ function manualTextoHtml(texto) {
   return html;
 }
 
-// ── Criar (direcao) ─────────────────────────────────────────────────────
+// ── Criar (direcao e pedagoga) ─────────────────────────────────────────────────────
 function manualGerar(tipo, id) {
-  if (!manualPodeEditar()) { showToast(MANUAL_MSG_SEM_PERMISSAO); return; }
+  if (!manualPodeEditarAlvo(tipo)) { showToast(MANUAL_MSG_SEM_PERMISSAO); return; }
   const alvo = manualAlvos().find(a => a.tipo === tipo && a.id === id);
   if (!alvo) { showToast('❗ Escolha para quem é o manual.'); return; }
   const existente = manualDoAlvo(tipo, id);
   if (existente) { showToast('Esse destino já tem manual — abri para editar.'); manualAbrirEditor(existente.id); return; }
 
-  const modelo = tipo === 'turma' ? MANUAL_MODELOS['turma'] : (MANUAL_MODELOS[id] || MANUAL_MODELOS['generico']);
+  const fixo = tipo === 'setor' ? _manualSetorFixo(alvo)?.id : null;
+  const modelo = tipo === 'turma' ? MANUAL_MODELOS['turma'] : (MANUAL_MODELOS[fixo] || MANUAL_MODELOS['generico']);
   const titulo = tipo === 'turma' ? `Manual da sala — ${alvo.nome}`
-    : (MANUAL_MODELOS[id] ? modelo.titulo : `Manual — ${alvo.nome}`);
+    : (MANUAL_MODELOS[fixo] ? modelo.titulo : `Manual — ${alvo.nome}`);
   const agora = new Date().toISOString();
   const quem  = currentUser?.nome || currentUser?.usuario || '';
   const m = {
     id: uid(), alvoTipo: tipo, alvoId: id, alvoNome: alvo.nome, titulo,
     secoes: modelo.secoes.map(([t, dica]) => ({ id: uid(), titulo: t, dica, texto: '' })),
-    perfis: manualPerfisPadrao(tipo, id), status: 'rascunho', versao: 1,
+    perfis: manualPerfisPadrao(tipo, id, alvo.nome), status: 'rascunho', versao: 1,
     criadoEm: agora, criadoPor: quem, atualizadoEm: agora, atualizadoPor: quem,
   };
   db.manuais = (db.manuais || []).concat([m]);
@@ -12575,11 +12604,11 @@ function manualGerarDoSelect() {
   manualGerar(v.slice(0, i), v.slice(i + 1));
 }
 
-// ── Editor (direcao) ────────────────────────────────────────────────────
+// ── Editor (direcao e pedagoga) ────────────────────────────────────────────────────
 function manualAbrirEditor(id) {
-  if (!manualPodeEditar()) { showToast(MANUAL_MSG_SEM_PERMISSAO); return; }
   const m = (db.manuais || []).find(x => x.id === id);
   if (!m) return;
+  if (!manualPodeEditarManual(m)) { showToast(MANUAL_MSG_SEM_PERMISSAO); return; }
   _manualEditando = JSON.parse(JSON.stringify(m));
   _manualSujo = false;
   _manualLendoId = null;
@@ -12588,19 +12617,19 @@ function manualAbrirEditor(id) {
 }
 
 function manualEdCampo(campo, valor) {
-  if (!manualPodeEditar() || !_manualEditando || campo !== 'titulo') return;
+  if (!_manualEdOk() || campo !== 'titulo') return;
   _manualEditando.titulo = valor; _manualSujo = true;
 }
 
 function manualEdSecao(i, campo, valor) {
-  if (!manualPodeEditar() || !_manualEditando) return;
+  if (!_manualEdOk()) return;
   const s = _manualEditando.secoes[i];
   if (!s || (campo !== 'titulo' && campo !== 'texto')) return;
   s[campo] = valor; _manualSujo = true;
 }
 
 function manualEdPerfil(perfil, marcado) {
-  if (!manualPodeEditar() || !_manualEditando || !MANUAL_PERFIS.some(p => p.id === perfil)) return;
+  if (!_manualEdOk() || !MANUAL_PERFIS.some(p => p.id === perfil)) return;
   const set = new Set(_manualEditando.perfis || []);
   if (marcado) set.add(perfil); else set.delete(perfil);
   _manualEditando.perfis = MANUAL_PERFIS.map(p => p.id).filter(p => set.has(p));
@@ -12608,13 +12637,13 @@ function manualEdPerfil(perfil, marcado) {
 }
 
 function manualAddSecao() {
-  if (!manualPodeEditar() || !_manualEditando) return;
+  if (!_manualEdOk()) return;
   _manualEditando.secoes.push({ id: uid(), titulo: '', dica: '', texto: '' });
   _manualSujo = true; renderManuais();
 }
 
 function manualRemSecao(i) {
-  if (!manualPodeEditar() || !_manualEditando || !_manualEditando.secoes[i]) return;
+  if (!_manualEdOk() || !_manualEditando.secoes[i]) return;
   const s = _manualEditando.secoes[i];
   const feito = () => { _manualEditando.secoes.splice(i, 1); _manualSujo = true; renderManuais(); };
   if (!String(s.texto || '').trim()) { feito(); return; }
@@ -12622,7 +12651,7 @@ function manualRemSecao(i) {
 }
 
 function manualMoverSecao(i, delta) {
-  if (!manualPodeEditar() || !_manualEditando) return;
+  if (!_manualEdOk()) return;
   const j = i + delta, a = _manualEditando.secoes;
   if (!a[i] || !a[j]) return;
   [a[i], a[j]] = [a[j], a[i]];
@@ -12686,9 +12715,9 @@ async function manualAnexarArquivo(input) {
   const arquivo = input?.files?.[0];
   if (input) input.value = '';
   if (!arquivo) return;
-  if (!manualPodeEditar()) { showToast(MANUAL_MSG_SEM_PERMISSAO); return; }
   const w = _manualEditando;
   if (!w) return;
+  if (!_manualEdOk()) { showToast(MANUAL_MSG_SEM_PERMISSAO); return; }
   if (_manualEnviando) { showToast('⏳ Espere o envio anterior terminar.'); return; }
   if (!appsScriptUrl) { showToast('⚠️ Conecte o Google Drive da escola em Configurações antes de anexar.', 7000); return; }
   const ext = _manualExt(arquivo.name);
@@ -12727,7 +12756,7 @@ async function manualAnexarArquivo(input) {
 }
 
 function manualRemoverAnexo(anexoId) {
-  if (!manualPodeEditar()) { showToast(MANUAL_MSG_SEM_PERMISSAO); return; }
+  if (!_manualEdOk()) { showToast(MANUAL_MSG_SEM_PERMISSAO); return; }
   const w = _manualEditando;
   const a = (w?.anexos || []).find(x => x.id === anexoId);
   if (!a) return;
@@ -12780,9 +12809,9 @@ function _manualTemConteudo(secoes, anexos) {
 
 // acao: 'salvar' (mantem a situacao), 'publicar' ou 'rascunho'
 function manualSalvarEditor(acao) {
-  if (!manualPodeEditar()) { showToast(MANUAL_MSG_SEM_PERMISSAO); return; }
   const w = _manualEditando;
   if (!w) return;
+  if (!_manualEdOk()) { showToast(MANUAL_MSG_SEM_PERMISSAO); return; }
   const titulo = String(w.titulo || '').trim();
   if (!titulo) { showToast('❗ Dê um título ao manual.'); return; }
   const secoes = w.secoes
@@ -12795,6 +12824,7 @@ function manualSalvarEditor(acao) {
   }
 
   const antigo = db.manuais[i];
+  if (!manualPodeEditarManual(antigo)) { showToast(MANUAL_MSG_SEM_PERMISSAO); return; }
   const agora  = new Date().toISOString();
   const status = acao === 'publicar' ? 'publicado' : (acao === 'rascunho' ? 'rascunho' : antigo.status);
   const novo = {
@@ -12826,10 +12856,10 @@ function manualCancelarEditor() {
 }
 
 function manualAlternarPublicacao(id) {
-  if (!manualPodeEditar()) { showToast(MANUAL_MSG_SEM_PERMISSAO); return; }
   const i = (db.manuais || []).findIndex(x => x.id === id);
   if (i < 0) return;
   const m = db.manuais[i];
+  if (!manualPodeEditarManual(m)) { showToast(MANUAL_MSG_SEM_PERMISSAO); return; }
   const publicar = m.status !== 'publicado';
   if (publicar && !_manualTemConteudo(m.secoes, m.anexos)) {
     showToast('❗ Escreva ao menos uma seção ou anexe um arquivo antes de publicar.'); return;
@@ -12845,9 +12875,9 @@ function manualAlternarPublicacao(id) {
 }
 
 function manualExcluir(id) {
-  if (!manualPodeEditar()) { showToast(MANUAL_MSG_SEM_PERMISSAO); return; }
   const m = (db.manuais || []).find(x => x.id === id);
   if (!m) return;
+  if (!manualPodeEditarManual(m)) { showToast(MANUAL_MSG_SEM_PERMISSAO); return; }
   showConfirmModal(
     `Excluir o manual "${escapeHtml(m.titulo)}"?<br><small style="color:#888;font-weight:400;">Não dá para desfazer.${(m.anexos || []).length ? ' Os arquivos anexados vão para a lixeira do Drive da escola.' : ''}</small>`,
     () => {
@@ -12883,7 +12913,7 @@ function manualConteudoHtml(m) {
 }
 
 function manualRenderLeitura(m) {
-  const podeEditar = manualPodeEditar();
+  const podeEditar = manualPodeEditarManual(m);
   return `<div class="card manual-leitura">
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
       <button class="btn btn-secondary btn-sm" onclick="manualFecharLeitura()">← Voltar</button>
@@ -13001,7 +13031,8 @@ function manualRenderEditor(w) {
 }
 
 function manualRenderGestao() {
-  const alvos = manualAlvos();
+  const ehDirecao = currentUser?.papel === 'diretor';
+  const alvos = manualAlvos().filter(a => manualPodeEditarAlvo(a.tipo));
   const opc = (lista) => lista.map(a => `<option value="${a.tipo}|${escapeHtml(a.id)}">${escapeHtml(a.nome)}${manualDoAlvo(a.tipo, a.id) ? ' (já tem manual)' : ''}</option>`).join('');
   const setores = alvos.filter(a => a.tipo === 'setor'), salas = alvos.filter(a => a.tipo === 'turma');
 
@@ -13022,11 +13053,12 @@ function manualRenderGestao() {
       </div>
     </div>`;
 
-  const orfaos = (db.manuais || []).filter(m => !alvos.some(a => a.tipo === m.alvoTipo && a.id === m.alvoId));
+  const orfaos = (db.manuais || []).filter(m => manualPodeEditarManual(m) && !alvos.some(a => a.tipo === m.alvoTipo && a.id === m.alvoId));
   return `<div class="card">
       <div class="card-title">✨ Gerar um manual</div>
       <p style="font-size:13px;color:var(--gray-600);margin-bottom:12px;">
-        Escolha para quem é o manual. O sistema monta a estrutura (seções sugeridas para esse setor ou sala) e você escreve.
+        ${ehDirecao ? 'Escolha para quem é o manual. O sistema monta a estrutura (seções sugeridas para esse setor ou sala) e você escreve.'
+          : 'Você cria e edita os manuais das salas de aula (os das professoras). O sistema monta a estrutura e você escreve.'}
         Nada aparece para os outros até você publicar.
       </p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -13038,10 +13070,10 @@ function manualRenderGestao() {
         <button class="btn btn-primary" onclick="manualGerarDoSelect()">✨ Gerar</button>
       </div>
     </div>
-    <div class="card">
+    ${ehDirecao ? `<div class="card">
       <div class="card-title">🏢 Setores da escola</div>
       ${setores.map(a => linha(a.nome, manualDoAlvo('setor', a.id), a)).join('') || '<div class="empty"><p>Nenhum setor cadastrado (Configurações → Setores da escola).</p></div>'}
-    </div>
+    </div>` : ''}
     <div class="card">
       <div class="card-title">🏫 Salas de aula</div>
       ${salas.map(a => linha(a.nome, manualDoAlvo('turma', a.id), a)).join('') || '<div class="empty"><p>Nenhuma turma cadastrada.</p></div>'}
@@ -13052,14 +13084,13 @@ function manualRenderGestao() {
     </div>` : ''}`;
 }
 
-function manualRenderLista() {
-  const lista = manuaisVisiveis();
+function manualRenderLista(lista = manuaisVisiveis(), titulo = '📘 Meus manuais') {
   if (!lista.length) {
     return `<div class="card"><div class="empty"><div class="icon">📘</div>
       <p>Nenhum manual publicado para o seu perfil ainda.<br><small>Quando a direção publicar, ele aparece aqui.</small></p></div></div>`;
   }
   return `<div class="card">
-    <div class="card-title">📘 Meus manuais</div>
+    <div class="card-title">${titulo}</div>
     ${lista.map(m => `<div class="item-card" style="align-items:center;">
       <div class="info">
         <strong>${escapeHtml(m.titulo)}</strong>
@@ -13077,17 +13108,27 @@ function renderManuais() {
   const el = document.getElementById('manuais-conteudo');
   if (!el) return;
   const sub = document.getElementById('manuais-sub');
-  if (sub) sub.textContent = manualPodeEditar()
+  const papel = currentUser?.papel;
+  if (sub) sub.textContent = papel === 'diretor'
     ? 'Crie e publique os manuais de cada setor e de cada sala de aula.'
-    : 'Manuais da escola para o seu setor ou sala. Só leitura.';
+    : (papel === 'pedagoga' ? 'Crie e publique os manuais das salas de aula. Os demais manuais são só leitura.'
+      : 'Manuais da escola para o seu setor ou sala. Só leitura.');
 
-  if (_manualEditando && manualPodeEditar()) { el.innerHTML = manualRenderEditor(_manualEditando); return; }
+  if (_manualEdOk()) { el.innerHTML = manualRenderEditor(_manualEditando); return; }
+  _manualEditando = null;
   if (_manualLendoId) {
     const m = (db.manuais || []).find(x => x.id === _manualLendoId);
     if (manualPodeLer(m)) { el.innerHTML = manualRenderLeitura(m); return; }
     _manualLendoId = null;   // despublicado ou excluido enquanto lia
   }
-  el.innerHTML = manualPodeEditar() ? manualRenderGestao() : manualRenderLista();
+  if (papel === 'diretor') { el.innerHTML = manualRenderGestao(); return; }
+  // Pedagoga: cuida das salas e le os demais manuais publicados para ela
+  if (papel === 'pedagoga') {
+    const outros = manuaisVisiveis().filter(m => !manualPodeEditarManual(m));
+    el.innerHTML = manualRenderGestao() + (outros.length ? manualRenderLista(outros, '📖 Outros manuais (só leitura)') : '');
+    return;
+  }
+  el.innerHTML = manualRenderLista();
 }
 
 // =====================================================================
