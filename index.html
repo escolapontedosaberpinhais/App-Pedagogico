@@ -4260,9 +4260,16 @@ function _listarPlanejamentos() {
         <button class="btn btn-secondary btn-sm cal-so-gestao" onclick="calAbrirFormEvento(null)">➕ Novo Evento</button>
         <button class="btn btn-secondary btn-sm cal-so-gestao" onclick="calAbrirRecorrentes()">🔁 Marcações semanais</button>
         <button class="btn btn-secondary btn-sm cal-so-gestao" onclick="calAbrirBimestres()">📊 <span data-rotulo-cal="plural">Bimestres</span></button>
+        <button class="btn btn-secondary btn-sm cal-so-gestao" onclick="calAbrirSincronizar()">🔗 Google Agenda</button>
         <button class="btn btn-primary btn-sm" onclick="imprimirCalendario()">🖨️ Imprimir</button>
       </div>
     </div>
+  </div>
+
+  <!-- Sincronizar com Google Agenda (link iCal) -->
+  <div id="cal-form-sync" class="card cal-no-print" style="display:none;margin-bottom:14px;border:2px solid var(--green);">
+    <div class="card-title">🔗 Ver o calendário no Google Agenda</div>
+    <div id="cal-sync-conteudo"></div>
   </div>
 
   <!-- Form: Novo / Editar Evento -->
@@ -4920,7 +4927,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.39.1';
+const APP_VERSION = 'v2.40.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -5231,6 +5238,7 @@ async function loadFromFirestore() {
         db.cotasCopias = rCfg.data().cotasCopias;
         LS.set('ps_cotas_copias', db.cotasCopias);
       }
+      db.icalToken = rCfg.data().icalToken || '';
       if (Array.isArray(rCfg.data().setores)) {
         db.setores = rCfg.data().setores;
         LS.set('ps_setores', db.setores);
@@ -20313,6 +20321,98 @@ function calSalvarEvento() {
   calFecharFormEvento();
   renderCalendario();
   showToast('✅ Evento salvo!');
+}
+
+// ── Google Agenda: link iCal do calendario ────────────────────────────────
+// O servidor (/api/agenda-ical) entrega o calendario no formato que o Google
+// Agenda, o Outlook e o celular assinam "a partir do URL". O link leva um
+// codigo secreto guardado em config.icalToken: so a direcao cria ou troca
+// (trocar invalida o link antigo). Gestao e secretaria veem e copiam.
+function calLinkIcal(soInternos) {
+  if (!db.icalToken) return '';
+  return `${location.origin}/api/agenda-ical?t=${encodeURIComponent(db.icalToken)}${soInternos ? '&so=internos' : ''}`;
+}
+
+function _calNovoTokenIcal() {
+  const b = new Uint8Array(24);
+  crypto.getRandomValues(b);
+  return Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
+}
+
+function calAbrirSincronizar() {
+  if (!calPodeEditar()) { showToast('🔒 Seu perfil não pode ver este link.'); return; }
+  const form = document.getElementById('cal-form-sync');
+  if (!form) return;
+  ['cal-form-evento', 'cal-form-recorrentes', 'cal-form-bimestres'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+  form.style.display = '';
+  renderCalSincronizar();
+  form.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+}
+
+function calFecharSincronizar() { const f = document.getElementById('cal-form-sync'); if (f) f.style.display = 'none'; }
+
+function calGerarLinkIcal() {
+  if (currentUser?.papel !== 'diretor') { showToast('🔒 Só a direção cria ou troca o link.'); return; }
+  const gerar = () => {
+    const token = _calNovoTokenIcal();
+    FSREF('config').set({ icalToken: token }, { merge: true })
+      .then(() => {
+        db.icalToken = token;
+        renderCalSincronizar();
+        logger.audit({ module: 'calendario', action: 'link-ical', message: 'Link da agenda (Google Agenda) gerado' });
+        showToast('🔗 Link da agenda pronto.');
+      })
+      .catch(e => showToast('⚠️ Não foi possível gerar o link: ' + (e?.message || e), 7000));
+  };
+  if (!db.icalToken) { gerar(); return; }
+  showConfirmModal('Trocar o link da agenda?<br><small style="color:#888;font-weight:400;">Quem assinou o link atual para de receber as atualizações e precisa assinar o novo.</small>',
+    gerar, { rotulo: 'Trocar link', tipo: 'danger' });
+}
+
+function calCopiarLinkIcal(soInternos) {
+  const url = calLinkIcal(soInternos);
+  if (!url) return;
+  const ok = () => showToast('📋 Link copiado.');
+  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(ok).catch(() => prompt('Copie o link:', url));
+  else prompt('Copie o link:', url);
+}
+
+function renderCalSincronizar() {
+  const el = document.getElementById('cal-sync-conteudo');
+  if (!el) return;
+  const ehDirecao = currentUser?.papel === 'diretor';
+  const linha = (rotulo, dica, so) => `
+    <div class="form-group" style="margin:10px 0 0;">
+      <label>${rotulo}</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <input type="text" readonly value="${escapeHtml(calLinkIcal(so))}" onclick="this.select()" style="flex:1;min-width:220px;font-family:monospace;font-size:12px;">
+        <button class="btn btn-primary btn-sm" onclick="calCopiarLinkIcal(${so})">📋 Copiar</button>
+      </div>
+      <div style="font-size:12px;color:var(--gray-500);margin-top:3px;">${dica}</div>
+    </div>`;
+  el.innerHTML = !db.icalToken
+    ? `<p style="font-size:13px;color:var(--gray-600);">${ehDirecao
+        ? 'Gere um link para assinar este calendário no Google Agenda (ou no celular). Os eventos novos aparecem lá sozinhos.'
+        : 'A direção ainda não gerou o link da agenda.'}</p>
+       <div class="btn-row">
+         ${ehDirecao ? '<button class="btn btn-primary" onclick="calGerarLinkIcal()">🔗 Gerar link</button>' : ''}
+         <button class="btn btn-ghost" onclick="calFecharSincronizar()">Fechar</button>
+       </div>`
+    : `${linha('Calendário completo', 'Todos os eventos, inclusive os de uso interno (marcados com 🔒), e as marcações semanais.', false)}
+       ${linha('Só a agenda interna', 'Apenas os eventos marcados como de uso interno da equipe.', true)}
+       <div style="font-size:13px;color:var(--gray-700);background:var(--gray-100);border-radius:8px;padding:10px 12px;margin-top:12px;line-height:1.7;">
+         <strong>Como assinar no Google Agenda (no computador):</strong><br>
+         1. Copie um dos links acima.<br>
+         2. Abra <strong>calendar.google.com</strong> com a conta da pessoa.<br>
+         3. Em <strong>Outras agendas</strong>, clique em <strong>+</strong> → <strong>A partir do URL</strong>.<br>
+         4. Cole o link e clique em <strong>Adicionar agenda</strong>.<br>
+         O Google atualiza a agenda assinada sozinho, algumas vezes por dia; um evento novo pode levar algumas horas para aparecer lá.
+         <br><strong>Não divulgue o link:</strong> quem tiver o link vê a agenda.
+       </div>
+       <div class="btn-row" style="margin-top:12px;">
+         ${ehDirecao ? '<button class="btn btn-secondary" onclick="calGerarLinkIcal()">🔄 Trocar link (o atual deixa de funcionar)</button>' : ''}
+         <button class="btn btn-ghost" onclick="calFecharSincronizar()">Fechar</button>
+       </div>`;
 }
 
 // ── Marcacoes semanais recorrentes (ex.: Vox Dei toda quarta) ─────────────
