@@ -1436,6 +1436,70 @@
     .chat-panel { width: 100vw; }
     .chat-fab { bottom: 16px; right: 16px; }
   }
+  /* ═══ MENU DA DIRECAO (v2.41) ═════════════════════════════════════════
+     Visual mais limpo so para o perfil da direcao (body.menu-pro), para
+     avaliar antes de levar aos demais perfis: icones de linha no lugar dos
+     emojis coloridos, grupos sem emoji e recolhiveis, itens mais compactos,
+     rodape discreto. Cores so pelas variaveis, para valer no modo escuro. */
+  body.menu-pro .drawer { background: var(--white); }
+  body.menu-pro .drawer-head {
+    background: var(--white); color: var(--gray-800);
+    border-bottom: 1px solid var(--gray-200);
+    padding: 14px 16px; min-height: 0; gap: 10px;
+  }
+  body.menu-pro .drawer-head img { display: none; }
+  body.menu-pro .drawer-avatar {
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--green-light); color: var(--green);
+    font-size: 13px; font-weight: 700; letter-spacing: .3px;
+  }
+  body.menu-pro .drawer-head-info strong { font-size: 13.5px; font-weight: 600; color: var(--gray-800); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body.menu-pro .drawer-head-info small { font-size: 12px; color: var(--gray-500); opacity: 1; }
+
+  body.menu-pro .drawer-body { padding: 6px 0 12px; }
+  body.menu-pro .dnav-group-label {
+    display: flex !important; align-items: center; justify-content: space-between;
+    width: calc(100% - 16px); margin: 14px 8px 2px; padding: 4px 8px;
+    border: none; border-top: none !important; border-radius: var(--r-sm);
+    background: none; cursor: pointer; user-select: none;
+    font-size: 11px; font-weight: 600; letter-spacing: .6px; text-transform: uppercase;
+    color: var(--gray-400);
+  }
+  body.menu-pro .dnav-group-label:first-child { margin-top: 6px; }
+  body.menu-pro .dnav-group-label:hover { color: var(--gray-700); }
+  body.menu-pro .dnav-group-label .mp-chev { width: 14px; height: 14px; transition: transform .18s; opacity: .7; }
+  body.menu-pro .dnav-group-label.recolhido .mp-chev { transform: rotate(-90deg); }
+  body.menu-pro .dnav-btn[data-recolhido] { display: none !important; }
+
+  body.menu-pro .dnav-btn {
+    width: calc(100% - 16px); margin: 1px 8px; padding: 7px 10px; gap: 10px;
+    border-radius: var(--r-sm); font-size: 13.5px; font-weight: 500; line-height: 1.3;
+    color: var(--gray-700);
+  }
+  body.menu-pro .dnav-btn .di { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; color: var(--gray-500); font-size: 0; }
+  body.menu-pro .dnav-btn .di svg, body.menu-pro .drawer-footer svg { width: 18px; height: 18px; }
+  body.menu-pro .dnav-btn:hover { background: var(--gray-100); color: var(--gray-800); }
+  body.menu-pro .dnav-btn:hover .di { color: var(--gray-700); }
+  body.menu-pro .dnav-btn.active { background: var(--green-light); color: var(--green-dark); font-weight: 600; }
+  body.menu-pro .dnav-btn.active .di { color: var(--green); }
+  body.menu-pro .dnav-btn.active::after {
+    display: block; content: ''; position: absolute; left: -8px; right: auto; top: 7px; bottom: 7px;
+    width: 3px; background: var(--green); border-radius: 0 3px 3px 0;
+  }
+
+  body.menu-pro .drawer-footer { padding: 8px 8px 10px; gap: 1px; border-top: 1px solid var(--gray-200); }
+  body.menu-pro .drawer-footer button {
+    justify-content: flex-start; gap: 10px; padding: 7px 10px; border-radius: var(--r-sm);
+    background: none; font-size: 13.5px; font-weight: 500; color: var(--gray-600);
+  }
+  body.menu-pro .drawer-footer button:hover { background: var(--gray-100); color: var(--gray-800); }
+  body.menu-pro .drawer-footer .drawer-logout:hover { color: var(--red, #dc2626); }
+  body.menu-pro .drawer-footer > div { text-align: left !important; padding: 6px 10px 0 !important; font-size: 11px !important; }
+
+  @media (min-width: 1024px) {
+    body.menu-pro .drawer { border-right: 1px solid var(--gray-200); }
+  }
 </style>
 </head>
 <body>
@@ -1584,6 +1648,7 @@
 <div class="drawer" id="drawer">
   <div class="drawer-head">
     <img id="drawer-logo" src="" alt="Logo">
+    <span class="drawer-avatar" id="drawer-avatar" aria-hidden="true" style="display:none;"></span>
     <div class="drawer-head-info">
       <strong id="drawer-user-nome">Ponte do Saber</strong>
       <small id="drawer-user-info">&mdash;</small>
@@ -4920,7 +4985,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.39.1';
+const APP_VERSION = 'v2.40.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -6180,6 +6245,9 @@ function aplicarPapel() {
   const drawerLogo = document.getElementById('drawer-logo');
   if (headerLogo && drawerLogo) drawerLogo.src = headerLogo.src;
 
+  // Menu lateral com visual novo: por enquanto so a direcao
+  menuDirecao(isDiretor);
+
   // Show hamburger button (mobile)
   const hamburger = document.getElementById('btn-hamburger');
   if (hamburger) hamburger.style.display = '';
@@ -6668,6 +6736,7 @@ function showTab(tab) {
   document.querySelectorAll('.dnav-btn').forEach(b => b.classList.remove('active'));
   const dBtn = document.getElementById('dnav-' + tab);
   if (dBtn) dBtn.classList.add('active');
+  if (dBtn?.hasAttribute('data-recolhido')) menuAplicarGrupos();
   // Destaca grupo ativo no nav-dir
   document.querySelectorAll('.nav-grp-btn').forEach(b => b.classList.remove('active'));
   const grp = _TAB_GRUPOS[tab];
@@ -6694,6 +6763,130 @@ function showTab(tab) {
   if (tab === 'calendario')     { renderCalendario(); }
   if (tab === 'manuais')        { _manualLendoId = null; renderManuais(); }
   if (tab === 'lembretes')      { _lembreteEditando = null; renderLembretes(); }
+}
+
+// --- MENU DA DIRECAO (visual limpo, so para a direcao por enquanto) ---
+// Icones de linha (desenho no estilo Lucide, licenca ISC) no lugar dos emojis,
+// grupos recolhiveis e rodape discreto. O que estava no menu (emojis, textos)
+// fica guardado no proprio elemento e volta quando outro perfil entra.
+const _MP_SVG = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const MENU_ICONES = {
+  dashboard:  '<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',
+  manuais:    '<path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/>',
+  cadastro:   '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  impressao:  '<path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/>',
+  copias:     '<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  lembretes:  '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  rotina:     '<rect x="3" y="5" width="6" height="6" rx="1"/><path d="m3 17 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/>',
+  avaliacoes: '<path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
+  correcao:   '<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/>',
+  formacao:   '<path d="M22 10 12 5 2 10l10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/><path d="M22 10v6"/>',
+  observacoes:'<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+  orientacoes:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  marcos:     '<path d="M22 7 13.5 15.5 8.5 10.5 2 17"/><path d="M16 7h6v6"/>',
+  'hora-atividade': '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  planejamento: '<rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/>',
+  pareceres:  '<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>',
+  atividades: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  auditoria:  '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/>',
+  ocorrencias:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  calendario: '<rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/>',
+};
+const MENU_ICONE_CHAVE = '<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/>';
+const MENU_ICONE_SAIR  = '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>';
+const MENU_CHEVRON     = '<path d="m6 9 6 6 6-6"/>';
+const MENU_GRUPOS_KEY  = 'ps_menu_recolhidos';
+
+// Botoes de um grupo: os irmaos ate o proximo rotulo
+function _menuItensDoGrupo(rotulo) {
+  const itens = [];
+  for (let el = rotulo.nextElementSibling; el && !el.classList.contains('dnav-group-label'); el = el.nextElementSibling) {
+    if (el.classList.contains('dnav-btn')) itens.push(el);
+  }
+  return itens;
+}
+
+function _menuRecolhidos() {
+  try { return JSON.parse(localStorage.getItem(MENU_GRUPOS_KEY) || '[]'); } catch (e) { return []; }
+}
+
+// Recolhe/abre conforme o que a pessoa escolheu; o grupo da tela aberta fica sempre aberto
+function menuAplicarGrupos() {
+  if (!document.body.classList.contains('menu-pro')) return;
+  const recolhidos = new Set(_menuRecolhidos());
+  document.querySelectorAll('#drawer-body .dnav-group-label').forEach(r => {
+    const itens = _menuItensDoGrupo(r);
+    const temAtivo = itens.some(b => b.classList.contains('active'));
+    const fechar = recolhidos.has(r.dataset.grupo) && !temAtivo;
+    r.classList.toggle('recolhido', fechar);
+    r.setAttribute('aria-expanded', String(!fechar));
+    itens.forEach(b => { if (fechar) b.setAttribute('data-recolhido', ''); else b.removeAttribute('data-recolhido'); });
+    // grupo sem nenhum item visivel para este perfil: o rotulo some
+    const algumVisivel = itens.some(b => b.style.display !== 'none');
+    r.style.display = algumVisivel ? '' : 'none';
+  });
+}
+
+function menuAlternarGrupo(rotulo) {
+  if (!document.body.classList.contains('menu-pro') || !rotulo?.dataset.grupo) return;
+  const set = new Set(_menuRecolhidos());
+  if (rotulo.classList.contains('recolhido')) set.delete(rotulo.dataset.grupo); else set.add(rotulo.dataset.grupo);
+  try { localStorage.setItem(MENU_GRUPOS_KEY, JSON.stringify([...set])); } catch (e) {}
+  // abrir/fechar por clique vale mesmo para o grupo da tela aberta
+  const fechar = set.has(rotulo.dataset.grupo);
+  rotulo.classList.toggle('recolhido', fechar);
+  rotulo.setAttribute('aria-expanded', String(!fechar));
+  _menuItensDoGrupo(rotulo).forEach(b => { if (fechar) b.setAttribute('data-recolhido', ''); else b.removeAttribute('data-recolhido'); });
+}
+
+function menuDirecao(ativo) {
+  document.body.classList.toggle('menu-pro', !!ativo);
+  document.querySelectorAll('#drawer-body .dnav-btn').forEach(b => {
+    const di = b.querySelector('.di');
+    const chave = b.id.replace(/^dnav-/, '');
+    if (!di || !MENU_ICONES[chave]) return;
+    if (ativo) {
+      if (di.dataset.orig === undefined) di.dataset.orig = di.innerHTML;
+      di.innerHTML = _MP_SVG(MENU_ICONES[chave]);
+    } else if (di.dataset.orig !== undefined) {
+      di.innerHTML = di.dataset.orig; delete di.dataset.orig;
+    }
+    if (!ativo) b.removeAttribute('data-recolhido');
+  });
+  document.querySelectorAll('#drawer-body .dnav-group-label').forEach((r, i) => {
+    if (ativo) {
+      if (r.dataset.orig === undefined) r.dataset.orig = r.innerHTML;
+      // tira o emoji do comeco do rotulo ("🏠 Início" → "Início")
+      const texto = r.textContent.replace(/^[^A-Za-zÀ-ÿ]+/, '').trim();
+      r.dataset.grupo = r.dataset.grupo || normalizarNome(texto).replace(/\s+/g, '-') || String(i);
+      r.innerHTML = `<span>${escapeHtml(texto)}</span>${_MP_SVG(MENU_CHEVRON).replace('<svg ', '<svg class="mp-chev" ')}`;
+      r.setAttribute('role', 'button'); r.setAttribute('tabindex', '0');
+      r.onclick = () => menuAlternarGrupo(r);
+      r.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); menuAlternarGrupo(r); } };
+    } else if (r.dataset.orig !== undefined) {
+      r.innerHTML = r.dataset.orig; delete r.dataset.orig;
+      r.classList.remove('recolhido'); r.style.display = '';
+      r.removeAttribute('role'); r.removeAttribute('tabindex'); r.removeAttribute('aria-expanded');
+      r.onclick = null; r.onkeydown = null;
+    }
+  });
+  const rodape = [['.drawer-footer .drawer-key', MENU_ICONE_CHAVE, 'Trocar senha'], ['.drawer-footer .drawer-logout', MENU_ICONE_SAIR, 'Sair']];
+  rodape.forEach(([sel, icone, texto]) => {
+    const b = document.querySelector(sel);
+    if (!b) return;
+    if (ativo) {
+      if (b.dataset.orig === undefined) b.dataset.orig = b.innerHTML;
+      b.innerHTML = `${_MP_SVG(icone)}<span>${texto}</span>`;
+    } else if (b.dataset.orig !== undefined) { b.innerHTML = b.dataset.orig; delete b.dataset.orig; }
+  });
+  const av = document.getElementById('drawer-avatar');
+  if (av) {
+    const nome = (currentUser?.nome || currentUser?.usuario || '').trim();
+    const ini = nome.split(/\s+/).filter(Boolean);
+    av.textContent = ativo ? ((ini[0]?.[0] || '') + (ini.length > 1 ? ini[ini.length - 1][0] : '')).toUpperCase() || '•' : '';
+    av.style.display = ativo ? '' : 'none';
+  }
+  menuAplicarGrupos();
 }
 
 // --- DRAWER functions ---
