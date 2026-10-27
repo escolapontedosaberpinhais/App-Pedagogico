@@ -4985,7 +4985,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.40.0';
+const APP_VERSION = 'v2.40.1';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -20110,10 +20110,15 @@ function aplicarRotulosCalendario(ano) {
   });
 }
 
+// Periodo (colonia de ferias, recesso...) so ocupa os dias uteis: a escola
+// nao funciona sabado e domingo, e pintar o fim de semana dava a entender as
+// familias que haveria atendimento. Excecao: um periodo que cai todo no fim
+// de semana (ex.: evento de sabado a domingo) foi marcado de proposito e fica
+// como esta. Evento de um dia so sempre vale na data escolhida.
 function _calDatasDoEvento(ev) {
-  const datas = [];
+  const datas = [], uteis = [];
   if (ev.data) {
-    datas.push(ev.data);
+    return [ev.data];
   } else if (ev.dataInicio && ev.dataFim) {
     const cur = new Date(ev.dataInicio + 'T12:00:00');
     const fim = new Date(ev.dataFim + 'T12:00:00');
@@ -20122,10 +20127,11 @@ function _calDatasDoEvento(ev) {
       const m = String(cur.getMonth() + 1).padStart(2, '0');
       const d = String(cur.getDate()).padStart(2, '0');
       datas.push(`${y}-${m}-${d}`);
+      if (cur.getDay() !== 0 && cur.getDay() !== 6) uteis.push(`${y}-${m}-${d}`);
       cur.setDate(cur.getDate() + 1);
     }
   }
-  return datas;
+  return uteis.length ? uteis : datas;
 }
 
 // incluirInternos=false deixa de fora o que a equipe marcou como uso interno.
