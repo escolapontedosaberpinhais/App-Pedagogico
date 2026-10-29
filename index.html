@@ -1500,6 +1500,14 @@
   @media (min-width: 1024px) {
     body.menu-pro .drawer { border-right: 1px solid var(--gray-200); }
   }
+  /* Agenda do mes em imagem */
+  .agm-box { max-width: 1040px; width: 96vw; max-height: 94vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+  .agm-cab { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; border-bottom: 1px solid var(--gray-200); font-size: 16px; }
+  .agm-corpo { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(260px, 420px); gap: 18px; padding: 16px 18px; overflow-y: auto; }
+  .agm-form textarea, .agm-form input, .agm-form select { width: 100%; }
+  .agm-previa { display: flex; justify-content: center; align-items: flex-start; }
+  .agm-previa canvas { width: 100%; max-width: 420px; height: auto; aspect-ratio: 2 / 3; border-radius: 8px; box-shadow: 0 4px 18px rgba(0,0,0,.18); background: #fff; }
+  @media (max-width: 760px) { .agm-corpo { grid-template-columns: 1fr; } .agm-previa { order: -1; } .agm-previa canvas { max-width: 300px; } }
 </style>
 </head>
 <body>
@@ -4325,6 +4333,7 @@ function _listarPlanejamentos() {
         <button class="btn btn-secondary btn-sm cal-so-gestao" onclick="calAbrirFormEvento(null)">➕ Novo Evento</button>
         <button class="btn btn-secondary btn-sm cal-so-gestao" onclick="calAbrirRecorrentes()">🔁 Marcações semanais</button>
         <button class="btn btn-secondary btn-sm cal-so-gestao" onclick="calAbrirBimestres()">📊 <span data-rotulo-cal="plural">Bimestres</span></button>
+        <button class="btn btn-secondary btn-sm cal-so-gestao" onclick="agmAbrir()">🖼️ Agenda do mês</button>
         <button class="btn btn-primary btn-sm" onclick="imprimirCalendario()">🖨️ Imprimir</button>
       </div>
     </div>
@@ -4985,7 +4994,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.40.1';
+const APP_VERSION = 'v2.41.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -20512,6 +20521,371 @@ function calSalvarEvento() {
   calFecharFormEvento();
   renderCalendario();
   showToast('✅ Evento salvo!');
+}
+
+// ── Agenda mensal em imagem (para mandar as familias pelo app Agenda) ─────
+// Reproduz a arte que a pedagoga montava a mao: versiculo, titulo, o mes em
+// grade (fim de semana em vermelho, feriado em laranja, marcacao semanal
+// como o Vox Dei com a coluna em azul) e a lista das datas. A lista nasce do
+// Calendario Escolar (so o que nao e de uso interno) e pode ser editada; ha
+// um campo livre para informacao adicional. Sai um PNG 1080x1620, pronto
+// para o celular. O que a pessoa escreveu fica guardado neste aparelho, por mes.
+const AGM_W = 1080, AGM_H = 1620;
+const AGM_COR = { fundo: '#FFFCF8', laranja: '#E8612C', laranjaBarra: '#E2670F', vermelho: '#D42031', azul: '#6CC4E4', azulNum: '#2A5FC4', texto: '#3B3F5C', preto: '#111111' };
+const AGM_VERSICULO = 'Deixem vir a mim as crianças e não as impeçam, pois o Reino de Deus pertence aos que são semelhantes a elas.';
+const AGM_REFERENCIA = 'Lucas 18:16';
+const AGM_MESES = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
+let _agmLogo = null, _agmFonteOk = false, _agmDesenhoPendente = null;
+
+function _agmChave(ano, mes) { return `ps_agenda_mensal_${ano}-${String(mes).padStart(2, '0')}`; }
+function _agmLer(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+function _agmGravar(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* sem armazenamento: so nao lembra */ } }
+const _agmDD = n => String(n).padStart(2, '0');
+
+// Lista das datas do mes a partir do Calendario Escolar (sem os internos)
+function agmLinhasDoCalendario(ano, mes) {
+  const total = new Date(ano, mes, 0).getDate();
+  const pref = `${ano}-${_agmDD(mes)}-`;
+  const itens = [];
+  // marcacoes semanais: um item com todas as datas do mes ("04, 11, 18 e 25")
+  const porRec = new Map();
+  for (let d = 1; d <= total; d++) {
+    for (const r of _calRecorrentesDaData(pref + _agmDD(d))) {
+      if (!porRec.has(r.id)) porRec.set(r.id, { r, dias: [] });
+      porRec.get(r.id).dias.push(d);
+    }
+  }
+  porRec.forEach(({ r, dias }) => {
+    const nums = dias.map(_agmDD);
+    const lista = nums.length > 1 ? nums.slice(0, -1).join(', ') + ' e ' + nums[nums.length - 1] : nums[0];
+    itens.push({ ordem: dias[0], texto: `${lista} - ${r.descricao || CAL_TIPOS[r.tipo]?.label || ''}` });
+  });
+  // eventos: de um dia ("02 - Finados") ou periodo dentro do mes ("18 a 29 - Colonia")
+  const vistos = new Set();
+  for (let d = 1; d <= total; d++) {
+    for (const ev of _calEventosDaData(pref + _agmDD(d), false)) {
+      if (vistos.has(ev.id)) continue;
+      vistos.add(ev.id);
+      const dias = _calDatasDoEvento(ev).filter(x => x.startsWith(pref)).map(x => Number(x.slice(8))).sort((a, b) => a - b);
+      if (!dias.length) continue;
+      const quando = dias.length === 1 ? _agmDD(dias[0]) : `${_agmDD(dias[0])} a ${_agmDD(dias[dias.length - 1])}`;
+      let desc = String(ev.descricao || CAL_TIPOS[ev.tipo]?.label || '').trim();
+      if (ev.tipo === 'feriado' && !/feriado/i.test(desc)) desc += ' (Feriado)';
+      itens.push({ ordem: dias[0], texto: `${quando} - ${desc}` });
+    }
+  }
+  return itens.sort((a, b) => a.ordem - b.ordem).map(i => i.texto);
+}
+
+// Dias com destaque na grade
+function agmMarcasDoMes(ano, mes) {
+  const total = new Date(ano, mes, 0).getDate();
+  const pref = `${ano}-${_agmDD(mes)}-`;
+  const feriados = new Set(), semanais = new Set();
+  for (let d = 1; d <= total; d++) {
+    const ds = pref + _agmDD(d);
+    if (_calEventosDaData(ds, false).some(ev => ev.tipo === 'feriado')) feriados.add(d);
+    if (_calRecorrentesDaData(ds).length) semanais.add(d);
+  }
+  return { feriados, semanais };
+}
+
+// ── Desenho ──────────────────────────────────────────────────────────────
+function _agmFonte(peso, px, italico) {
+  return `${italico ? 'italic ' : ''}${peso} ${px}px ${_agmFonteOk ? '"Baloo 2", ' : ''}"Trebuchet MS", "Segoe UI", Arial, sans-serif`;
+}
+
+function _agmQuebrar(ctx, texto, largura) {
+  const linhas = [];
+  String(texto || '').split(/\r?\n/).forEach(par => {
+    const palavras = par.split(/\s+/).filter(Boolean);
+    if (!palavras.length) { linhas.push(''); return; }
+    let atual = '';
+    palavras.forEach(p => {
+      const teste = atual ? atual + ' ' + p : p;
+      if (ctx.measureText(teste).width <= largura || !atual) atual = teste;
+      else { linhas.push(atual); atual = p; }
+    });
+    linhas.push(atual);
+  });
+  return linhas;
+}
+
+function _agmRet(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+
+// Cubinho de brinquedo (enfeite dos cantos), com uma letra em cada face
+function _agmCubo(ctx, x, y, t, cor, corLado, letra, giro) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(giro);
+  ctx.fillStyle = corLado; _agmRet(ctx, -t / 2 + t * .18, -t / 2 - t * .16, t, t, t * .18); ctx.fill();
+  ctx.fillStyle = cor; _agmRet(ctx, -t / 2, -t / 2, t, t, t * .18); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.18)'; _agmRet(ctx, -t / 2 + t * .1, -t / 2 + t * .1, t * .8, t * .8, t * .14); ctx.fill();
+  ctx.fillStyle = '#F7A3A0'; ctx.font = _agmFonte(800, t * .62); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(letra, 0, t * .04);
+  ctx.restore();
+}
+
+function agmDesenhar(canvas, dados) {
+  const ctx = canvas?.getContext?.('2d');
+  if (!ctx) return { cortado: false, fonte: 0 };
+  canvas.width = AGM_W; canvas.height = AGM_H;
+  const { ano, mes, versiculo, referencia, linhas, extra } = dados;
+  const C = AGM_COR;
+  ctx.fillStyle = C.fundo; ctx.fillRect(0, 0, AGM_W, AGM_H);
+
+  // manchas laranja nos cantos
+  ctx.fillStyle = C.laranja;
+  ctx.beginPath(); ctx.moveTo(760, 0);
+  ctx.bezierCurveTo(800, 60, 880, 40, 930, 90); ctx.bezierCurveTo(980, 140, 1030, 120, 1080, 160); ctx.lineTo(1080, 0); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(0, 1500);
+  ctx.bezierCurveTo(70, 1470, 130, 1520, 210, 1515); ctx.bezierCurveTo(290, 1510, 330, 1570, 390, 1590); ctx.bezierCurveTo(410, 1600, 420, 1610, 425, 1620); ctx.lineTo(0, 1620); ctx.closePath(); ctx.fill();
+  _agmCubo(ctx, 95, 100, 130, '#167E86', '#0F5E66', 'C', -0.2);
+  _agmCubo(ctx, 990, 1535, 125, '#D9345B', '#A8213F', 'A', 0.22);
+
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  // versiculo
+  let y = 64;
+  ctx.fillStyle = C.texto; ctx.font = _agmFonte(700, 34, true);
+  const vers = _agmQuebrar(ctx, versiculo ? `“${versiculo}”` : '', 680).slice(0, 4);
+  vers.forEach(l => { y += 44; ctx.fillText(l, AGM_W / 2, y); });
+  if (referencia) { y += 44; ctx.fillText(referencia, AGM_W / 2, y); }
+
+  // titulo
+  y += 100;
+  ctx.fillStyle = C.laranja; ctx.font = _agmFonte(800, 76);
+  ctx.fillText('AGENDA MENSAL DE', AGM_W / 2, y);
+  y += 86; ctx.fillText(AGM_MESES[mes - 1], AGM_W / 2, y);
+
+  // grade do mes
+  const gx = 165, gw = 750, cab = 76, top = y + 50;
+  const primeiro = new Date(ano, mes - 1, 1).getDay();
+  const total = new Date(ano, mes, 0).getDate();
+  const semanas = Math.ceil((primeiro + total) / 7);
+  const lin = 74, gh = cab + 72 + semanas * lin + 24;
+  const { feriados, semanais } = agmMarcasDoMes(ano, mes);
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(gx, top, gw, gh);
+  ctx.fillStyle = C.laranjaBarra; ctx.fillRect(gx, top, gw, cab);
+  ctx.fillStyle = C.preto; ctx.font = _agmFonte(800, 40, true);
+  ctx.fillText(AGM_MESES[mes - 1], AGM_W / 2, top + cab / 2 + 14);
+  const colW = gw / 7, x0 = gx;
+  ctx.font = _agmFonte(800, 36, true);
+  ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].forEach((l, i) => ctx.fillText(l, x0 + colW * i + colW / 2, top + cab + 50));
+  const yDias = top + cab + 72;
+  // coluna das marcacoes semanais (fundo azul atras dos dias marcados)
+  ctx.fillStyle = C.azul;
+  for (let d = 1; d <= total; d++) {
+    if (!semanais.has(d)) continue;
+    const pos = primeiro + d - 1, c = pos % 7, r = Math.floor(pos / 7);
+    ctx.fillRect(x0 + colW * c + 6, yDias + r * lin, colW - 12, lin);
+  }
+  ctx.font = _agmFonte(800, 40, true);
+  for (let d = 1; d <= total; d++) {
+    const pos = primeiro + d - 1, c = pos % 7, r = Math.floor(pos / 7);
+    ctx.fillStyle = semanais.has(d) ? C.azulNum : feriados.has(d) ? C.laranja : (c === 0 || c === 6) ? C.vermelho : C.preto;
+    ctx.fillText(String(d), x0 + colW * c + colW / 2, yDias + r * lin + 50);
+  }
+  ctx.lineWidth = 5; ctx.strokeStyle = C.preto; ctx.strokeRect(gx, top, gw, gh);
+  ctx.beginPath(); ctx.moveTo(gx, top + cab); ctx.lineTo(gx + gw, top + cab); ctx.stroke();
+
+  // lista de datas + informacao adicional, com a fonte que couber
+  const yIni = top + gh + 30, yFim = AGM_H - 185;
+  const blocos = (linhas || []).map(l => String(l).trim()).filter(Boolean);
+  const extraTxt = String(extra || '').trim();
+  let px = 40, montado = null, ultimo = null;
+  for (; px >= 20; px -= 2) {
+    const alt = px * 1.32;
+    let h = 0; const saida = [];
+    ctx.font = _agmFonte(500, px);
+    blocos.forEach(l => {
+      const m = l.match(/^(.+?)\s*[-–—]\s+(.*)$/);
+      const pre = m ? m[1].trim() : '', resto = m ? m[2] : l;
+      _agmQuebrar(ctx, (pre ? pre + ' - ' : '') + resto, 780).forEach((q, i) => { saida.push({ q, pre: i === 0 ? pre : '', tipo: 'data' }); h += alt; });
+    });
+    if (extraTxt) {
+      h += alt * .5;
+      ctx.font = _agmFonte(600, px * .9);
+      _agmQuebrar(ctx, extraTxt, 760).forEach(q => { saida.push({ q, tipo: 'extra' }); h += alt * .92; });
+    }
+    ultimo = { saida, alt };
+    if (yIni + h <= yFim) { montado = { saida, alt }; break; }
+  }
+  // Nem na menor fonte coube: desenha o que couber e a tela avisa
+  if (!montado) {
+    px = 20;
+    const caber = [];
+    let h = 0;
+    for (const item of ultimo.saida) {
+      const a = item.tipo === 'extra' ? ultimo.alt * .92 + (caber.length && caber[caber.length - 1].tipo !== 'extra' ? ultimo.alt * .5 : 0) : ultimo.alt;
+      if (yIni + h + a > yFim) break;
+      caber.push(item); h += a;
+    }
+    montado = { saida: caber, alt: ultimo.alt, cortado: true };
+  }
+  let yl = yIni;
+  montado.saida.forEach((item, i) => {
+    if (item.tipo === 'extra') {
+      if (i === 0 || montado.saida[i - 1].tipo !== 'extra') yl += montado.alt * .5;
+      yl += montado.alt * .92;
+      ctx.fillStyle = C.texto; ctx.font = _agmFonte(600, px * .9); ctx.textAlign = 'center';
+      ctx.fillText(item.q, AGM_W / 2, yl);
+      return;
+    }
+    yl += montado.alt;
+    ctx.fillStyle = C.laranja;
+    if (item.pre && item.q.startsWith(item.pre)) {
+      // numero em negrito, descricao normal, centralizados juntos
+      ctx.font = _agmFonte(800, px); const wPre = ctx.measureText(item.pre).width;
+      ctx.font = _agmFonte(500, px); const resto = item.q.slice(item.pre.length); const wResto = ctx.measureText(resto).width;
+      const xi = AGM_W / 2 - (wPre + wResto) / 2;
+      ctx.textAlign = 'left';
+      ctx.font = _agmFonte(800, px); ctx.fillText(item.pre, xi, yl);
+      ctx.font = _agmFonte(500, px); ctx.fillText(resto, xi + wPre, yl);
+      ctx.textAlign = 'center';
+    } else {
+      ctx.font = _agmFonte(500, px); ctx.textAlign = 'center'; ctx.fillText(item.q, AGM_W / 2, yl);
+    }
+  });
+
+  // logo da escola
+  if (_agmLogo && _agmLogo.complete && _agmLogo.naturalWidth) ctx.drawImage(_agmLogo, AGM_W / 2 - 75, AGM_H - 165, 150, 150);
+  return { cortado: !!montado.cortado, fonte: px };
+}
+
+// ── Tela ─────────────────────────────────────────────────────────────────
+function _agmCarregarRecursos() {
+  if (!_agmLogo) { _agmLogo = new Image(); _agmLogo.onload = () => agmAtualizar(); _agmLogo.src = '/icon-nobg.png'; }
+  if (!_agmFonteOk && !document.getElementById('agm-fonte') && document.fonts?.load) {
+    const l = document.createElement('link');
+    l.id = 'agm-fonte'; l.rel = 'stylesheet';
+    l.href = 'https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&display=swap';
+    document.head.appendChild(l);
+    Promise.race([
+      Promise.all([document.fonts.load('800 40px "Baloo 2"'), document.fonts.load('500 40px "Baloo 2"')]),
+      new Promise(r => setTimeout(r, 4000)),
+    ]).then(() => {
+      _agmFonteOk = document.fonts.check ? document.fonts.check('800 40px "Baloo 2"') : false;
+      agmAtualizar();
+    }).catch(() => {});
+  }
+}
+
+function agmAbrir() {
+  if (!calPodeEditar()) { showToast('🔒 Seu perfil não gera a agenda do mês.'); return; }
+  if (!db.calendarioEscolar) { showToast('❗ Crie o calendário primeiro.'); return; }
+  document.getElementById('agm-modal')?.remove();
+  const ano = Number(db.calendarioEscolar.ano) || new Date().getFullYear();
+  const hoje = new Date();
+  const mes = hoje.getFullYear() === ano ? hoje.getMonth() + 1 : 1;
+  const ov = document.createElement('div');
+  ov.className = 'modal-overlay'; ov.id = 'agm-modal';
+  ov.innerHTML = `<div class="modal-box agm-box" role="dialog" aria-label="Agenda do mês em imagem">
+    <div class="agm-cab"><strong>🖼️ Agenda do mês em imagem</strong>
+      <button class="btn btn-ghost btn-sm" onclick="agmFechar()" aria-label="Fechar">✕</button></div>
+    <div class="agm-corpo">
+      <div class="agm-form">
+        <div class="form-group"><label>Mês</label>
+          <select id="agm-mes" onchange="agmTrocarMes()">${AGM_MESES.map((m, i) => `<option value="${i + 1}" ${i + 1 === mes ? 'selected' : ''}>${m.charAt(0) + m.slice(1).toLowerCase()} de ${ano}</option>`).join('')}</select></div>
+        <div class="form-group"><label>Versículo</label>
+          <textarea id="agm-versiculo" rows="3" maxlength="300" oninput="agmAtualizar(true)"></textarea>
+          <input type="text" id="agm-referencia" maxlength="60" oninput="agmAtualizar(true)" placeholder="Referência (ex.: Lucas 18:16)" style="margin-top:6px;"></div>
+        <div class="form-group"><label>Datas do mês <span style="font-weight:400;color:var(--gray-500);">(uma por linha; vem do calendário, pode editar)</span></label>
+          <textarea id="agm-linhas" rows="7" maxlength="2000" oninput="agmAtualizar(true)"></textarea>
+          <button class="btn btn-ghost btn-sm" onclick="agmRecarregarDatas()" style="margin-top:4px;">↻ Buscar de novo no calendário</button></div>
+        <div class="form-group"><label>Informação adicional <span style="font-weight:400;color:var(--gray-500);">(opcional, sai embaixo das datas)</span></label>
+          <textarea id="agm-extra" rows="3" maxlength="400" oninput="agmAtualizar(true)" placeholder="Ex.: Dia 28 teremos a Festa da Família, às 9h."></textarea></div>
+        <div id="agm-aviso" style="font-size:12.5px;color:#b45309;min-height:16px;"></div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="agmBaixar()">⬇️ Baixar imagem</button>
+          <button class="btn btn-secondary" id="agm-compartilhar" onclick="agmCompartilhar()" style="display:none;">📤 Compartilhar</button>
+        </div>
+      </div>
+      <div class="agm-previa"><canvas id="agm-canvas" width="${AGM_W}" height="${AGM_H}" aria-label="Prévia da imagem"></canvas></div>
+    </div>
+  </div>`;
+  ov.addEventListener('click', e => { if (e.target === ov) agmFechar(); });
+  document.body.appendChild(ov);
+  try { if (navigator.canShare && navigator.canShare({ files: [new File([''], 'a.png', { type: 'image/png' })] })) document.getElementById('agm-compartilhar').style.display = ''; } catch (e) {}
+  agmTrocarMes();
+  _agmCarregarRecursos();
+}
+
+function agmFechar() { document.getElementById('agm-modal')?.remove(); }
+
+function _agmMesAno() {
+  return { ano: Number(db.calendarioEscolar?.ano) || new Date().getFullYear(), mes: Number(document.getElementById('agm-mes')?.value) || 1 };
+}
+
+function agmTrocarMes() {
+  const { ano, mes } = _agmMesAno();
+  const salvo = _agmLer(_agmChave(ano, mes));
+  const ultimoVers = _agmLer('ps_agenda_mensal_versiculo');
+  const val = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  val('agm-versiculo', salvo?.versiculo ?? ultimoVers?.versiculo ?? AGM_VERSICULO);
+  val('agm-referencia', salvo?.referencia ?? ultimoVers?.referencia ?? AGM_REFERENCIA);
+  val('agm-linhas', salvo?.linhas ?? agmLinhasDoCalendario(ano, mes).join('\n'));
+  val('agm-extra', salvo?.extra ?? '');
+  agmAtualizar();
+}
+
+function agmRecarregarDatas() {
+  const { ano, mes } = _agmMesAno();
+  const el = document.getElementById('agm-linhas');
+  if (el) el.value = agmLinhasDoCalendario(ano, mes).join('\n');
+  agmAtualizar(true);
+}
+
+function _agmDados() {
+  const { ano, mes } = _agmMesAno();
+  const v = id => document.getElementById(id)?.value ?? '';
+  return { ano, mes, versiculo: v('agm-versiculo').trim(), referencia: v('agm-referencia').trim(), linhas: v('agm-linhas').split(/\r?\n/), extra: v('agm-extra') };
+}
+
+// gravar=true quando a pessoa digitou: guarda o mes e o ultimo versiculo usado
+function agmAtualizar(gravar) {
+  const canvas = document.getElementById('agm-canvas');
+  if (!canvas) return;
+  const d = _agmDados();
+  if (gravar) {
+    _agmGravar(_agmChave(d.ano, d.mes), { versiculo: d.versiculo, referencia: d.referencia, linhas: d.linhas.join('\n'), extra: d.extra });
+    _agmGravar('ps_agenda_mensal_versiculo', { versiculo: d.versiculo, referencia: d.referencia });
+  }
+  // agrupa redesenhos seguidos enquanto a pessoa digita
+  cancelAnimationFrame(_agmDesenhoPendente);
+  _agmDesenhoPendente = requestAnimationFrame(() => {
+    const r = agmDesenhar(canvas, d);
+    const aviso = document.getElementById('agm-aviso');
+    if (aviso) aviso.textContent = r.cortado ? '⚠️ O texto não cabe na imagem. Encurte as datas ou a informação adicional.' : '';
+  });
+}
+
+function _agmArquivo() {
+  const canvas = document.getElementById('agm-canvas');
+  const d = _agmDados();
+  agmDesenhar(canvas, d);
+  const nome = `agenda-${AGM_MESES[d.mes - 1].toLowerCase().normalize('NFD').replace(/[^a-z]/g, '')}-${d.ano}.png`;
+  return new Promise(ok => canvas.toBlob(b => ok({ blob: b, nome }), 'image/png'));
+}
+
+async function agmBaixar() {
+  const { blob, nome } = await _agmArquivo();
+  if (!blob) { showToast('⚠️ Não foi possível gerar a imagem.'); return; }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = nome;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  logger.audit({ module: 'calendario', action: 'agenda-mensal', message: `Agenda do mês gerada: ${nome}` });
+  showToast('🖼️ Imagem baixada.');
+}
+
+async function agmCompartilhar() {
+  const { blob, nome } = await _agmArquivo();
+  if (!blob) return;
+  const arq = new File([blob], nome, { type: 'image/png' });
+  try { await navigator.share({ files: [arq], title: 'Agenda do mês' }); }
+  catch (e) { if (e?.name !== 'AbortError') showToast('⚠️ Não foi possível compartilhar. Use "Baixar imagem".'); }
 }
 
 // ── Marcacoes semanais recorrentes (ex.: Vox Dei toda quarta) ─────────────
