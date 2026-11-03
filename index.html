@@ -2040,6 +2040,12 @@
     <div id="key-status" style="margin-top:10px; font-size:13px;"></div>
   </div>
 
+  <!-- ARMAZENAMENTO (direcao) -->
+  <div class="card" id="card-armazenamento" style="display:none;">
+    <div class="card-title">📦 Armazenamento dos planejamentos</div>
+    <div id="armaz-conteudo"></div>
+  </div>
+
   <!-- GOOGLE DRIVE VIA APPS SCRIPT -->
   <div class="card">
     <div class="card-title">☁️ Google Drive</div>
@@ -2686,7 +2692,7 @@ function _listarPlanejamentos() {
     <div style="font-size:13px;color:var(--gray-600);margin-bottom:12px;">
       Escolha a <strong>turma</strong>, o <strong>bimestre</strong> e a <strong>data</strong>, depois selecione o arquivo pronto.
       De <strong>Word (.docx)</strong> o texto é extraído automaticamente. <strong>PDF</strong> fica anexado para abrir/baixar.
-      <br><span style="color:var(--gray-400);">Tamanho máximo do arquivo: ~720 KB.</span>
+      <br><span style="color:var(--gray-400);">Tamanho máximo do arquivo: 10 MB (fica guardado no Google Drive da escola).</span>
     </div>
     <div class="form-grid">
       <div class="form-group">
@@ -4994,7 +5000,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.41.0';
+const APP_VERSION = 'v2.42.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -5884,7 +5890,7 @@ function refreshCurrentView() {
   if (!active) return;
   const id = active.id;
   if (id === 'tab-dashboard')    renderDashboard();
-  if (id === 'tab-config')       { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); renderCardSetores(); renderCardCotas(); renderCardReparoColecoes(); renderCardDocsFaltantes(); renderCardBackup(); aplicarTema(temaAtual()); }
+  if (id === 'tab-config')       { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); renderCardSetores(); renderCardCotas(); renderCardReparoColecoes(); renderCardDocsFaltantes(); renderCardBackup(); renderCardArmazenamento(); aplicarTema(temaAtual()); }
   if (id === 'tab-planejamento') { populateSelects(); renderPlanejamentos(); plLigarRascunho(); }
   if (id === 'tab-pareceres')    { populateSelects(); renderPareceres(); }
   if (id === 'tab-avaliacoes')   { populateSelects(); renderTabelaAvaliacoes(); }
@@ -6763,7 +6769,7 @@ function showTab(tab) {
   if (tab === 'hora-atividade') { renderHoraAtividade(); }
   if (tab === 'rotina')         { renderRotina(); }
   if (tab === 'atividades')     { renderAtividades(); }
-  if (tab === 'config')         { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); renderCardSetores(); renderCardCotas(); renderCardReparoColecoes(); renderCardDocsFaltantes(); renderCardBackup(); aplicarTema(temaAtual()); }
+  if (tab === 'config')         { renderUsuarios(); atualizarStatusFdSync(); renderCardRegime(); renderCardSetores(); renderCardCotas(); renderCardReparoColecoes(); renderCardDocsFaltantes(); renderCardBackup(); renderCardArmazenamento(); aplicarTema(temaAtual()); }
   if (tab === 'ocorrencias')    { renderOcorrencias(); }
   if (tab === 'observacoes')    { popularSelectsObservacao(); renderObservacoes(); popularSelectPlano(); renderPlanoAcao(); }
   if (tab === 'orientacoes')    { popularSelectsOrientacao(); renderOrientacoes(); }
@@ -10168,6 +10174,7 @@ async function executarExclusaoPlanej(novaLista, idsParaExcluirImagem) {
   SyncStatus.saving();
   showToast('⏳ Excluindo…');
   const idsExcluir = (idsParaExcluirImagem || []).map(String);
+  const driveIds = (db.planejamentos || []).filter(p => idsExcluir.includes(String(p.id)) && p.arquivoDriveId).map(p => p.arquivoDriveId);
   try {
     // 1. Registra os IDs como excluídos ANTES de gravar — proteção cross-device
     await registrarDeletedIds(idsExcluir);
@@ -10192,6 +10199,7 @@ async function executarExclusaoPlanej(novaLista, idsParaExcluirImagem) {
     db.planejamentos = listaFinal;
     LS.set('ps_planejamentos', listaFinal);
     idsExcluir.forEach(id => { excluirImagemPlanej(id); excluirPlanejArquivo(id); });
+    driveIds.forEach(d => _driveLixeira(d));   // arquivo no Drive da escola vai para a lixeira
     logger.audit({ module: 'planejamento', action: 'delete', message: `${(idsParaExcluirImagem || []).length} planejamento(s) excluído(s)`, meta: { ids: idsParaExcluirImagem } });
     renderPlanejamentos();
     renderDashboard();
@@ -11293,8 +11301,16 @@ function _bytesParaBase64(bytes) {
 }
 
 // ── Planejamento pronto enviado como arquivo (.docx / .pdf) ─────────────────
-// O arquivo binário fica em documento separado (planejfile_<id>) para não
-// estourar o limite de 1 MB do documento principal de planejamentos.
+// Desde a v2.42 o arquivo vai para o Google Drive da escola (15 GB gratis),
+// pelo mesmo Apps Script dos pareceres, ate 10 MB, na pasta
+// Escola Ponte do Saber/<turma>/<bimestre>/Planejamentos (arquivos).
+// Se o Drive nao responder (script antigo, sem internet), o arquivo de ate
+// 720 KB ainda vai para o Firestore, num documento separado
+// (planejfile_<id>) para nao estourar o limite de 1 MB do documento principal.
+// O Firestore gratuito guarda 1 GiB no total: cada arquivo ali ocupa ~1,37x o
+// tamanho original (base64).
+const PLANEJ_ARQ_MAX_DRIVE     = 10 * 1024 * 1024;
+const PLANEJ_ARQ_MAX_FIRESTORE = 720 * 1024;
 const PLANEJFILEREF = (id) => fstore.collection('appdata').doc('planejfile_' + String(id));
 function salvarPlanejArquivo(id, dataUrl, nome, tipo) {
   return PLANEJFILEREF(id).set({ file: dataUrl, nome: nome || '', tipo: tipo || '' });
@@ -11304,6 +11320,76 @@ function carregarPlanejArquivo(id) {
 }
 function excluirPlanejArquivo(id) {
   return PLANEJFILEREF(id).delete().catch(() => {});
+}
+
+// ── Armazenamento: quanto os planejamentos ocupam no plano gratuito ───────
+// Tres limites diferentes:
+//   1. o documento "planejamentos" (texto de todos eles, inclusive o texto
+//      tirado dos arquivos Word) aceita no maximo 1 MiB no Firestore;
+//   2. os arquivos antigos guardados no Firestore entram no 1 GiB gratuito
+//      do banco, ocupando ~1,37x o tamanho (base64);
+//   3. os arquivos no Google Drive da escola entram nos 15 GB da conta
+//      (compartilhados com Gmail e Fotos dessa conta).
+const ARMAZ_DOC_LIMITE   = 1048576;
+const ARMAZ_BANCO_LIMITE = 1024 * 1048576;
+const ARMAZ_DRIVE_LIMITE = 15 * 1024 * 1048576;
+
+function armazenamentoUso() {
+  const pls = db.planejamentos || [];
+  let docBytes = 0;
+  try { docBytes = new Blob([JSON.stringify({ data: pls })]).size; } catch (e) { docBytes = JSON.stringify({ data: pls }).length; }
+  const arqs = pls.filter(p => p.temArquivo);
+  const noDrive = arqs.filter(p => p.arquivoLocal === 'drive');
+  const noBanco = arqs.filter(p => p.arquivoLocal !== 'drive');
+  const soma = l => l.reduce((t, p) => t + (Number(p.arquivoTamanho) || 0), 0);
+  return {
+    total: pls.length, docBytes, docPct: docBytes / ARMAZ_DOC_LIMITE,
+    porPlanej: pls.length ? docBytes / pls.length : 0,
+    drive: { qtd: noDrive.length, bytes: soma(noDrive) },
+    // antigos nao guardavam o tamanho: estima pelo maximo permitido na epoca
+    banco: { qtd: noBanco.length, bytes: Math.round(noBanco.reduce((t, p) => t + (Number(p.arquivoTamanho) || 720 * 1024), 0) * 1.37), semTamanho: noBanco.filter(p => !p.arquivoTamanho).length },
+  };
+}
+
+function _armazFmt(b) {
+  if (b >= 1073741824) return (b / 1073741824).toFixed(2).replace('.', ',') + ' GB';
+  if (b >= 1048576) return (b / 1048576).toFixed(1).replace('.', ',') + ' MB';
+  return Math.max(0, Math.round(b / 1024)) + ' KB';
+}
+
+function renderCardArmazenamento() {
+  const card = document.getElementById('card-armazenamento');
+  if (!card) return;
+  const ok = currentUser?.papel === 'diretor';
+  card.style.display = ok ? '' : 'none';
+  if (!ok) return;
+  const u = armazenamentoUso();
+  const barra = (pct) => {
+    const p = Math.min(100, Math.round(pct * 100));
+    const cor = p >= 90 ? 'var(--red, #dc2626)' : p >= 70 ? '#d97706' : 'var(--green)';
+    return `<div style="height:8px;background:var(--gray-200);border-radius:4px;overflow:hidden;margin:4px 0 2px;"><div style="width:${Math.max(p, 1)}%;height:100%;background:${cor};"></div></div>`;
+  };
+  const restam = u.porPlanej ? Math.max(0, Math.floor((ARMAZ_DOC_LIMITE * 0.95 - u.docBytes) / u.porPlanej)) : null;
+  document.getElementById('armaz-conteudo').innerHTML = `
+    <div style="font-size:13px;line-height:1.6;">
+      <div style="margin-bottom:12px;">
+        <strong>Texto dos planejamentos</strong> (limite de 1 MB num único documento do banco)
+        ${barra(u.docPct)}
+        ${_armazFmt(u.docBytes)} de 1 MB · ${u.total} planejamento(s), em média ${_armazFmt(u.porPlanej)} cada
+        ${restam !== null ? ` · cabem ainda <strong>~${restam}</strong> no mesmo ritmo` : ''}
+        ${u.docPct >= 0.8 ? '<div style="color:#b45309;margin-top:4px;">⚠️ Perto do limite. Exclua planejamentos de anos anteriores (depois do backup) para liberar espaço.</div>' : ''}
+      </div>
+      <div style="margin-bottom:12px;">
+        <strong>Arquivos no Google Drive da escola</strong> (15 GB grátis da conta, divididos com Gmail e Fotos)
+        ${barra(u.drive.bytes / ARMAZ_DRIVE_LIMITE)}
+        ${u.drive.qtd} arquivo(s) · ${_armazFmt(u.drive.bytes)}
+      </div>
+      <div>
+        <strong>Arquivos antigos no banco</strong> (1 GB grátis do Firestore)
+        ${barra(u.banco.bytes / ARMAZ_BANCO_LIMITE)}
+        ${u.banco.qtd} arquivo(s) · ~${_armazFmt(u.banco.bytes)}${u.banco.semTamanho ? ` (estimado: ${u.banco.semTamanho} sem tamanho registrado contam como 720 KB)` : ''}
+      </div>
+    </div>`;
 }
 
 async function subirPlanejamentoArquivo() {
@@ -11323,9 +11409,9 @@ async function subirPlanejamentoArquivo() {
   const ehPdf  = ext === 'pdf'  || file.type === 'application/pdf';
   if (!ehDocx && !ehPdf) { setStatus('⚠️ Formato não suportado. Use .docx ou .pdf.', '#b45309'); return; }
 
-  const LIMITE = 720 * 1024;
-  if (file.size > LIMITE) {
-    setStatus('⚠️ Arquivo muito grande (' + Math.round(file.size / 1024) + ' KB). Máximo ~720 KB. Comprima o PDF ou envie como .docx.', '#b45309');
+  const kb = Math.round(file.size / 1024);
+  if (file.size > PLANEJ_ARQ_MAX_DRIVE) {
+    setStatus('⚠️ Arquivo muito grande (' + (file.size / 1048576).toFixed(1).replace('.', ',') + ' MB). O máximo é 10 MB. Comprima o PDF ou envie como .docx.', '#b45309');
     return;
   }
 
@@ -11348,8 +11434,28 @@ async function subirPlanejamentoArquivo() {
     }
 
     const tipo = ehPdf ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-    const dataUrl = 'data:' + tipo + ';base64,' + _bytesParaBase64(new Uint8Array(buf));
+    const base64 = _bytesParaBase64(new Uint8Array(buf));
     const rotulo = nome.replace(/\.(docx|pdf)$/i, '').trim() || 'Planejamento (arquivo)';
+    const turmaNome = db.turmas.find(t => t.id === turmaId)?.nome || 'Turma';
+
+    // 1º Drive da escola; se falhar, Firestore (so ate 720 KB)
+    let drive = null;
+    if (appsScriptUrl) {
+      setStatus('⏳ Enviando ao Google Drive da escola…');
+      try {
+        drive = await _manualEnviarAoDrive({
+          action: 'anexo', nome: String(nome).slice(0, 150), mime: tipo, base64,
+          pasta: ['Escola Ponte do Saber', sanitizeName(turmaNome), sanitizeName(bimestre || 'Sem bimestre'), 'Planejamentos (arquivos)'],
+        });
+      } catch (e) {
+        drive = null;
+        logger.warn({ module: 'planejamento', action: 'arquivo-drive', message: 'Arquivo do planejamento não foi ao Drive: ' + (e?.message || e) });
+      }
+    }
+    if (!drive && file.size > PLANEJ_ARQ_MAX_FIRESTORE) {
+      setStatus('⚠️ Não consegui enviar ao Google Drive da escola, e sem ele o máximo é 720 KB (este tem ' + kb + ' KB). Tente de novo em instantes ou avise a direção.', '#b45309');
+      return;
+    }
 
     const pl = {
       id: uid(),
@@ -11367,12 +11473,15 @@ async function subirPlanejamentoArquivo() {
       temArquivo: true,
       arquivoNome: nome,
       arquivoTipo: tipo,
+      arquivoTamanho: file.size,
+      arquivoLocal: drive ? 'drive' : 'firestore',
+      ...(drive ? { arquivoDriveId: String(drive.id), arquivoUrl: _manualUrlDrive(drive.url) || `https://drive.google.com/file/d/${encodeURIComponent(drive.id)}/view` } : {}),
       criadoEm: new Date().toISOString(),
       criadoPor: currentUser?.login || currentUser?.usuario || currentUser?.nome || '',
       historico: [{ acao: 'enviado como arquivo', por: currentUser?.nome || 'Professora', em: new Date().toISOString() }],
     };
 
-    await salvarPlanejArquivo(pl.id, dataUrl, nome, tipo);   // arquivo em doc separado
+    if (!drive) await salvarPlanejArquivo(pl.id, 'data:' + tipo + ';base64,' + base64, nome, tipo);   // arquivo em doc separado
     db.planejamentos.unshift(pl);
     _planejPendentes.add(String(pl.id));
     save();                                                   // usa merge transacional
@@ -11380,11 +11489,10 @@ async function subirPlanejamentoArquivo() {
     renderPlanejamentos();
     if (input) input.value = '';
 
-    const turmaNome = db.turmas.find(t => t.id === turmaId)?.nome || 'Turma';
     criarNotificacao('📋 Novo planejamento para corrigir', prof + ' · ' + turmaNome + ' · ' + rotulo, 'planejamento', pl.id);
     logger.audit({ module: 'planejamento', action: 'create-arquivo', message: `Planejamento (arquivo) enviado`, after: { turmaId, bimestre, arquivo: nome } });
 
-    setStatus('✅ Planejamento enviado! ' + (textoExtraido ? 'Texto extraído do Word e arquivo anexado.' : 'Arquivo anexado.'), '#059669');
+    setStatus('✅ Planejamento enviado! ' + (textoExtraido ? 'Texto extraído do Word e arquivo anexado' : 'Arquivo anexado') + (drive ? ' (guardado no Google Drive da escola).' : '.'), '#059669');
     showToast('✅ Planejamento enviado!');
   } catch (e) {
     setStatus('⚠️ Erro ao processar o arquivo: ' + (e.message || e), '#b45309');
@@ -11393,6 +11501,9 @@ async function subirPlanejamentoArquivo() {
 
 // Abre/baixa o arquivo anexado a um planejamento
 async function abrirPlanejamentoArquivo(id) {
+  const pl = (db.planejamentos || []).find(p => String(p.id) === String(id));
+  const urlDrive = _manualUrlDrive(pl?.arquivoUrl);
+  if (urlDrive) { window.open(urlDrive, '_blank', 'noopener'); return; }
   showToast('📎 Abrindo arquivo…');
   const rec = await carregarPlanejArquivo(id);
   if (!rec || !rec.file) { showToast('⚠️ Arquivo não encontrado.'); return; }
