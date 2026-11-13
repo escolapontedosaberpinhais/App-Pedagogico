@@ -3669,14 +3669,14 @@ function _listarPlanejamentos() {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
       <div>
         <label style="font-size:13px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px;">Envolvido(a) <span style="font-weight:400;color:var(--gray-400);">(opcional)</span></label>
-        <div style="display:flex;gap:6px;">
-          <select id="oc-envolvido-tipo" onchange="toggleEnvolvido()" style="padding:9px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;background:#fff;flex-shrink:0;">
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          <select id="oc-envolvido-tipo" onchange="toggleEnvolvido()" style="width:auto;padding:9px 10px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:13px;background:#fff;flex-shrink:0;">
             <option value="aluno">👤 Aluno(a)</option>
             <option value="professora">👩‍🏫 Professora</option>
           </select>
           <input type="text" id="oc-aluno" placeholder="Nome do(a) aluno(a)"
-            style="flex:1;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:14px;" autocomplete="off">
-          <select id="oc-professora" style="flex:1;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:14px;background:#fff;display:none;">
+            style="flex:1 1 150px;min-width:0;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:14px;" autocomplete="off">
+          <select id="oc-professora" style="flex:1 1 150px;min-width:0;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:14px;background:#fff;display:none;">
             <option value="">— Selecionar professora —</option>
           </select>
         </div>
@@ -5000,7 +5000,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.42.0';
+const APP_VERSION = 'v2.42.1';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
