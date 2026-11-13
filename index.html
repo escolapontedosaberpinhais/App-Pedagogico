@@ -3801,6 +3801,23 @@ function _listarPlanejamentos() {
                onkeydown="if(event.key==='Enter'){event.preventDefault();salvarCopia();}" />
       </div>
       <div class="form-group">
+        <label>Impressão</label>
+        <select id="cop-cor">
+          <option value="pb">⚫ Preto e branco</option>
+          <option value="cor">🎨 Colorida</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Gramatura do papel</label>
+        <select id="cop-gramatura">
+          <option value="75">75 g (sulfite comum)</option>
+          <option value="90">90 g</option>
+          <option value="120">120 g</option>
+          <option value="180">180 g</option>
+          <option value="240">240 g</option>
+        </select>
+      </div>
+      <div class="form-group">
         <label>Origem</label>
         <select id="cop-origem">
           <option value="externa">Material de fora (internet)</option>
@@ -5000,7 +5017,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.42.1';
+const APP_VERSION = 'v2.43.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -12043,10 +12060,18 @@ function popularSelectsCopias() {
   copAtualizarCota();
 }
 
+// Cor da impressao e gramatura do papel. Lancamentos antigos nao tem os dois
+// campos: aparecem como "nao informado" nos totais.
+const COP_GRAMATURAS = [75, 90, 120, 180, 240];
+function copRotuloCor(r) { return r.cor === 'cor' ? '🎨 Colorida' : (r.cor === 'pb' ? '⚫ P&B' : ''); }
+
 function limparFormCopia() {
   ['cop-desc'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   const pg = document.getElementById('cop-paginas'); if (pg) pg.value = 1;
   const cp = document.getElementById('cop-copias');  if (cp) cp.value = 1;
+  // Cor e papel voltam ao padrao, para uma colorida nao passar sem querer para a proxima
+  const cr = document.getElementById('cop-cor');      if (cr) cr.value = 'pb';
+  const gr = document.getElementById('cop-gramatura'); if (gr) gr.value = '75';
   // Limpar o formulario tambem encerra a correcao: o campo some, a correcao some junto.
   _copEditando = null;
   copModoEdicao(false);
@@ -12075,6 +12100,8 @@ function editarCopia(id) {
   set('cop-paginas', r.paginas || 1);
   set('cop-copias',  r.copias  || 1);
   set('cop-origem',  r.origem  || 'externa');
+  set('cop-cor',     r.cor === 'cor' ? 'cor' : 'pb');
+  set('cop-gramatura', COP_GRAMATURAS.includes(Number(r.gramatura)) ? String(r.gramatura) : '75');
 
   copModoEdicao(true, r);
   copCalcularTotal();
@@ -12149,6 +12176,8 @@ function salvarCopia() {
     copias,
     total: paginas * copias,
     origem: document.getElementById('cop-origem')?.value || 'externa',
+    cor: document.getElementById('cop-cor')?.value === 'cor' ? 'cor' : 'pb',
+    gramatura: COP_GRAMATURAS.includes(Number(document.getElementById('cop-gramatura')?.value)) ? Number(document.getElementById('cop-gramatura').value) : 75,
     registradoPor: currentUser?.nome || currentUser?.usuario || '',
     criadoEm: new Date().toISOString(),
   };
@@ -12248,6 +12277,22 @@ function exportarCopias() {
   showToast('⬇️ Relatório gerado!');
 }
 
+// Paginas do mes por cor e por gramatura (o que interessa na compra de papel e toner)
+function copResumoPapel(lista) {
+  const soma = f => lista.filter(f).reduce((t, r) => t + (Number(r.total) || 0), 0);
+  const pb = soma(r => r.cor === 'pb'), cor = soma(r => r.cor === 'cor'), semCor = soma(r => r.cor !== 'pb' && r.cor !== 'cor');
+  const porG = {};
+  lista.forEach(r => { const g = Number(r.gramatura) || 0; porG[g] = (porG[g] || 0) + (Number(r.total) || 0); });
+  const fmt = n => n.toLocaleString('pt-BR');
+  const grams = Object.keys(porG).map(Number).sort((a, b) => (a || 9999) - (b || 9999))
+    .map(g => `${g ? g + ' g' : 'não informado'}: <strong>${fmt(porG[g])}</strong>`).join(' · ');
+  if (!lista.length) return '';
+  return `<div style="font-size:12.5px;color:var(--gray-600);margin:-6px 0 14px;line-height:1.7;">
+      ⚫ P&B: <strong>${fmt(pb)}</strong> · 🎨 Coloridas: <strong>${fmt(cor)}</strong>${semCor ? ` · sem informação: <strong>${fmt(semCor)}</strong>` : ''}
+      <br>📄 Papel — ${grams}
+    </div>`;
+}
+
 function renderCopias() {
   const mes = copMesAtual();
   const doMes = db.impressoes.filter(r => String(r.data || '').startsWith(mes));
@@ -12275,7 +12320,7 @@ function renderCopias() {
           <span style="font-size:30px;font-weight:700;color:var(--green-dark);font-variant-numeric:tabular-nums;">${totalGeral.toLocaleString('pt-BR')}</span>
           <span style="font-size:13px;color:var(--gray-500);">páginas no mês · ${doMes.length} solicitaç${doMes.length > 1 ? 'ões' : 'ão'}</span>
           ${totalSetores ? `<span style="font-size:12.5px;color:var(--gray-500);margin-left:auto;">setores: <strong>${totalSetores.toLocaleString('pt-BR')}</strong> · professoras: <strong>${(totalGeral - totalSetores).toLocaleString('pt-BR')}</strong></span>` : ''}
-        </div>`
+        </div>${copResumoPapel(doMes)}`
         + chaves.map(k => {
           const p = porProf[k];
           // Com cota definida a barra mede o consumo CONTRA a cota; sem cota,
@@ -12334,6 +12379,8 @@ function renderCopias() {
         </span>
         <span style="font-size:12px;color:var(--gray-500);">
           ${r.paginas} pág × ${r.copias} cópia(s) = <strong style="color:var(--green-dark);">${r.total} páginas</strong>
+          ${copRotuloCor(r) ? `&nbsp;·&nbsp; ${r.cor === 'cor' ? '<strong style="color:#b45309;">' + copRotuloCor(r) + '</strong>' : copRotuloCor(r)}` : ''}
+          ${r.gramatura ? `&nbsp;·&nbsp; ${Number(r.gramatura)} g` : ''}
           &nbsp;·&nbsp; ${ORIGEM[r.origem] || r.origem || '—'}
           ${r.registradoPor ? ' · lançado por ' + escapeHtml(r.registradoPor) : ''}
           ${r.corrigidoPor ? ' · <em>corrigido por ' + escapeHtml(r.corrigidoPor) + '</em>' : ''}
