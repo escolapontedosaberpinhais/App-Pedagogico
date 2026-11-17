@@ -1520,6 +1520,18 @@
   .manual-fmt-btn:hover { background: var(--white); color: var(--gray-800); }
   .manual-fmt-ver { margin-left: auto; }
   .manual-ed-previa { margin-top: 8px; padding: 10px 14px; border: 1px dashed var(--gray-300, var(--gray-200)); border-radius: 8px; }
+  /* Manuais: busca */
+  .manual-busca { padding: 14px 16px; }
+  .manual-busca-campo { display: flex; align-items: center; gap: 8px; }
+  .manual-busca-campo input { flex: 1; min-width: 0; font-size: 15px; }
+  .manual-busca-total { font-size: 12px; color: var(--gray-500); margin: 10px 2px 4px; }
+  .manual-busca-vazio { font-size: 13px; color: var(--gray-500); margin-top: 10px; }
+  .manual-busca-item { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; border: 1px solid var(--gray-200); background: var(--white); border-radius: 8px; padding: 9px 12px; margin-top: 6px; cursor: pointer; color: var(--gray-800); font: inherit; }
+  .manual-busca-item:hover { border-color: var(--green); background: var(--green-light); }
+  .manual-busca-onde { font-size: 11.5px; color: var(--gray-500); text-transform: uppercase; letter-spacing: .3px; }
+  .manual-busca-trecho { font-size: 13px; color: var(--gray-600); line-height: 1.5; }
+  .manual-busca-item mark, .manual-busca-item strong mark { background: #fde68a; color: #111; border-radius: 2px; padding: 0 1px; }
+  .manual-sec-achada { background: #fde68a; color: #111 !important; border-radius: 4px; transition: background .6s; padding: 0 4px; }
 </style>
 </head>
 <body>
@@ -5029,7 +5041,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.44.0';
+const APP_VERSION = 'v2.45.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -13378,12 +13390,117 @@ function manualExcluir(id) {
 }
 
 // ── Leitura (todos os perfis, sem edicao) ───────────────────────────────
-function manualAbrirLeitura(id) {
+// ── Busca nos manuais ───────────────────────────────────────────────────
+// Procura em todos os manuais que a pessoa pode ler: titulo do manual, titulo
+// e texto de cada secao e nome dos arquivos anexados. Sem diferenca de
+// acento ou maiuscula ("matricula" acha "Matrículas"); com varias palavras,
+// a secao precisa ter todas. Clicar no resultado abre o manual na secao.
+let _manualBusca = '';
+let _manualIrPara = null;   // secao a destacar depois de abrir a leitura
+
+// Normaliza mantendo a posicao de cada letra, para destacar o trecho achado
+function _manualNorm(t) {
+  return Array.from(String(t || ''), c => (c.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()[0] || ' ')).join('');
+}
+// Texto sem as marcas de formatacao, para o resumo do resultado
+function _manualTextoPuro(t) {
+  return String(t || '').split(/\r?\n/)
+    .map(l => l.trim().replace(/^(?:#{1,3}\s+|>\s?|- |• |\* |\d{1,3}[.)]\s+)/, '').replace(/^-{3,}$/, ''))
+    .filter(Boolean).join(' · ').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1');
+}
+function _manualTermos(q) { return _manualNorm(q).split(/\s+/).filter(t => t.length >= 2); }
+
+// Destaca os termos em um texto ja limpo (escapa tudo; so o <mark> e HTML)
+function _manualMarcar(texto, termos) {
+  const n = _manualNorm(texto);
+  const marcas = new Array(texto.length).fill(false);
+  termos.forEach(t => { let i = n.indexOf(t); while (i !== -1) { for (let k = i; k < i + t.length; k++) marcas[k] = true; i = n.indexOf(t, i + t.length); } });
+  let out = '', aberto = false;
+  Array.from(texto).forEach((c, i) => {
+    if (marcas[i] && !aberto) { out += '<mark>'; aberto = true; }
+    if (!marcas[i] && aberto) { out += '</mark>'; aberto = false; }
+    out += escapeHtml(c);
+  });
+  return out + (aberto ? '</mark>' : '');
+}
+
+// Trecho de ~160 letras em volta do primeiro termo achado
+function _manualTrecho(texto, termos) {
+  const n = _manualNorm(texto);
+  let pos = -1;
+  termos.forEach(t => { const i = n.indexOf(t); if (i !== -1 && (pos === -1 || i < pos)) pos = i; });
+  if (pos === -1) pos = 0;
+  const ini = Math.max(0, pos - 60), fim = Math.min(texto.length, ini + 170);
+  return (ini > 0 ? '…' : '') + _manualMarcar(texto.slice(ini, fim), termos) + (fim < texto.length ? '…' : '');
+}
+
+function manualBuscar(q) {
+  const termos = _manualTermos(q);
+  if (!termos.length) return [];
+  const tem = (txt) => { const n = _manualNorm(txt); return termos.every(t => n.includes(t)); };
+  const res = [];
+  (db.manuais || []).filter(manualPodeLer).forEach(m => {
+    const titulo = m.titulo || '';
+    (m.secoes || []).filter(s => String(s.texto || '').trim()).forEach(s => {
+      const puro = _manualTextoPuro(s.texto);
+      if (!tem(`${titulo} ${s.titulo || ''} ${puro}`)) return;
+      const noTitulo = termos.filter(t => _manualNorm(s.titulo).includes(t)).length;
+      const noTexto = termos.reduce((n, t) => n + (_manualNorm(puro).split(t).length - 1), 0);
+      res.push({ m, secId: s.id, secTitulo: s.titulo || '', trecho: _manualTrecho(puro, termos), tituloHtml: _manualMarcar(s.titulo || '', termos), pontos: noTitulo * 10 + noTexto });
+    });
+    (m.anexos || []).forEach(a => {
+      if (!tem(`${titulo} ${a.nome || ''}`) || !termos.some(t => _manualNorm(a.nome).includes(t))) return;
+      res.push({ m, secId: '__anexos', secTitulo: '📎 Arquivo modelo', trecho: _manualMarcar(a.nome || '', termos), tituloHtml: '📎 Arquivo modelo', pontos: 5 });
+    });
+  });
+  return res.sort((a, b) => b.pontos - a.pontos || String(a.m.titulo).localeCompare(String(b.m.titulo), 'pt-BR'));
+}
+
+function manualRenderBusca() {
+  return `<div class="card manual-busca">
+    <div class="manual-busca-campo">
+      <span aria-hidden="true">🔍</span>
+      <input type="search" id="manual-busca" value="${escapeHtml(_manualBusca)}" placeholder="Buscar nos manuais (ex.: matrícula, atestado, horário de saída)"
+             oninput="manualBuscaDigitou(this.value)" aria-label="Buscar nos manuais" autocomplete="off">
+    </div>
+    <div id="manual-busca-res">${manualResultadosHtml()}</div>
+  </div>`;
+}
+
+function manualResultadosHtml() {
+  const q = _manualBusca.trim();
+  if (!q) return '';
+  if (!_manualTermos(q).length) return '<div class="manual-busca-vazio">Digite pelo menos 2 letras.</div>';
+  const res = manualBuscar(q);
+  if (!res.length) return `<div class="manual-busca-vazio">Nada encontrado para "<strong>${escapeHtml(q)}</strong>". Tente outra palavra.</div>`;
+  return `<div class="manual-busca-total">${res.length} resultado(s)</div>` + res.slice(0, 30).map(r => `
+    <button type="button" class="manual-busca-item" onclick="manualAbrirLeitura('${escapeHtml(r.m.id)}', '${escapeHtml(r.secId)}')">
+      <span class="manual-busca-onde">${escapeHtml(r.m.titulo || '')}${r.m.status !== 'publicado' ? ' · rascunho' : ''}</span>
+      <strong>${r.tituloHtml}</strong>
+      <span class="manual-busca-trecho">${r.trecho}</span>
+    </button>`).join('');
+}
+
+function manualBuscaDigitou(v) {
+  _manualBusca = String(v || '').slice(0, 100);
+  const el = document.getElementById('manual-busca-res');
+  if (el) el.innerHTML = manualResultadosHtml();
+}
+
+function manualAbrirLeitura(id, secId) {
   const m = (db.manuais || []).find(x => x.id === id);
   if (!manualPodeLer(m)) { showToast('🔒 Você não tem acesso a este manual.'); return; }
   _manualLendoId = id; _manualEditando = null;
   renderManuais();
-  document.getElementById('tab-manuais')?.scrollIntoView?.({ behavior: 'smooth' });
+  // Vindo da busca: rola ate a secao achada e a destaca por um instante
+  const alvo = secId ? document.getElementById('manual-sec-' + secId) : null;
+  if (alvo) {
+    alvo.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    alvo.classList.add('manual-sec-achada');
+    setTimeout(() => alvo.classList.remove('manual-sec-achada'), 2500);
+  } else {
+    document.getElementById('tab-manuais')?.scrollIntoView?.({ behavior: 'smooth' });
+  }
 }
 
 function manualFecharLeitura() { _manualLendoId = null; renderManuais(); }
@@ -13391,9 +13508,9 @@ function manualFecharLeitura() { _manualLendoId = null; renderManuais(); }
 function manualConteudoHtml(m) {
   const secs = (m.secoes || []).filter(s => String(s.texto || '').trim());
   const anexos = (m.anexos || []).length
-    ? `<h3 class="manual-sec-titulo">📎 Arquivos modelo</h3>${manualAnexosHtml(m, false)}` : '';
+    ? `<h3 class="manual-sec-titulo" id="manual-sec-__anexos">📎 Arquivos modelo</h3>${manualAnexosHtml(m, false)}` : '';
   if (!secs.length) return anexos || '<p style="color:var(--gray-500);">Este manual ainda não tem texto.</p>';
-  return secs.map(s => `<h3 class="manual-sec-titulo">${escapeHtml(s.titulo || '')}</h3><div class="manual-sec-texto">${manualTextoHtml(s.texto)}</div>`).join('') + anexos;
+  return secs.map(s => `<h3 class="manual-sec-titulo" id="manual-sec-${escapeHtml(String(s.id || ''))}">${escapeHtml(s.titulo || '')}</h3><div class="manual-sec-texto">${manualTextoHtml(s.texto)}</div>`).join('') + anexos;
 }
 
 function manualRenderLeitura(m) {
@@ -13614,14 +13731,15 @@ function renderManuais() {
     if (manualPodeLer(m)) { el.innerHTML = manualRenderLeitura(m); return; }
     _manualLendoId = null;   // despublicado ou excluido enquanto lia
   }
-  if (papel === 'diretor') { el.innerHTML = manualRenderGestao(); return; }
+  const busca = manuaisVisiveis().length ? manualRenderBusca() : '';
+  if (papel === 'diretor') { el.innerHTML = busca + manualRenderGestao(); return; }
   // Pedagoga: cuida das salas e le os demais manuais publicados para ela
   if (papel === 'pedagoga') {
     const outros = manuaisVisiveis().filter(m => !manualPodeEditarManual(m));
-    el.innerHTML = manualRenderGestao() + (outros.length ? manualRenderLista(outros, '📖 Outros manuais (só leitura)') : '');
+    el.innerHTML = busca + manualRenderGestao() + (outros.length ? manualRenderLista(outros, '📖 Outros manuais (só leitura)') : '');
     return;
   }
-  el.innerHTML = manualRenderLista();
+  el.innerHTML = busca + manualRenderLista();
 }
 
 // =====================================================================
@@ -15862,7 +15980,7 @@ const PARECER_TITULOS_EXTRAS = [
 function formatarParecerHtml(texto, fimHtml) {
   if (!texto && !fimHtml) return '';
   const norm = s => s.toLowerCase().normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')   // remove acentos
+    .replace(/[\u0300-\u036f]/g, '')   // remove acentos
     .replace(/\s+e\s+/g, ' ')         // "atencao e sugestoes" = "atencao / sugestoes"
     .replace(/[^a-z]/g, '');           // so letras: barra, pontuacao e espacos nao contam
   const titulos = new Set(PARECER_SECOES.concat(PARECER_TITULOS_EXTRAS).map(norm));
