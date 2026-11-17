@@ -1508,6 +1508,18 @@
   .agm-previa { display: flex; justify-content: center; align-items: flex-start; }
   .agm-previa canvas { width: 100%; max-width: 420px; height: auto; aspect-ratio: 2 / 3; border-radius: 8px; box-shadow: 0 4px 18px rgba(0,0,0,.18); background: #fff; }
   @media (max-width: 760px) { .agm-corpo { grid-template-columns: 1fr; } .agm-previa { order: -1; } .agm-previa canvas { max-width: 300px; } }
+  /* Manuais: formatacao do texto */
+  .manual-leitura .manual-sec-texto ol { margin: 0 0 8px 22px; padding: 0; }
+  .manual-leitura .manual-sec-texto strong { font-weight: 700; color: var(--gray-800); }
+  .manual-sub { font-size: 15px; font-weight: 700; color: var(--green-dark); margin: 14px 0 6px; }
+  .manual-destaque { border-left: 4px solid var(--green); background: var(--green-light); border-radius: 0 8px 8px 0; padding: 10px 14px; margin: 6px 0 10px; }
+  .manual-destaque p:last-child { margin-bottom: 0 !important; }
+  .manual-linha { border: none; border-top: 1px solid var(--gray-200); margin: 14px 0; }
+  .manual-fmt { display: flex; flex-wrap: wrap; gap: 2px; padding: 4px; border: 1px solid var(--gray-300, var(--gray-200)); border-bottom: none; border-radius: var(--r-sm) var(--r-sm) 0 0; background: var(--gray-100); }
+  .manual-fmt-btn { border: none; background: none; cursor: pointer; padding: 5px 9px; border-radius: 5px; font-size: 13px; color: var(--gray-700); line-height: 1.2; min-height: 30px; }
+  .manual-fmt-btn:hover { background: var(--white); color: var(--gray-800); }
+  .manual-fmt-ver { margin-left: auto; }
+  .manual-ed-previa { margin-top: 8px; padding: 10px 14px; border: 1px dashed var(--gray-300, var(--gray-200)); border-radius: 8px; }
 </style>
 </head>
 <body>
@@ -5017,7 +5029,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.43.0';
+const APP_VERSION = 'v2.44.0';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -12920,19 +12932,126 @@ function _manualData(iso) { return iso ? new Date(iso).toLocaleDateString('pt-BR
 
 // Texto simples do manual: linha em branco separa paragrafos e linha que
 // comeca com "- " ou "• " vira item de lista. Tudo escapado.
+// Formatacao simples, guardada como texto (nunca HTML), sempre escapada:
+//   **negrito**   *italico*   ## Subtitulo   - marcador   1. numerada
+//   > quadro de destaque   --- linha separadora
+// O que nao tem marca vira paragrafo, como antes.
+function manualInlineHtml(t) {
+  return escapeHtml(t)
+    .replace(/\*\*(?=\S)([\s\S]*?\S)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*])\*(?=\S)([^*]*?\S)\*(?!\*)/g, '$1<em>$2</em>');
+}
+
 function manualTextoHtml(texto) {
   const linhas = String(texto || '').split(/\r?\n/);
-  let html = '', lista = false;
-  const fechar = () => { if (lista) { html += '</ul>'; lista = false; } };
+  let html = '', bloco = null;   // 'ul' | 'ol' | 'destaque'
+  const fechar = () => {
+    if (bloco === 'ul') html += '</ul>';
+    else if (bloco === 'ol') html += '</ol>';
+    else if (bloco === 'destaque') html += '</div>';
+    bloco = null;
+  };
+  const abrir = (tipo) => {
+    if (bloco === tipo) return;
+    fechar();
+    html += tipo === 'ul' ? '<ul>' : tipo === 'ol' ? '<ol>' : '<div class="manual-destaque">';
+    bloco = tipo;
+  };
   linhas.forEach(l => {
     const t = l.trim();
-    const item = t.match(/^(?:- |• |\* )(.*)$/);
-    if (item) { if (!lista) { html += '<ul>'; lista = true; } html += `<li>${escapeHtml(item[1])}</li>`; }
-    else if (t) { fechar(); html += `<p>${escapeHtml(t)}</p>`; }
-    else fechar();
+    let m;
+    if (!t) { fechar(); return; }
+    if (/^-{3,}$/.test(t)) { fechar(); html += '<hr class="manual-linha">'; return; }
+    if ((m = t.match(/^#{1,3}\s+(.+)$/))) { fechar(); html += `<h4 class="manual-sub">${manualInlineHtml(m[1])}</h4>`; return; }
+    if ((m = t.match(/^>\s?(.*)$/))) { abrir('destaque'); if (m[1].trim()) html += `<p>${manualInlineHtml(m[1].trim())}</p>`; return; }
+    if ((m = t.match(/^(?:- |• |\* )(.*)$/))) { abrir('ul'); html += `<li>${manualInlineHtml(m[1])}</li>`; return; }
+    if ((m = t.match(/^\d{1,3}[.)]\s+(.*)$/))) { abrir('ol'); html += `<li>${manualInlineHtml(m[1])}</li>`; return; }
+    fechar(); html += `<p>${manualInlineHtml(t)}</p>`;
   });
   fechar();
   return html;
+}
+
+// ── Barra de formatacao do editor ───────────────────────────────────────
+const MANUAL_FMT_BOTOES = [
+  ['negrito', '<strong>B</strong>', 'Negrito (Ctrl+B)'],
+  ['italico', '<em>I</em>', 'Itálico (Ctrl+I)'],
+  ['sub', 'T<small>T</small>', 'Subtítulo'],
+  ['ul', '• Lista', 'Lista com marcadores'],
+  ['ol', '1. Lista', 'Lista numerada'],
+  ['destaque', '❝ Destaque', 'Quadro de destaque'],
+  ['linha', '― Linha', 'Linha separadora'],
+];
+
+function manualFmtBarra(i) {
+  return `<div class="manual-fmt" role="toolbar" aria-label="Formatação do texto">
+    ${MANUAL_FMT_BOTOES.map(([tipo, rotulo, dica]) => `<button type="button" class="manual-fmt-btn" title="${dica}" aria-label="${dica}"
+      onmousedown="event.preventDefault()" onclick="manualFormatar(${i}, '${tipo}')">${rotulo}</button>`).join('')}
+    <button type="button" class="manual-fmt-btn manual-fmt-ver" onmousedown="event.preventDefault()" onclick="manualAlternarPrevia(${i})"
+      title="Ver como fica para quem lê">👁️ Ver como fica</button>
+  </div>`;
+}
+
+// Aplica a formatacao na selecao do campo (ou insere um exemplo, se nada estiver selecionado)
+function manualFormatar(i, tipo) {
+  if (!_manualEdOk()) return;
+  const ta = document.getElementById('manual-ed-texto-' + i);
+  if (!ta) return;
+  const v = ta.value, a = ta.selectionStart ?? v.length, b = ta.selectionEnd ?? v.length;
+  let novo, selA, selB;
+  if (tipo === 'negrito' || tipo === 'italico') {
+    const mk = tipo === 'negrito' ? '**' : '*';
+    // espacos nas pontas da selecao (clique duplo pega o espaco) ficam fora das marcas
+    const bruto = v.slice(a, b);
+    const ini = bruto.length - bruto.trimStart().length, fim = bruto.length - bruto.trimEnd().length;
+    const sel = bruto.trim() || (tipo === 'negrito' ? 'texto em negrito' : 'texto em itálico');
+    const pa = a + (bruto.trim() ? ini : 0), pb = b - (bruto.trim() ? fim : 0);
+    novo = v.slice(0, pa) + mk + sel + mk + v.slice(pb);
+    selA = pa + mk.length; selB = selA + sel.length;
+  } else if (tipo === 'linha') {
+    const antes = v.slice(0, a), depois = v.slice(b);
+    const ins = (antes && !antes.endsWith('\n') ? '\n' : '') + '---\n';
+    novo = antes + ins + depois; selA = selB = antes.length + ins.length;
+  } else {
+    // marcas de linha: valem para cada linha selecionada (ou a linha do cursor)
+    const ini = v.lastIndexOf('\n', a - 1) + 1;
+    let fim = v.indexOf('\n', b); if (fim === -1) fim = v.length;
+    const linhas = v.slice(ini, fim).split('\n');
+    const tira = l => l.replace(/^(?:#{1,3}\s+|>\s?|- |• |\* |\d{1,3}[.)]\s+)/, '');
+    const prefixo = (n) => tipo === 'sub' ? '## ' : tipo === 'destaque' ? '> ' : tipo === 'ul' ? '- ' : `${n + 1}. `;
+    const jaTem = linhas.every(l => {
+      const t = l.trimStart();
+      return tipo === 'sub' ? /^#{1,3}\s/.test(t) : tipo === 'destaque' ? /^>/.test(t) : tipo === 'ul' ? /^(?:- |• |\* )/.test(t) : /^\d{1,3}[.)]\s/.test(t);
+    });
+    const feitas = linhas.map((l, n) => jaTem ? tira(l.trimStart()) : prefixo(n) + tira(l.trimStart()));
+    const bloco = feitas.join('\n');
+    novo = v.slice(0, ini) + bloco + v.slice(fim);
+    selA = ini; selB = ini + bloco.length;
+  }
+  ta.value = novo;
+  manualEdSecao(i, 'texto', novo);
+  ta.focus(); ta.setSelectionRange(selA, selB);
+  manualAtualizarPrevia(i);
+}
+
+function manualAtalho(e, i) {
+  if (!(e.ctrlKey || e.metaKey)) return;
+  const k = e.key.toLowerCase();
+  if (k === 'b') { e.preventDefault(); manualFormatar(i, 'negrito'); }
+  else if (k === 'i') { e.preventDefault(); manualFormatar(i, 'italico'); }
+}
+
+const _manualPrevias = new Set();
+function manualAlternarPrevia(i) {
+  if (_manualPrevias.has(i)) _manualPrevias.delete(i); else _manualPrevias.add(i);
+  manualAtualizarPrevia(i);
+}
+function manualAtualizarPrevia(i) {
+  const el = document.getElementById('manual-ed-previa-' + i);
+  if (!el) return;
+  const aberta = _manualPrevias.has(i);
+  el.style.display = aberta ? '' : 'none';
+  if (aberta) el.innerHTML = `<div class="manual-sec-texto">${manualTextoHtml(_manualEditando?.secoes?.[i]?.texto) || '<p style="color:var(--gray-500);">Sem texto.</p>'}</div>`;
 }
 
 // ── Criar (direcao e pedagoga) ─────────────────────────────────────────────────────
@@ -13317,8 +13436,11 @@ h1 { font-size: 20px; margin: 8px 0 2px; }
 .sub { font-size: 12px; color: #666; }
 h2 { font-size: 15px; margin: 18px 0 4px; color: #157a5b; break-after: avoid; page-break-after: avoid; }
 p { margin: 0 0 6px; text-align: justify; orphans: 3; widows: 3; }
-ul { margin: 0 0 6px 20px; padding: 0; }
+ul, ol { margin: 0 0 6px 20px; padding: 0; }
 li { margin-bottom: 2px; break-inside: avoid; }
+.manual-sub { font-size: 13.5px; margin: 12px 0 4px; color: #157a5b; break-after: avoid; page-break-after: avoid; }
+.manual-destaque { border-left: 3px solid #1D9E75; background: #EEF8F4; padding: 8px 12px; margin: 6px 0 8px; break-inside: avoid; }
+.manual-linha { border: none; border-top: 1px solid #ccc; margin: 10px 0; }
 .rodape { margin-top: 24px; font-size: 11px; color: #888; border-top: 1px solid #ddd; padding-top: 6px; }
 .no-print { margin-bottom: 14px; }
 @media print { .no-print { display: none; } }
@@ -13349,8 +13471,13 @@ function manualRenderEditor(w) {
         <button class="btn btn-secondary btn-sm" onclick="manualMoverSecao(${i}, 1)" title="Descer" ${i === w.secoes.length - 1 ? 'disabled' : ''}>▼</button>
         <button class="btn btn-danger btn-sm" onclick="manualRemSecao(${i})" title="Remover seção">🗑️</button>
       </div>
-      <textarea rows="5" placeholder="${escapeHtml(s.dica || 'Escreva aqui…')}" oninput="manualEdSecao(${i}, 'texto', this.value)"
-                style="width:100%;" aria-label="Texto da seção">${escapeHtml(s.texto || '')}</textarea>
+      ${manualFmtBarra(i)}
+      <textarea id="manual-ed-texto-${i}" rows="7" placeholder="${escapeHtml(s.dica || 'Escreva aqui…')}"
+                oninput="manualEdSecao(${i}, 'texto', this.value); manualAtualizarPrevia(${i})" onkeydown="manualAtalho(event, ${i})"
+                style="width:100%;border-top-left-radius:0;border-top-right-radius:0;" aria-label="Texto da seção">${escapeHtml(s.texto || '')}</textarea>
+      <div class="manual-leitura manual-ed-previa" id="manual-ed-previa-${i}" style="${_manualPrevias.has(i) ? '' : 'display:none;'}">
+        <div class="manual-sec-texto">${_manualPrevias.has(i) ? manualTextoHtml(s.texto) : ''}</div>
+      </div>
     </div>`).join('');
   return `<div class="card">
     <div class="card-title">✏️ ${escapeHtml(alvoLabel)}</div>
@@ -13368,7 +13495,8 @@ function manualRenderEditor(w) {
       <div style="font-size:12px;color:var(--gray-500);margin-top:4px;">Só vale depois de publicar. Quem lê vê o manual sem poder editar.</div>
     </div>
     <div style="font-size:12.5px;color:var(--gray-500);margin:4px 0 10px;">
-      Escreva um parágrafo por linha. Linhas que começam com <code>- </code> viram lista.
+      Use a barra de cada seção para <strong>negrito</strong>, <em>itálico</em>, subtítulo, listas, destaque e linha separadora
+      (selecione o texto e clique). Deixe uma linha em branco entre os parágrafos para o texto respirar.
       Seções sem texto não aparecem para quem lê.
     </div>
     ${secoes}
