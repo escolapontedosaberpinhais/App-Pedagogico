@@ -1532,6 +1532,12 @@
   .manual-busca-trecho { font-size: 13px; color: var(--gray-600); line-height: 1.5; }
   .manual-busca-item mark, .manual-busca-item strong mark { background: #fde68a; color: #111; border-radius: 2px; padding: 0 1px; }
   .manual-sec-achada { background: #fde68a; color: #111 !important; border-radius: 4px; transition: background .6s; padding: 0 4px; }
+  /* Pareceres: separador de bimestre na lista */
+  .par-grupo { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin: 18px 2px 8px; padding-bottom: 6px; border-bottom: 2px solid var(--green-light); }
+  .par-grupo:first-child { margin-top: 0; }
+  .par-grupo strong { font-size: 15px; color: var(--green-dark); }
+  .par-grupo span { font-size: 12.5px; color: var(--gray-500); }
+  .par-grupo b { color: #b45309; }
 </style>
 </head>
 <body>
@@ -5041,7 +5047,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.45.0';
+const APP_VERSION = 'v2.45.1';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -15601,7 +15607,45 @@ function renderPareceres() {
       : '<div class="empty"><div class="icon">✨</div><p>Nenhum parecer salvo.</p></div>';
     return;
   }
-  el.innerHTML = list.map(p => {
+  // Ordem de correcao: o bimestre mais recente em cima e, dentro de cada um,
+  // do mais antigo para o mais novo (quem enviou primeiro e corrigido primeiro).
+  // Os bimestres anteriores, ja corrigidos, vao ficando la embaixo.
+  list = parOrdenarParaCorrecao(list);
+  const grupos = new Map();
+  list.forEach(p => { const g = parGrupo(p); grupos.set(g.chave, (grupos.get(g.chave) || []).concat([p])); });
+  el.innerHTML = list.map((p, idx) => {
+    const g = parGrupo(p);
+    const novoGrupo = idx === 0 || parGrupo(list[idx - 1]).chave !== g.chave;
+    const doGrupo = grupos.get(g.chave) || [];
+    const pend = doGrupo.filter(x => !x.corrigido).length;
+    const cabGrupo = novoGrupo ? `<div class="par-grupo">
+        <strong>${escapeHtml(g.rotulo)}</strong>
+        <span>${doGrupo.length} parecer${doGrupo.length !== 1 ? 'es' : ''} · ${pend ? `<b>${pend} a corrigir</b>` : 'todos aprovados ✅'} · do mais antigo para o mais novo</span>
+      </div>` : '';
+    return cabGrupo + parCardHtml(p);
+  }).join('');
+}
+
+// Bimestre (ou trimestre) e ano letivo de um parecer
+function parGrupo(p) {
+  const ano = Number(String(p.data || p.criadoEm || '').slice(0, 4)) || 0;
+  const n = Number((String(p.periodo || '').match(/\d+/) || [0])[0]) || 0;
+  return { chave: `${ano}-${n}-${p.periodo || ''}`, ordem: ano * 100 + n, rotulo: `${p.periodo || 'Sem período'}${ano ? ' · ' + ano : ''}` };
+}
+
+// Bimestre mais recente primeiro; dentro dele, enviado primeiro aparece primeiro
+function parOrdenarParaCorrecao(lista) {
+  const quando = p => String(p.criadoEm || (p.data ? p.data + 'T12:00:00' : ''));
+  return lista.slice().sort((a, b) => {
+    const ga = parGrupo(a), gb = parGrupo(b);
+    if (ga.ordem !== gb.ordem) return gb.ordem - ga.ordem;
+    if (ga.chave !== gb.chave) return ga.chave.localeCompare(gb.chave);
+    return quando(a).localeCompare(quando(b));
+  });
+}
+
+function parCardHtml(p) {
+  {
     const turma = db.turmas.find(t => t.id === p.turmaId);
     const savedAt = fmtDateTime(p.criadoEm);
     const preview = p.texto.slice(0, 140) + (p.texto.length > 140 ? '…' : '');
@@ -15649,7 +15693,7 @@ function renderPareceres() {
         ${canDeletePar ? `<button class="btn btn-danger btn-sm" onclick="deleteParecer('${p.id}')" title="Excluir">🗑️</button>` : ''}
       </div>
     </div>`;
-  }).join('');
+  }
 }
 
 function verParecer(id) {
