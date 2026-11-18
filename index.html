@@ -5047,7 +5047,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.45.1';
+const APP_VERSION = 'v2.45.2';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -20813,7 +20813,16 @@ function renderCalendario() {
         <td style="text-align:center;font-weight:600;">${dl}</td>
       </tr>`;
     }).join('');
-    bimDiv.innerHTML = `
+    const diverg = _calDivergenciasPeriodos();
+    const avisoDiverg = diverg.length ? `
+      <div class="cal-diverg" style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:12px 14px;margin-bottom:12px;">
+        <strong style="color:#92400e;font-size:13px;">⚠️ Datas diferentes entre o calendário e os períodos</strong>
+        <ul style="font-size:12.5px;color:#78350f;margin:6px 0 10px 18px;padding:0;">
+          ${diverg.map(d => `<li>O evento <b>${escapeHtml(d.ev.descricao)}</b> está em <b>${_calFmtData(d.ev.data)}</b>, mas o ${escapeHtml(d.b.label)} ${d.campo === 'inicio' ? 'começa' : 'termina'} em <b>${_calFmtData(d.b[d.campo])}</b> — os dias letivos estão contando até a data do período.</li>`).join('')}
+        </ul>
+        ${calPodeEditar() ? `<button class="btn btn-primary btn-sm" onclick="calAjustarPeriodosAoCalendario()">🔄 Usar as datas do calendário</button>` : ''}
+      </div>` : '';
+    bimDiv.innerHTML = avisoDiverg + `
       <div class="card-title" style="margin-bottom:10px;">📊 Resumo dos ${regimeInfo(ano).plural} — ${ano}</div>
       <div style="overflow-x:auto;">
         <table class="cal-bim-table">
@@ -20956,19 +20965,109 @@ function calSalvarEvento() {
     return alvo;
   };
 
+  let antigo = null;
   if (evId) {
     const idx = db.calendarioEscolar.eventos.findIndex(e => e.id === evId);
-    if (idx >= 0) db.calendarioEscolar.eventos[idx] = limpar({ ...db.calendarioEscolar.eventos[idx], ...ev });
+    if (idx >= 0) {
+      antigo = { ...db.calendarioEscolar.eventos[idx] };
+      db.calendarioEscolar.eventos[idx] = limpar({ ...db.calendarioEscolar.eventos[idx], ...ev });
+    }
   } else {
     ev.id = _calNextId();
     db.calendarioEscolar.eventos.push(limpar(ev));
   }
 
+  // "Inicio/Fim de Periodo" e a data que conta os dias letivos: mudar o
+  // evento muda tambem o periodo em "Configurar periodos".
+  const sinc = _calSincronizarPeriodoDoEvento(ev, antigo);
+
   _calendarioEscolarCarregado = true;
   save();
   calFecharFormEvento();
   renderCalendario();
-  showToast('✅ Evento salvo!');
+  showToast(sinc ? `✅ Evento salvo! ${sinc}` : '✅ Evento salvo!', sinc ? 5000 : undefined);
+}
+
+// ── Inicio/fim de periodo: evento e "Configurar periodos" andam juntos ────
+// Os dias letivos sao contados pelas datas de "Configurar periodos". Antes,
+// mudar o evento "Fim do 4º Bimestre" so trocava a cor do dia e o total nao
+// mudava; e mudar o periodo deixava o evento na data velha. Agora um puxa o outro.
+function _calNormTxt(t) {
+  return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[ºª°]/g, 'o').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+function _calCampoDoTipo(tipo) {
+  return tipo === 'inicio_bimestre' ? 'inicio' : tipo === 'fim_bimestre' ? 'fim' : null;
+}
+// Periodo a que o evento se refere: pelo nome ("Fim do 4º Bimestre") ou,
+// se o nome nao bate, pela data que o evento tinha antes de ser editado.
+function _calPeriodoDoEvento(ev, dataAntiga) {
+  const campo = _calCampoDoTipo(ev.tipo);
+  const bims = db.calendarioEscolar?.bimestres || [];
+  if (!campo || !bims.length) return null;
+  const desc = _calNormTxt(ev.descricao);
+  const porNome = bims.filter(b => b.label && desc.includes(_calNormTxt(b.label)));
+  if (porNome.length === 1) return porNome[0];
+  if (dataAntiga) {
+    const porData = bims.filter(b => b[campo] === dataAntiga);
+    if (porData.length === 1) return porData[0];
+  }
+  return null;
+}
+function _calSincronizarPeriodoDoEvento(ev, antigo) {
+  const campo = _calCampoDoTipo(ev.tipo);
+  if (!campo || !ev.data) return '';
+  const b = _calPeriodoDoEvento(ev, antigo && antigo.tipo === ev.tipo ? antigo.data : null);
+  if (!b || b[campo] === ev.data) return '';
+  const novoIni = campo === 'inicio' ? ev.data : b.inicio;
+  const novoFim = campo === 'fim' ? ev.data : b.fim;
+  if (novoIni > novoFim) return `⚠️ ${b.label} não foi alterado: o início ficaria depois do fim.`;
+  b[campo] = ev.data;
+  return `${b.label} agora ${campo === 'inicio' ? 'começa' : 'termina'} em ${_calFmtData(ev.data)} — dias letivos recalculados.`;
+}
+// O contrario: salvou "Configurar periodos", move os eventos de inicio/fim.
+function _calSincronizarEventosDosPeriodos(antes) {
+  const cal = db.calendarioEscolar;
+  if (!cal) return;
+  cal.bimestres.forEach((b, i) => {
+    const velho = antes[i] || {};
+    ['inicio', 'fim'].forEach(campo => {
+      if (!velho[campo] || velho[campo] === b[campo]) return;
+      const tipo = campo === 'inicio' ? 'inicio_bimestre' : 'fim_bimestre';
+      cal.eventos.forEach(ev => {
+        if (ev.tipo !== tipo || !ev.data) return;
+        if (ev.data === velho[campo] && _calPeriodoDoEvento(ev, velho[campo]) === b) ev.data = b[campo];
+      });
+    });
+  });
+}
+// Calendarios ja salvos fora de sincronia (evento movido antes desta correcao):
+// lista o que diverge para o resumo avisar e oferecer o ajuste.
+function _calDivergenciasPeriodos() {
+  const cal = db.calendarioEscolar;
+  if (!cal) return [];
+  const out = [];
+  cal.eventos.forEach(ev => {
+    const campo = _calCampoDoTipo(ev.tipo);
+    if (!campo || !ev.data) return;
+    const b = _calPeriodoDoEvento(ev, null);
+    if (b && b[campo] !== ev.data) out.push({ b, campo, ev });
+  });
+  return out;
+}
+function calAjustarPeriodosAoCalendario() {
+  if (!calPodeEditar()) { showToast('🔒 Seu perfil não pode editar o calendário.'); return; }
+  const div = _calDivergenciasPeriodos();
+  let n = 0;
+  div.forEach(({ b, campo, ev }) => {
+    const ini = campo === 'inicio' ? ev.data : b.inicio;
+    const fim = campo === 'fim' ? ev.data : b.fim;
+    if (ini <= fim) { b[campo] = ev.data; n++; }
+  });
+  if (!n) { showToast('❗ Não deu para ajustar: o início ficaria depois do fim. Confira em "Configurar períodos".'); return; }
+  _calendarioEscolarCarregado = true;
+  save();
+  renderCalendario();
+  showToast('✅ Períodos ajustados às datas do calendário — dias letivos recalculados.');
 }
 
 // ── Agenda mensal em imagem (para mandar as familias pelo app Agenda) ─────
@@ -21492,6 +21591,7 @@ function calSalvarBimestres() {
   if (!db.calendarioEscolar) return;
 
   const bims = db.calendarioEscolar.bimestres;
+  const antes = bims.map(b => ({ inicio: b.inicio, fim: b.fim }));
   let ok = true;
   bims.forEach((b, i) => {
     const ini = document.getElementById(`cal-bim-ini-${i}`)?.value;
@@ -21502,7 +21602,8 @@ function calSalvarBimestres() {
     b.fim = fim;
   });
 
-  if (!ok) return;
+  if (!ok) { antes.forEach((a, i) => { bims[i].inicio = a.inicio; bims[i].fim = a.fim; }); return; }
+  _calSincronizarEventosDosPeriodos(antes);
   _calendarioEscolarCarregado = true;
   save();
   calFecharBimestres();
