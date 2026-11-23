@@ -5065,7 +5065,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.45.3';
+const APP_VERSION = 'v2.45.4';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -6261,8 +6261,10 @@ function aplicarPapel() {
   // Orientacao na hora-atividade: quem preenche e a pedagoga, a direcao acompanha
   nav('nav-orientacoes',  isGestao);
   nav('dnav-orientacoes', isGestao);
-  nav('nav-marcos',  isGestao);
-  nav('dnav-marcos', isGestao);
+  // Marcos do desenvolvimento: professoras registram e consultam as criancas
+  // das proprias turmas (turmasVisiveis); a gestao ve todas
+  nav('nav-marcos',  isGestao || isProfessora);
+  nav('dnav-marcos', isGestao || isProfessora);
 
   // Calendário: gestão (diretor + pedagoga) e secretaria editam, inclusive os
   // eventos de uso interno da equipe
