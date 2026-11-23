@@ -1607,6 +1607,15 @@
     <div class="form-group" id="edit-usr-turma-group" style="margin-bottom:20px;">
       <label>Turmas vinculadas</label>
       <div id="edit-usr-turmas-checks" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;"></div>
+      <label style="margin-top:10px;display:block;">Atuação</label>
+      <select id="edit-usr-disciplina" class="usr-disciplina">
+        <option value="">Professora regente da turma</option>
+        <option value="Inglês">Professora de Inglês</option>
+        <option value="Educação Física">Professora de Educação Física</option>
+        <option value="Música">Professora de Música</option>
+        <option value="Arte">Professora de Arte</option>
+      </select>
+      <div style="font-size:11.5px;color:var(--gray-400);margin-top:4px;">Especialistas (Inglês etc.) não aparecem como professora da turma nas impressões de pareceres e planejamentos.</div>
     </div>
     <div class="btn-row">
       <button class="btn btn-primary" onclick="salvarEdicaoUsuario()">💾 Salvar alterações</button>
@@ -2411,6 +2420,15 @@ function _listarPlanejamentos() {
       <div class="form-group" id="usr-turma-group">
         <label>Turmas vinculadas</label>
         <div id="usr-turmas-checks" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;"></div>
+        <label style="margin-top:10px;display:block;">Atuação</label>
+        <select id="usr-disciplina" class="usr-disciplina">
+          <option value="">Professora regente da turma</option>
+          <option value="Inglês">Professora de Inglês</option>
+          <option value="Educação Física">Professora de Educação Física</option>
+          <option value="Música">Professora de Música</option>
+          <option value="Arte">Professora de Arte</option>
+        </select>
+        <div style="font-size:11.5px;color:var(--gray-400);margin-top:4px;">Especialistas (Inglês etc.) não aparecem como professora da turma nas impressões de pareceres e planejamentos.</div>
       </div>
     </div>
     <div class="btn-row">
@@ -5047,7 +5065,7 @@ window.addEventListener('unhandledrejection', evt => {
 // =====================================================================
 // STORAGE HELPERS
 // =====================================================================
-const APP_VERSION = 'v2.45.2';
+const APP_VERSION = 'v2.45.3';
 // Exibe a versão no header e no drawer
 (function(){
   const els = ['app-version-label','header-version'];
@@ -6505,6 +6523,22 @@ function nomeProfExibicao(reg) {
   return (reg && reg.prof) || '—';
 }
 
+// Professora especialista (Ingles, Ed. Fisica...) atende varias turmas mas nao
+// e a professora DA turma: fica fora do "Professoras:" das impressoes.
+// '' = regente (padrao de quem foi cadastrada antes deste campo existir).
+function profDisciplina(u) {
+  return (u && u.papel === 'professora' && String(u.disciplina || '').trim()) || '';
+}
+function profsDaTurma(turmaId) {
+  const todas = (db.usuarios || []).filter(u => u.papel === 'professora' && getUsrTurmaIds(u).includes(turmaId));
+  return { regentes: todas.filter(u => !profDisciplina(u)), especialistas: todas.filter(u => profDisciplina(u)) };
+}
+// Nome para documentos da turma: a regente; especialista so se nao houver regente
+function profRegenteDaTurma(turmaId) {
+  const g = profsDaTurma(turmaId);
+  return g.regentes[0] || g.especialistas[0] || null;
+}
+
 function getUsrTurmaIds(u) {
   if (!u) return [];
   if (Array.isArray(u.turmaIds)) return u.turmaIds;
@@ -6559,7 +6593,8 @@ function addUsuario() {
   if (db.usuarios.find(u => u.usuario === login)) {
     alert('Já existe um usuário com esse login.'); return;
   }
-  const novoUsuario = { id: uid(), nome, usuario: login, email, senha: hashPw(senha), papel, turmaIds };
+  const disciplina = papel === 'professora' ? (document.getElementById('usr-disciplina')?.value || '') : '';
+  const novoUsuario = { id: uid(), nome, usuario: login, email, senha: hashPw(senha), papel, turmaIds, disciplina };
   db.usuarios.push(novoUsuario);
   save();
   logger.audit({ module: 'usuario', action: 'create', message: `Usuário criado: ${nome} (${papel})`, after: { nome, usuario: login, papel, turmaIds } });
@@ -6567,6 +6602,7 @@ function addUsuario() {
   document.getElementById('usr-login').value = '';
   if (document.getElementById('usr-email')) document.getElementById('usr-email').value = '';
   document.getElementById('usr-senha').value = '';
+  if (document.getElementById('usr-disciplina')) document.getElementById('usr-disciplina').value = '';
   renderUsuarios();
   showToast('Usuário criado!');
 }
@@ -6651,6 +6687,12 @@ function abrirEditarUsuario(id) {
   document.getElementById('edit-usr-papel').value = u.papel;
   document.getElementById('modal-editar-usr-erro').style.display = 'none';
   renderTurmaChecks('edit-usr-turmas-checks', getUsrTurmaIds(u));
+  const selDisc = document.getElementById('edit-usr-disciplina');
+  if (selDisc) {
+    const d = profDisciplina(u);
+    if (d && ![...selDisc.options].some(o => o.value === d)) selDisc.add(new Option('Professora de ' + d, d));
+    selDisc.value = d;
+  }
   toggleEditUsrTurma();
   document.getElementById('modal-editar-usr').style.display = 'flex';
   setTimeout(() => document.getElementById('edit-usr-nome').focus(), 100);
@@ -6686,6 +6728,7 @@ function salvarEdicaoUsuario() {
   db.usuarios[idx].email    = emailEdit;
   db.usuarios[idx].papel    = papel;
   db.usuarios[idx].turmaIds = turmaIds;
+  db.usuarios[idx].disciplina = papel === 'professora' ? (document.getElementById('edit-usr-disciplina')?.value || '') : '';
   delete db.usuarios[idx].turmaId;
   if (senha) db.usuarios[idx].senha = hashPw(senha);
 
@@ -6725,7 +6768,7 @@ function renderUsuarios() {
     const badgeMap = { diretor: 'badge-amber', pedagoga: 'badge-pedagoga', secretaria: 'badge-blue' };
     const badge = badgeMap[u.papel] || 'badge-professora';
     const labelMap = { diretor: 'Diretor(a)', pedagoga: 'Pedagoga', secretaria: 'Secretaria', professora: 'Professora' };
-    const label = labelMap[u.papel] || u.papel;
+    const label = (labelMap[u.papel] || u.papel) + (profDisciplina(u) ? ' de ' + profDisciplina(u) : '');
     return `<div class="item-card">
       <div class="info">
         <strong>${u.nome}</strong>
@@ -10687,9 +10730,7 @@ async function imprimirPlanejamento(id) {
     // Resolve nome do professor com fallbacks seguros
     var profNome = '—';
     try {
-      var profUsuario = (db.usuarios || []).find(function(u){
-        return u.papel === 'professora' && getUsrTurmaIds(u).includes(p.turmaId);
-      });
+      var profUsuario = profRegenteDaTurma(p.turmaId);
       profNome = (profUsuario && profUsuario.nome) || String(p.prof || '') || (turma && turma.prof ? String(turma.prof) : '') || '—';
       if (!profNome) profNome = '—';
     } catch(e2) { profNome = String(p.prof || '—'); }
@@ -15429,12 +15470,15 @@ function imprimirListaComparecimento() {
     if (alunos.length === 0) return;
 
     // Professoras vinculadas à turma + nome no cadastro da turma como fallback
-    const profsVinc = db.usuarios
-      .filter(u => u.papel === 'professora' && getUsrTurmaIds(u).includes(turma.id))
-      .map(u => u.nome);
+    // Especialistas (Ingles...) saem em linha propria, nao como professora da turma
+    const grpProfs  = profsDaTurma(turma.id);
+    const profsVinc = grpProfs.regentes.map(u => u.nome);
     const profNomesStr = profsVinc.length > 0
       ? profsVinc.join(' e ')
       : (turma.prof || '—');
+    const porDisc = new Map();
+    grpProfs.especialistas.forEach(u => { const d = profDisciplina(u); porDisc.set(d, (porDisc.get(d) || []).concat(u.nome)); });
+    const linhasEspec = [...porDisc].map(([d, nomes]) => `<br>${escapeHtml(d)}: ${escapeHtml(nomes.join(' e '))}`).join('');
 
     const linhas = alunos.map((a, idx) => `
       <tr>
@@ -15453,7 +15497,7 @@ function imprimirListaComparecimento() {
       </div>
       <div class="info-turma">
         <strong>TURMA: ${escapeHtml(turma.nome.toUpperCase())}</strong><br>
-        Professoras: ${escapeHtml(profNomesStr)}
+        Professoras: ${escapeHtml(profNomesStr)}${linhasEspec}
       </div>
       <table class="lista">
         <thead>
@@ -15838,7 +15882,7 @@ function montarHtmlParecer(p, __corpo) {
   const aluno = db.alunos.find(a => a.id === p.alunoId);
   const nascFmt = aluno?.nasc ? new Date(aluno.nasc + 'T12:00:00').toLocaleDateString('pt-BR') : null;
   // Busca a professora vinculada à turma nos usuários cadastrados
-  const profUsuario = db.usuarios.find(u => u.papel === 'professora' && getUsrTurmaIds(u).includes(p.turmaId));
+  const profUsuario = profRegenteDaTurma(p.turmaId);
   const profNome = profUsuario?.nome || turma?.prof || p.prof || '';
 
   return (`<!DOCTYPE html>
